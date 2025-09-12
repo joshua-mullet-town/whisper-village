@@ -4,6 +4,7 @@ import KeyboardShortcuts
 
 // ViewType enum with all cases
 enum ViewType: String, CaseIterable {
+    case dashboard = "Dashboard"
     case transcribeAudio = "Record"
     case history = "History"
     case models = "Voice Engine"
@@ -15,6 +16,7 @@ enum ViewType: String, CaseIterable {
     
     var icon: String {
         switch self {
+        case .dashboard: return "gauge.medium"
         case .transcribeAudio: return "waveform.circle.fill"
         case .history: return "doc.text.fill"
         case .models: return "brain.head.profile"
@@ -153,7 +155,7 @@ struct ContentView: View {
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var whisperState: WhisperState
     @EnvironmentObject private var hotkeyManager: HotkeyManager
-    @State private var selectedView: ViewType = .transcribeAudio
+    @State private var selectedView: ViewType = .dashboard
     @State private var hoveredView: ViewType?
     @State private var hasLoadedData = false
     let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
@@ -193,6 +195,9 @@ struct ContentView: View {
             if let destination = notification.userInfo?["destination"] as? String {
                 print("ContentView: Destination received: \(destination)")
                 switch destination {
+                case "Dashboard":
+                    print("ContentView: Navigating to Dashboard")
+                    selectedView = .dashboard
                 case "Settings":
                     print("ContentView: Navigating to Settings")
                     selectedView = .settings
@@ -226,6 +231,13 @@ struct ContentView: View {
     @ViewBuilder
     private var detailView: some View {
         switch selectedView {
+        case .dashboard:
+            if isSetupComplete {
+                MetricsView(skipSetupCheck: true)
+            } else {
+                MetricsSetupView()
+                    .environmentObject(hotkeyManager)
+            }
         case .transcribeAudio:
             AudioTranscribeView()
         case .history:

@@ -1,10 +1,12 @@
-# Contributing to VoiceInk
+# Contributing to Whisper Village
 
-First off, thank you for considering contributing to VoiceInk! It's people like you that make VoiceInk such a great tool.
+First off, thank you for considering contributing to Whisper Village! 
+
+**Note**: Whisper Village is a fork of [VoiceInk by Beingpax](https://github.com/Beingpax/VoiceInk), customized for the Mullet Town ecosystem. For contributions to the original project, please visit the [original VoiceInk repository](https://github.com/Beingpax/VoiceInk).
 
 ## Important Notice About Pull Requests
 
-We welcome forks and improvements to VoiceInk! However, please note:
+We welcome forks and improvements to Whisper Village! However, please note:
 
 1. **The acceptance of Pull Requests is solely at the discretion of the project maintainers**
 2. **Before making significant changes or starting work on major features:**

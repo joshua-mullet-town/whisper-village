@@ -86,7 +86,7 @@ class LicenseViewModel: ObservableObject {
     }
     
     func openPurchaseLink() {
-        if let url = URL(string: "https://tryvoiceink.com/buy") {
+        if let url = URL(string: "https://mullet.town") {
             NSWorkspace.shared.open(url)
         }
     }

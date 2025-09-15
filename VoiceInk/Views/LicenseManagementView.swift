@@ -83,7 +83,7 @@ struct LicenseManagementView: View {
                         .buttonStyle(.plain)
                         
                         Button {
-                            if let url = URL(string: "https://tryvoiceink.com/docs") {
+                            if let url = URL(string: "https://mullet.town") {
                                 NSWorkspace.shared.open(url)
                             }
                         } label: {
@@ -126,11 +126,11 @@ struct LicenseManagementView: View {
                 
                 // Purchase Button 
                 Button(action: {
-                    if let url = URL(string: "https://tryvoiceink.com/buy") {
+                    if let url = URL(string: "https://mullet.town") {
                         NSWorkspace.shared.open(url)
                     }
                 }) {
-                    Text("Upgrade to VoiceInk Pro")
+                    Text("Visit Mullet Town")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)

@@ -128,7 +128,11 @@ struct ProgressAnimation: View {
         HStack(spacing: 2) {
             ForEach(0..<5, id: \.self) { index in
                 Circle()
-                    .fill(Color.white.opacity(index <= currentDot ? 0.8 : 0.2))
+                    .fill(
+                        index <= currentDot 
+                        ? Color(red: 1.0, green: 0.9, blue: 0.4).opacity(0.9) // Active hazy yellow
+                        : Color.white.opacity(0.3) // Inactive white
+                    )
                     .frame(width: 3.5, height: 3.5)
             }
         }
@@ -232,6 +236,17 @@ struct RecorderStatusDisplay: View {
     let audioMeter: AudioMeter
     let menuBarHeight: CGFloat?
     
+    // Fun transcribing words like Anthropic!
+    private let transcribingWords = [
+        "Transcribing", "Jiving", "Pajangling", "Hoof and aming", 
+        "Pondering", "Vibing", "Computing", "Translating",
+        "Deciphering", "Mulletizing", "Wrangling", "Jiggering",
+        "Bebopping", "Skedaddling", "Hornswoggling", "Bamboozling",
+        "Cattywampusing", "Discombobulating", "Kerfuffling", "Shenaniganing"
+    ]
+    
+    @State private var randomTranscribingWord: String = "Transcribing"
+    
     init(currentState: RecordingState, audioMeter: AudioMeter, menuBarHeight: CGFloat? = nil) {
         self.currentState = currentState
         self.audioMeter = audioMeter
@@ -243,7 +258,7 @@ struct RecorderStatusDisplay: View {
             if currentState == .enhancing {
                 VStack(spacing: 2) {
                     Text("Enhancing")
-                        .foregroundColor(.white)
+                        .foregroundColor(.white) // Changed to white
                         .font(.system(size: 11, weight: .medium, design: .default))
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
@@ -252,11 +267,14 @@ struct RecorderStatusDisplay: View {
                 }
             } else if currentState == .transcribing {
                 VStack(spacing: 2) {
-                    Text("Transcribing")
-                        .foregroundColor(.white)
+                    Text(randomTranscribingWord)
+                        .foregroundColor(.white) // Changed to white
                         .font(.system(size: 11, weight: .medium, design: .default))
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
+                        .onAppear {
+                            randomTranscribingWord = transcribingWords.randomElement() ?? "Transcribing"
+                        }
                     
                     ProgressAnimation(animationSpeed: 0.12)
                 }

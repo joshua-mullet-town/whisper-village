@@ -8,8 +8,11 @@ struct NotchRecorderView: View {
     @State private var showPowerModePopover = false
     @State private var showEnhancementPromptPopover = false
     @ObservedObject private var powerModeManager = PowerModeManager.shared
+    @State private var recordingDuration: TimeInterval = 0
+    @State private var timer: Timer?
     
     @EnvironmentObject private var enhancementService: AIEnhancementService
+    @Environment(\.modelContext) private var modelContext
     
     private var menuBarHeight: CGFloat {
         if let screen = NSScreen.main {
@@ -61,10 +64,36 @@ struct NotchRecorderView: View {
     private var rightSection: some View {
         HStack(spacing: 8) {
             Spacer()
+            
+            // Timer display
+            if whisperState.recordingState == .recording {
+                Text(formatTime(recordingDuration))
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundColor(.white)
+                    .frame(width: 35)
+            }
+            
+            // Paste button
+            Button(action: {
+                LastTranscriptionService.pasteLastTranscription(from: modelContext)
+            }) {
+                Image(systemName: "doc.on.clipboard")
+                    .font(.system(size: 14))
+                    .foregroundColor(.white.opacity(0.8))
+            }
+            .buttonStyle(PlainButtonStyle())
+            .help("Paste last transcription")
+            
             statusDisplay
         }
-        .frame(width: 84)
+        .frame(width: 150) // Increased width to accommodate new buttons
         .padding(.trailing, 16)
+    }
+    
+    private func formatTime(_ timeInterval: TimeInterval) -> String {
+        let minutes = Int(timeInterval) / 60
+        let seconds = Int(timeInterval) % 60
+        return String(format: "%d:%02d", minutes, seconds)
     }
     
     private var statusDisplay: some View {
@@ -87,7 +116,28 @@ struct NotchRecorderView: View {
                 }
                 .frame(height: menuBarHeight)
                 .frame(maxWidth: windowManager.isVisible ? .infinity : 0)
-                .background(Color.black)
+                .background(
+                    ZStack {
+                        // Mullet Town themed background
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.9, green: 0.4, blue: 0.1).opacity(0.8), // Orange
+                                Color(red: 0.8, green: 0.2, blue: 0.1).opacity(0.9)  // Red
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        // Hazy yellow accent overlay
+                        LinearGradient(
+                            colors: [
+                                Color(red: 1.0, green: 0.9, blue: 0.4).opacity(0.3), // Hazy yellow
+                                Color.clear
+                            ],
+                            startPoint: .top,
+                            endPoint: .center
+                        )
+                    }
+                )
                 .mask {
                     NotchShape(cornerRadius: 10)
                 }
@@ -96,6 +146,18 @@ struct NotchRecorderView: View {
                     isHovering = hovering
                 }
                 .opacity(windowManager.isVisible ? 1 : 0)
+                .onChange(of: whisperState.recordingState) { _, newState in
+                    if newState == .recording {
+                        recordingDuration = 0
+                        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+                            recordingDuration += 0.1
+                        }
+                    } else {
+                        timer?.invalidate()
+                        timer = nil
+                        recordingDuration = 0
+                    }
+                }
             }
         }
     }

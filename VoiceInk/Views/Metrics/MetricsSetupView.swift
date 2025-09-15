@@ -17,7 +17,7 @@ struct MetricsSetupView: View {
                         .padding(.bottom, 20)
                        
                     VStack(spacing: 4) {
-                        Text("Welcome to VoiceInk")
+                        Text("Welcome to Whisper Village")
                             .font(.system(size: 28, weight: .bold, design: .rounded))
                             .multilineTextAlignment(.center)
                         
@@ -71,7 +71,7 @@ struct MetricsSetupView: View {
                 isCompleted: hotkeyManager.selectedHotkey1 != .none,
                 icon: "command",
                 title: "Set Keyboard Shortcut",
-                description: "Use VoiceInk anywhere with a shortcut."
+                description: "Use Whisper Village anywhere with a shortcut."
             )
         case 1:
             stepInfo = (

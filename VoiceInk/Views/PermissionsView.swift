@@ -23,13 +23,26 @@ class PermissionManager: ObservableObject {
     }
     
     private func setupNotificationObservers() {
-        // Only observe when app becomes active, as this is a likely time for permissions to have changed
+        // Check permissions when app becomes active
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(applicationDidBecomeActive),
             name: NSApplication.didBecomeActiveNotification,
             object: nil
         )
+        
+        // Also check when app comes to foreground 
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applicationDidBecomeActive),
+            name: NSApplication.willBecomeActiveNotification,
+            object: nil
+        )
+        
+        // Periodic check but less frequent to avoid performance issues
+        Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            self?.checkScreenRecordingPermission()
+        }
     }
     
     @objc private func applicationDidBecomeActive() {
@@ -53,6 +66,7 @@ class PermissionManager: ObservableObject {
     
     func checkScreenRecordingPermission() {
         DispatchQueue.main.async {
+            // Use the standard API - works reliably for signed apps
             self.isScreenRecordingEnabled = CGPreflightScreenCaptureAccess()
         }
     }
@@ -202,7 +216,7 @@ struct PermissionsView: View {
                     VStack(spacing: 8) {
                         Text("App Permissions")
                             .font(.system(size: 28, weight: .bold))
-                        Text("VoiceInk requires the following permissions to function properly")
+                        Text("Whisper Village requires the following permissions to function properly")
                             .font(.system(size: 15))
                             .foregroundStyle(.secondary)
                     }
@@ -216,7 +230,7 @@ struct PermissionsView: View {
                     PermissionCard(
                         icon: "keyboard",
                         title: "Keyboard Shortcut",
-                        description: "Set up a keyboard shortcut to use VoiceInk anywhere",
+                        description: "Set up a keyboard shortcut to use Whisper Village anywhere",
                         isGranted: hotkeyManager.selectedHotkey1 != .none,
                         buttonTitle: "Configure Shortcut",
                         buttonAction: {
@@ -233,7 +247,7 @@ struct PermissionsView: View {
                     PermissionCard(
                         icon: "mic",
                         title: "Microphone Access",
-                        description: "Allow VoiceInk to record your voice for transcription",
+                        description: "Allow Whisper Village to record your voice for transcription",
                         isGranted: permissionManager.audioPermissionStatus == .authorized,
                         buttonTitle: permissionManager.audioPermissionStatus == .notDetermined ? "Request Permission" : "Open System Settings",
                         buttonAction: {
@@ -252,7 +266,7 @@ struct PermissionsView: View {
                     PermissionCard(
                         icon: "hand.raised",
                         title: "Accessibility Access",
-                        description: "Allow VoiceInk to paste transcribed text directly at your cursor position",
+                        description: "Allow Whisper Village to paste transcribed text directly at your cursor position",
                         isGranted: permissionManager.isAccessibilityEnabled,
                         buttonTitle: "Open System Settings",
                         buttonAction: {
@@ -267,12 +281,13 @@ struct PermissionsView: View {
                     PermissionCard(
                         icon: "rectangle.on.rectangle",
                         title: "Screen Recording Access",
-                        description: "Allow VoiceInk to understand context from your screen for transcript Enhancement",
+                        description: "Allow Whisper Village to understand context from your screen for transcript Enhancement",
                         isGranted: permissionManager.isScreenRecordingEnabled,
                         buttonTitle: "Request Permission",
                         buttonAction: {
+                            // Request permission - this automatically shows the system dialog if needed
                             permissionManager.requestScreenRecordingPermission()
-                            // After requesting, open system preferences as fallback
+                            // Open System Settings immediately so user can see the app in the list
                             if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
                                 NSWorkspace.shared.open(url)
                             }

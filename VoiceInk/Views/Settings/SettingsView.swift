@@ -25,8 +25,8 @@ struct SettingsView: View {
             VStack(spacing: 24) {
                 SettingsSection(
                     icon: "command.circle",
-                    title: "VoiceInk Shortcuts",
-                    subtitle: "Choose how you want to trigger VoiceInk"
+                    title: "Whisper Village Shortcuts",
+                    subtitle: "Choose how you want to trigger Whisper Village"
                 ) {
                     VStack(alignment: .leading, spacing: 18) {
                         hotkeyView(
@@ -71,7 +71,7 @@ struct SettingsView: View {
                 SettingsSection(
                     icon: "keyboard.badge.ellipsis",
                     title: "Other App Shortcuts",
-                    subtitle: "Additional shortcuts for VoiceInk"
+                    subtitle: "Additional shortcuts for Whisper Village"
                 ) {
                     VStack(alignment: .leading, spacing: 18) {
                         // Paste Last Transcription
@@ -153,7 +153,7 @@ struct SettingsView: View {
                                 
                                 InfoTip(
                                     title: "Middle-Click Toggle",
-                                    message: "Use middle mouse button to toggle VoiceInk recording."
+                                    message: "Use middle mouse button to toggle Whisper Village recording."
                                 )
                             }
 
@@ -467,7 +467,7 @@ struct SettingsSection<Content: View>: View {
                     Spacer()
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.red)
-                        .help("Permission required for VoiceInk to function properly")
+                        .help("Permission required for Whisper Village to function properly")
                 }
             }
             

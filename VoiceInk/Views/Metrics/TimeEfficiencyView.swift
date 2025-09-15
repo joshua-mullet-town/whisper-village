@@ -1,10 +1,12 @@
 import SwiftUI
+import AppKit
 
 struct TimeEfficiencyView: View {
     // MARK: - Properties
     
     private let totalRecordedTime: TimeInterval
     private let estimatedTypingTime: TimeInterval
+    @State private var showCopiedMessage = false
     
     // Computed properties for efficiency metrics
     private var timeSaved: TimeInterval {
@@ -34,6 +36,23 @@ struct TimeEfficiencyView: View {
         VStack(spacing: 0) {
             mainContent
         }
+        .overlay(
+            // Toast notification
+            VStack {
+                if showCopiedMessage {
+                    Text("Copied email to clipboard!")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.green)
+                        .cornerRadius(8)
+                        .transition(.opacity.combined(with: .scale))
+                }
+                Spacer()
+            }
+            .animation(.easeInOut(duration: 0.3), value: showCopiedMessage)
+        )
     }
     
     // MARK: - Main Content View
@@ -62,7 +81,7 @@ struct TimeEfficiencyView: View {
                     .font(.system(size: 32, weight: .bold))
                     .foregroundStyle(efficiencyGradient)
                 
-                Text("with VoiceInk")
+                Text("with Whisper Village")
                     .font(.system(size: 32, weight: .bold))
             }
             .lineLimit(1)
@@ -114,7 +133,7 @@ struct TimeEfficiencyView: View {
     
     private var reportIssueButton: some View {
         Button(action: {
-            EmailSupport.openSupportEmail()
+            copyEmailToClipboard()
         }) {
             HStack(alignment: .center, spacing: 12) {
                 // Left icon
@@ -129,8 +148,8 @@ struct TimeEfficiencyView: View {
                 
                 Spacer(minLength: 8)
                 
-                // Right button
-                Text("Report")
+                // Right button  
+                Text("Email Joshua")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(Color.accentColor)
                     .padding(.horizontal, 12)
@@ -176,6 +195,24 @@ struct TimeEfficiencyView: View {
         formatter.allowedUnits = [.hour, .minute, .second]
         formatter.unitsStyle = .abbreviated
         return formatter.string(from: duration) ?? ""
+    }
+    
+    private func copyEmailToClipboard() {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString("joshua@mullet.town", forType: .string)
+        
+        // Show success message
+        withAnimation {
+            showCopiedMessage = true
+        }
+        
+        // Hide message after 2 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            withAnimation {
+                showCopiedMessage = false
+            }
+        }
     }
 }
 

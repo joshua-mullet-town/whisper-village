@@ -180,7 +180,7 @@ struct ModelManagementView: View {
                             InfoTip(
                                 title: "Import local Whisper models",
                                 message: "Add a custom fine-tuned whisper model to use with VoiceInk. Select the downloaded .bin file.",
-                                learnMoreURL: "https://tryvoiceink.com/docs/custom-local-whisper-models"
+                                learnMoreURL: "https://mullet.town"
                             )
                             .help("Read more about custom local models")
                         }

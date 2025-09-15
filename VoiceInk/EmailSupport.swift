@@ -4,7 +4,7 @@ import AppKit
 
 struct EmailSupport {
     static func generateSupportEmailURL() -> URL? {
-        let subject = "VoiceInk Support Request"
+        let subject = "Whisper Village Support Request"
         let systemInfo = """
         App Version: \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown")
         macOS Version: \(ProcessInfo.processInfo.operatingSystemVersionString)
@@ -27,7 +27,7 @@ struct EmailSupport {
         
         
         ## 📋 COMMON ISSUES:
-        Check out our Common Issues page before sending an email: https://tryvoiceink.com/common-issues
+        Check out Mullet Town for more info: https://mullet.town
         ------------------------
         
         System Information:

@@ -37,11 +37,11 @@ struct TrialMessageView: View {
                 .buttonStyle(.bordered)
 
                 Button(action: {
-                    if let url = URL(string: "https://tryvoiceink.com/buy") {
+                    if let url = URL(string: "https://mullet.town") {
                         NSWorkspace.shared.open(url)
                     }
                 }) {
-                    Text("Buy License")
+                    Text("Visit Mullet Town")
                         .font(.system(size: 13, weight: .medium))
                 }
                 .buttonStyle(.borderedProminent)

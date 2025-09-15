@@ -8,8 +8,8 @@ struct AudioVisualizer: View {
     private let barCount = 12
     private let minHeight: CGFloat = 5
     private let maxHeight: CGFloat = 32
-    private let barWidth: CGFloat = 3.5
-    private let barSpacing: CGFloat = 2.3
+    private let barWidth: CGFloat = 3.2 // Slightly narrower bars
+    private let barSpacing: CGFloat = 1.8 // Tightened spacing
     private let hardThreshold: Double = 0.3
     
     private let sensitivityMultipliers: [Double]
@@ -34,7 +34,16 @@ struct AudioVisualizer: View {
         HStack(spacing: barSpacing) {
             ForEach(0..<barCount, id: \.self) { index in
                 RoundedRectangle(cornerRadius: 1.7)
-                    .fill(color)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.black.opacity(0.9), // Shiny black top
+                                Color.black                // Pure black bottom
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
                     .frame(width: barWidth, height: barHeights[index])
             }
         }
@@ -96,16 +105,25 @@ struct AudioVisualizer: View {
 
 struct StaticVisualizer: View {
     private let barCount = 12
-    private let barWidth: CGFloat = 3.5
+    private let barWidth: CGFloat = 3.2 // Match active visualizer
     private let staticHeight: CGFloat = 5.0 
-    private let barSpacing: CGFloat = 2.3
+    private let barSpacing: CGFloat = 1.8 // Match active visualizer
     let color: Color
     
     var body: some View {
         HStack(spacing: barSpacing) {
             ForEach(0..<barCount, id: \.self) { index in
                 RoundedRectangle(cornerRadius: 1.7)
-                    .fill(color)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.black.opacity(0.3), // Very muted black for static
+                                Color.black.opacity(0.5)  // Slightly darker bottom
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
                     .frame(width: barWidth, height: staticHeight)
             }
         }

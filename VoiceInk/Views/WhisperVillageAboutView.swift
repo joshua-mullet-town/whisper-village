@@ -102,8 +102,37 @@ struct WhisperVillageAboutView: View {
                         
                         VStack(alignment: .leading, spacing: 8) {
                             Text("• whisper.cpp - High-performance AI transcription")
-                            Text("• Apple Speech Framework - Native macOS integration")
+                            Text("• Apple Speech Framework - Native macOS integration") 
                             Text("• GPL v3.0 - Free and open forever")
+                            
+                            HStack(alignment: .top, spacing: 4) {
+                                Text("•")
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Forked from VoiceInk - Thanks for all the amazing code!")
+                                    
+                                    HStack(spacing: 12) {
+                                        Link(destination: URL(string: "https://github.com/Beingpax/VoiceInk")!) {
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "link.circle")
+                                                    .font(.system(size: 12))
+                                                Text("GitHub")
+                                                    .font(.system(size: 12))
+                                            }
+                                            .foregroundColor(.accentColor)
+                                        }
+                                        
+                                        Link(destination: URL(string: "https://tryvoiceink.com/")!) {
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "globe.americas")
+                                                    .font(.system(size: 12))
+                                                Text("Website")
+                                                    .font(.system(size: 12))
+                                            }
+                                            .foregroundColor(.accentColor)
+                                        }
+                                    }
+                                }
+                            }
                         }
                         .font(.caption)
                         .foregroundColor(.secondary)

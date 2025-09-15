@@ -200,18 +200,24 @@ struct MenuBarView: View {
             
             Divider()
             
-            Button("Check for Updates") {
-                updaterViewModel.checkForUpdates()
-            }
-            .disabled(!updaterViewModel.canCheckForUpdates)
-            
-            Button("Help and Support") {
-                EmailSupport.openSupportEmail()
+            Button("Email Joshua for help") {
+                let email = "joshua@mullet.town"
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                pasteboard.setString(email, forType: .string)
+                
+                // Show a brief notification
+                let alert = NSAlert()
+                alert.messageText = "Email copied!"
+                alert.informativeText = "joshua@mullet.town has been copied to your clipboard"
+                alert.alertStyle = .informational
+                alert.addButton(withTitle: "OK")
+                alert.runModal()
             }
             
             Divider()
             
-            Button("Quit VoiceInk") {
+            Button("Quit Whisper Village") {
                 NSApplication.shared.terminate(nil)
             }
         }

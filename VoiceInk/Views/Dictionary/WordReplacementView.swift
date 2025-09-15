@@ -276,7 +276,7 @@ struct AddReplacementSheet: View {
                                 Text("Replacement:")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
-                                Text("https://tryvoiceink.com")
+                                Text("https://mullet.town")
                                     .font(.callout)
                             }
                         }

@@ -1,6 +1,8 @@
-# Building VoiceInk
+# Building Whisper Village
 
-This guide provides detailed instructions for building VoiceInk from source.
+This guide provides detailed instructions for building Whisper Village from source.
+
+**Note**: Whisper Village is a fork of [VoiceInk by Beingpax](https://github.com/Beingpax/VoiceInk), customized for the Mullet Town ecosystem.
 
 ## Prerequisites
 
@@ -19,12 +21,12 @@ cd whisper.cpp
 ```
 This will create the XCFramework at `build-apple/whisper.xcframework`.
 
-## Building VoiceInk
+## Building Whisper Village
 
-1. Clone the VoiceInk repository:
+1. Clone this Whisper Village repository:
 ```bash
-git clone https://github.com/Beingpax/VoiceInk.git
-cd VoiceInk
+git clone [your-repo-url]
+cd whisper-village
 ```
 
 2. Add the whisper.xcframework to your project:

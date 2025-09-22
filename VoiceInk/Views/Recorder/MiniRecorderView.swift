@@ -44,8 +44,8 @@ struct MiniRecorderView: View {
     }
     
     private var contentLayout: some View {
-        HStack(spacing: 4) { // Even tighter spacing
-            // Cancel button
+        HStack(spacing: 8) { // More balanced spacing
+            // Cancel button with debug background
             Button(action: {
                 Task { @MainActor in
                     await whisperState.dismissMiniRecorder()
@@ -56,21 +56,20 @@ struct MiniRecorderView: View {
                     .foregroundColor(.white.opacity(0.9))
             }
             .buttonStyle(PlainButtonStyle())
-            .padding(.leading, 6)
+            .padding(.leading, 24) // Comfortable padding from edge
             
-            // Constrained visualizer zone - no more infinite width!
-            statusView
-                .frame(width: 90) // Reduced to make room for timer
-            
-            // Timer display - always reserve space to prevent layout shift
-            Text(whisperState.recordingState == .recording ? formatTime(recordingDuration) : "")
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundColor(.white)
-                .frame(width: 35) // Fixed width so layout doesn't shift
-            
-            // Just a small spacer for padding
+            // Constrained visualizer zone - centered with balanced spacing
             Spacer()
-                .frame(width: 8)
+            statusView
+                .frame(width: 80) // Slightly smaller to accommodate more padding
+            Spacer()
+            
+            // Timer display with debug background - always visible, changes color based on state
+            Text(formatTime(recordingDuration))
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundColor(whisperState.recordingState == .recording ? .white : .white.opacity(0.6))
+                .frame(width: 35) // Fixed width so layout doesn't shift
+                .padding(.trailing, 24) // Comfortable padding from edge
         }
         .padding(.vertical, 6) // Even more compact
     }
@@ -98,14 +97,19 @@ struct MiniRecorderView: View {
         Group {
             if windowManager.isVisible {
                 recorderCapsule
-                    .frame(maxWidth: 200) // Actually constrain the overall width!
+                    .frame(maxWidth: 250) // Comfortable width with proper padding
                     .onChange(of: whisperState.recordingState) { _, newState in
                         if newState == .recording {
                             recordingDuration = 0
                             timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
                                 recordingDuration += 0.1
                             }
+                        } else if newState == .transcribing {
+                            // Keep timer visible but stop updating
+                            timer?.invalidate()
+                            timer = nil
                         } else {
+                            // Only reset on other states (idle, error, etc.)
                             timer?.invalidate()
                             timer = nil
                             recordingDuration = 0

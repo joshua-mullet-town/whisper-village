@@ -140,17 +140,10 @@ struct WhisperVillageAboutView: View {
                 }
                 
                 // Footer
-                VStack(spacing: 8) {
-                    Text("Made with ❤️ by Mullet Town")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Text("\"A voice for every village\"")
-                        .font(.caption)
-                        .italic()
-                        .foregroundColor(.secondary)
-                }
-                .padding(.top)
+                Text("Made with ❤️ by Mullet Town")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.top)
                 
             }
             .padding(32)

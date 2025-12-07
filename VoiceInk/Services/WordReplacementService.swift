@@ -2,18 +2,44 @@ import Foundation
 
 class WordReplacementService {
     static let shared = WordReplacementService()
-    
+
     private init() {}
-    
+
+    /// Common Whisper transcription errors that should always be fixed.
+    /// These run on every transcription regardless of user settings.
+    private let builtInFixes: [(pattern: String, replacement: String)] = [
+        // Whisper often drops the 'm' from contractions like "I'm"
+        ("\\bI'(?=\\s|$)", "I'm"),
+    ]
+
+    /// Applies built-in fixes for common Whisper transcription errors.
+    /// Always runs, independent of user word replacement settings.
+    func applyBuiltInFixes(to text: String) -> String {
+        var modifiedText = text
+
+        for fix in builtInFixes {
+            if let regex = try? NSRegularExpression(pattern: fix.pattern, options: .caseInsensitive) {
+                let range = NSRange(modifiedText.startIndex..., in: modifiedText)
+                modifiedText = regex.stringByReplacingMatches(
+                    in: modifiedText,
+                    options: [],
+                    range: range,
+                    withTemplate: fix.replacement
+                )
+            }
+        }
+
+        return modifiedText
+    }
+
     func applyReplacements(to text: String) -> String {
         guard let replacements = UserDefaults.standard.dictionary(forKey: "wordReplacements") as? [String: String],
               !replacements.isEmpty else {
-            return text // No replacements to apply
+            return text
         }
-        
+
         var modifiedText = text
-        
-        // Apply replacements (case-insensitive)
+
         for (original, replacement) in replacements {
             let isPhrase = original.contains(" ") || original.trimmingCharacters(in: .whitespacesAndNewlines) != original
 
@@ -21,7 +47,13 @@ class WordReplacementService {
                 modifiedText = modifiedText.replacingOccurrences(of: original, with: replacement, options: .caseInsensitive)
             } else {
                 // Use word boundaries for spaced languages
-                let pattern = "\\b\(NSRegularExpression.escapedPattern(for: original))\\b"
+                // Note: \b doesn't work after non-word chars like apostrophes
+                // For patterns ending in non-word chars, use lookahead instead
+                let escapedOriginal = NSRegularExpression.escapedPattern(for: original)
+                let endsWithNonWordChar = original.last.map { !$0.isLetter && !$0.isNumber } ?? false
+                let endBoundary = endsWithNonWordChar ? "(?=\\s|$)" : "\\b"
+                let pattern = "\\b\(escapedOriginal)\(endBoundary)"
+
                 if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
                     let range = NSRange(modifiedText.startIndex..., in: modifiedText)
                     modifiedText = regex.stringByReplacingMatches(
@@ -33,7 +65,7 @@ class WordReplacementService {
                 }
             }
         }
-        
+
         return modifiedText
     }
 

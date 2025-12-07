@@ -273,7 +273,10 @@ class WhisperState: NSObject, ObservableObject {
             if await checkCancellationAndCleanup() { return }
             
             text = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            
+
+            // Always fix common Whisper transcription errors (e.g., I' -> I'm)
+            text = WordReplacementService.shared.applyBuiltInFixes(to: text)
+
             if UserDefaults.standard.bool(forKey: "IsWordReplacementEnabled") {
                 text = WordReplacementService.shared.applyReplacements(to: text)
             }

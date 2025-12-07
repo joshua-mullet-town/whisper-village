@@ -24,6 +24,10 @@ class WordReplacementManager: ObservableObject {
     
     func addReplacement(original: String, replacement: String) {
         replacements[original] = replacement
+        // Auto-enable when user adds a replacement (why else would they add one?)
+        if !isEnabled {
+            isEnabled = true
+        }
     }
     
     func removeReplacement(original: String) {

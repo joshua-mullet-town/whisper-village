@@ -47,8 +47,36 @@ class WhisperState: NSObject, ObservableObject {
     
     var whisperContext: WhisperContext?
     let recorder = Recorder()
+    let streamingRecorder = StreamingRecorder()
     var recordedFile: URL? = nil
     let whisperPrompt = WhisperPrompt()
+
+    /// Whether streaming mode is enabled (captures samples in real-time)
+    var isStreamingModeEnabled: Bool {
+        UserDefaults.standard.bool(forKey: "StreamingModeEnabled")
+    }
+
+    // MARK: - Streaming Transcription (Chunk-Commit)
+    private var streamingTranscriptionTimer: Timer?
+    private var isStreamingTranscriptionInProgress = false
+
+    /// Committed chunks (locked in, won't change)
+    @Published var committedChunks: [String] = []
+
+    /// Current live preview (still being corrected)
+    @Published var interimTranscription: String = ""
+
+    /// When the current chunk started (sample index in the buffer)
+    private var currentChunkStartSample: Int = 0
+
+    /// How often to run interim transcription (in seconds)
+    private let streamingIntervalSeconds: TimeInterval = 1.0
+
+    /// How long before committing a chunk (in seconds)
+    private let chunkCommitIntervalSeconds: TimeInterval = 30.0
+
+    /// Timer to track when to commit chunks
+    private var chunkStartTime: Date?
     
     // Prompt detection service for trigger word handling
     private let promptDetectionService = PromptDetectionService()
@@ -133,6 +161,13 @@ class WhisperState: NSObject, ObservableObject {
     
     func toggleRecord() async {
         if recordingState == .recording {
+            // Stop streaming transcription and recorder if enabled
+            if isStreamingModeEnabled {
+                stopStreamingTranscription()
+                let samples = await streamingRecorder.stopRecording()
+                StreamingLogger.shared.log("Streaming stopped. Got \(samples.count) samples (\(String(format: "%.2f", Double(samples.count) / 16000.0)) seconds)")
+            }
+
             await recorder.stopRecording()
             if let recordedFile {
                 if !shouldCancelRecording {
@@ -170,7 +205,18 @@ class WhisperState: NSObject, ObservableObject {
                             self.recordedFile = permanentURL
         
                             try await self.recorder.startRecording(toOutputFile: permanentURL)
-                            
+
+                            // Also start streaming recorder if enabled
+                            if self.isStreamingModeEnabled {
+                                StreamingLogger.shared.log("Streaming mode enabled, starting StreamingRecorder...")
+                                do {
+                                    try await self.streamingRecorder.startRecording()
+                                    StreamingLogger.shared.log("StreamingRecorder started successfully")
+                                } catch {
+                                    StreamingLogger.shared.log("ERROR: StreamingRecorder failed to start: \(error)")
+                                }
+                            }
+
                             await MainActor.run {
                                 self.recordingState = .recording
                             }
@@ -195,7 +241,17 @@ class WhisperState: NSObject, ObservableObject {
                                enhancementService.useScreenCaptureContext {
                                 await enhancementService.captureScreenContext()
                             }
-        
+
+                            // Start streaming transcription if enabled and using local or parakeet model
+                            if self.isStreamingModeEnabled {
+                                if let model = self.currentTranscriptionModel,
+                                   (model.provider == .local || model.provider == .parakeet) {
+                                    self.startStreamingTranscription()
+                                } else {
+                                    StreamingLogger.shared.log("Streaming transcription only works with local/parakeet models (current: \(self.currentTranscriptionModel?.provider.rawValue ?? "none"))")
+                                }
+                            }
+
                         } catch {
                             self.logger.error("❌ Failed to start recording: \(error.localizedDescription)")
                             await NotificationManager.shared.showNotification(title: "Recording failed to start", type: .error)
@@ -430,6 +486,139 @@ class WhisperState: NSObject, ObservableObject {
     
     private func cleanupAndDismiss() async {
         await dismissMiniRecorder()
+    }
+
+    // MARK: - Streaming Transcription Methods
+
+    /// Start the streaming transcription timer
+    func startStreamingTranscription() {
+        guard isStreamingModeEnabled else { return }
+
+        // Check we have a valid model for streaming (local whisper or parakeet)
+        guard let model = currentTranscriptionModel else {
+            StreamingLogger.shared.log("Cannot start streaming transcription: no model selected")
+            return
+        }
+
+        if model.provider == .local && whisperContext == nil {
+            StreamingLogger.shared.log("Cannot start streaming transcription: no whisper context loaded")
+            return
+        }
+
+        StreamingLogger.shared.log("Starting streaming transcription timer (every \(streamingIntervalSeconds)s, commit every \(chunkCommitIntervalSeconds)s) [provider: \(model.provider.rawValue)]")
+
+        // Reset chunk tracking
+        committedChunks = []
+        interimTranscription = ""
+        currentChunkStartSample = 0
+        chunkStartTime = Date()
+
+        // Create timer on main thread
+        streamingTranscriptionTimer = Timer.scheduledTimer(withTimeInterval: streamingIntervalSeconds, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                await self?.performInterimTranscription()
+            }
+        }
+    }
+
+    /// Stop the streaming transcription timer
+    func stopStreamingTranscription() {
+        StreamingLogger.shared.log("Stopping streaming transcription timer")
+        streamingTranscriptionTimer?.invalidate()
+        streamingTranscriptionTimer = nil
+        isStreamingTranscriptionInProgress = false
+
+        // Commit any remaining interim transcription as final chunk
+        if !interimTranscription.isEmpty {
+            committedChunks.append(interimTranscription)
+            StreamingLogger.shared.log("Committed final chunk: \"\(interimTranscription)\"")
+        }
+
+        interimTranscription = ""
+        chunkStartTime = nil
+    }
+
+    /// Clear all streaming UI (call after final transcription is shown)
+    func clearStreamingPreview() {
+        committedChunks = []
+        interimTranscription = ""
+    }
+
+    /// Perform one interim transcription on the current chunk
+    private func performInterimTranscription() async {
+        // Skip if already transcribing (previous one still running)
+        guard !isStreamingTranscriptionInProgress else {
+            StreamingLogger.shared.log("Skipping interim transcription - previous still in progress")
+            return
+        }
+
+        // Get current model
+        guard let model = currentTranscriptionModel else {
+            StreamingLogger.shared.log("Skipping interim transcription - no model selected")
+            return
+        }
+
+        // Check if it's time to commit the current chunk
+        if let startTime = chunkStartTime,
+           Date().timeIntervalSince(startTime) >= chunkCommitIntervalSeconds,
+           !interimTranscription.isEmpty {
+            // Commit current chunk
+            committedChunks.append(interimTranscription)
+            StreamingLogger.shared.log("Committed chunk \(committedChunks.count): \"\(interimTranscription)\"")
+
+            // Reset for new chunk
+            interimTranscription = ""
+            currentChunkStartSample = await streamingRecorder.getCurrentSampleCount()
+            chunkStartTime = Date()
+        }
+
+        // Get samples for current chunk only (from chunk start to now)
+        let samples = await streamingRecorder.getSamplesFromIndex(currentChunkStartSample)
+
+        guard samples.count > 0 else {
+            StreamingLogger.shared.log("Skipping interim transcription - no samples in current chunk")
+            return
+        }
+
+        let sampleDuration = Double(samples.count) / 16000.0
+        StreamingLogger.shared.log("Transcribing chunk \(committedChunks.count + 1) with \(samples.count) samples (\(String(format: "%.2f", sampleDuration))s) [provider: \(model.provider.rawValue)]")
+
+        isStreamingTranscriptionInProgress = true
+        let startTime = Date()
+
+        // Run transcription based on provider
+        var trimmedText = ""
+
+        if model.provider == .parakeet {
+            // Use Parakeet
+            do {
+                let text = try await parakeetTranscriptionService.transcribeSamples(samples)
+                trimmedText = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                let elapsed = Date().timeIntervalSince(startTime)
+                StreamingLogger.shared.log("Parakeet interim result (\(String(format: "%.2f", elapsed))s): \"\(trimmedText)\"")
+            } catch {
+                let elapsed = Date().timeIntervalSince(startTime)
+                StreamingLogger.shared.log("Parakeet interim transcription failed after \(String(format: "%.2f", elapsed))s: \(error)")
+            }
+        } else if model.provider == .local, let context = whisperContext {
+            // Use Whisper
+            let success = await context.fullTranscribe(samples: samples)
+            let elapsed = Date().timeIntervalSince(startTime)
+
+            if success {
+                let text = await context.getTranscription()
+                trimmedText = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                StreamingLogger.shared.log("Whisper interim result (\(String(format: "%.2f", elapsed))s): \"\(trimmedText)\"")
+            } else {
+                StreamingLogger.shared.log("Whisper interim transcription failed after \(String(format: "%.2f", elapsed))s")
+            }
+        }
+
+        if !trimmedText.isEmpty {
+            interimTranscription = trimmedText
+        }
+
+        isStreamingTranscriptionInProgress = false
     }
 }
 

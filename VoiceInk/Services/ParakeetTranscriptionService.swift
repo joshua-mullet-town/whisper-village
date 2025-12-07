@@ -59,6 +59,37 @@ class ParakeetTranscriptionService: TranscriptionService {
         }
     }
 
+    /// Transcribe raw audio samples directly (for streaming preview)
+    /// Does NOT cleanup after transcription to allow repeated calls
+    func transcribeSamples(_ samples: [Float]) async throws -> String {
+        if asrManager == nil || !isModelLoaded {
+            try await loadModel()
+        }
+
+        guard let asrManager = asrManager else {
+            logger.notice("🦜 Parakeet manager is still nil after attempting to load the model.")
+            throw ASRError.notInitialized
+        }
+
+        // Need at least 1 second of audio (16000 samples at 16kHz)
+        guard samples.count >= 16000 else {
+            logger.notice("🦜 Audio too short for streaming transcription: \(samples.count) samples")
+            return ""
+        }
+
+        let result = try await asrManager.transcribe(samples)
+
+        var text = result.text
+
+        if UserDefaults.standard.object(forKey: "IsTextFormattingEnabled") as? Bool ?? true {
+            text = WhisperTextFormatter.format(text)
+        }
+
+        text = WhisperHallucinationFilter.filter(text)
+
+        return text
+    }
+
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
         if asrManager == nil || !isModelLoaded {
             try await loadModel()
@@ -68,7 +99,7 @@ class ParakeetTranscriptionService: TranscriptionService {
             logger.notice("🦜 Parakeet manager is still nil after attempting to load the model.")
             throw ASRError.notInitialized
         }
-        
+
         let audioSamples = try readAudioSamples(from: audioURL)
         
         // Validate audio data before VAD

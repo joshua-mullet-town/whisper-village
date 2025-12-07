@@ -32,18 +32,19 @@ class MiniRecorderPanel: NSPanel {
     
     static func calculateWindowMetrics() -> NSRect {
         guard let screen = NSScreen.main else {
-            return NSRect(x: 0, y: 0, width: 250, height: 40)
+            return NSRect(x: 0, y: 0, width: 450, height: 340)
         }
-        
-        let width: CGFloat = 250
-        let height: CGFloat = 40
+
+        let width: CGFloat = 450
+        // Height for chat bubbles + capsule
+        let height: CGFloat = 340
         let padding: CGFloat = 24
-        
+
         let visibleFrame = screen.visibleFrame
         let centerX = visibleFrame.midX - 5
         let xPosition = centerX - (width / 2)
         let yPosition = visibleFrame.minY + padding
-        
+
         return NSRect(
             x: xPosition,
             y: yPosition,

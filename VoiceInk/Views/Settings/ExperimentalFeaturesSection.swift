@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ExperimentalFeaturesSection: View {
     @AppStorage("isExperimentalFeaturesEnabled") private var isExperimentalFeaturesEnabled = false
+    @AppStorage("StreamingModeEnabled") private var isStreamingModeEnabled = false
     @ObservedObject private var playbackController = PlaybackController.shared
 
     var body: some View {
@@ -28,6 +29,7 @@ struct ExperimentalFeaturesSection: View {
                     .onChange(of: isExperimentalFeaturesEnabled) { _, newValue in
                         if !newValue {
                             playbackController.isPauseMediaEnabled = false
+                            isStreamingModeEnabled = false
                         }
                     }
             }
@@ -36,11 +38,24 @@ struct ExperimentalFeaturesSection: View {
                 .padding(.vertical, 4)
 
             if isExperimentalFeaturesEnabled {
-                Toggle(isOn: $playbackController.isPauseMediaEnabled) {
-                    Text("Pause Media during recording")
+                VStack(alignment: .leading, spacing: 12) {
+                    Toggle(isOn: $playbackController.isPauseMediaEnabled) {
+                        Text("Pause Media during recording")
+                    }
+                    .toggleStyle(.switch)
+                    .help("Automatically pause active media playback during recordings and resume afterward.")
+
+                    Toggle(isOn: $isStreamingModeEnabled) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Real-Time Streaming Preview")
+                            Text("Show live transcription bubbles as you speak")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .toggleStyle(.switch)
+                    .help("Shows real-time transcription preview while recording. Requires a local Whisper model.")
                 }
-                .toggleStyle(.switch)
-                .help("Automatically pause active media playback during recordings and resume afterward.")
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }

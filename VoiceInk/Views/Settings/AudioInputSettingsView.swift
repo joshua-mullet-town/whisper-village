@@ -3,7 +3,7 @@ import SwiftUI
 struct AudioInputSettingsView: View {
     @ObservedObject var audioDeviceManager = AudioDeviceManager.shared
     @Environment(\.colorScheme) private var colorScheme
-    
+
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -13,11 +13,11 @@ struct AudioInputSettingsView: View {
         }
         .background(Color(NSColor.controlBackgroundColor))
     }
-    
+
     private var mainContent: some View {
         VStack(spacing: 40) {
             inputModeSection
-            
+
             if audioDeviceManager.inputMode == .custom {
                 customDeviceSection
             } else if audioDeviceManager.inputMode == .prioritized {

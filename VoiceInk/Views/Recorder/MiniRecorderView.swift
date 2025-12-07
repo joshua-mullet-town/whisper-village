@@ -8,8 +8,96 @@ struct MiniRecorderView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var recordingDuration: TimeInterval = 0
     @State private var timer: Timer?
-    
-    
+
+    /// Whether streaming mode is enabled (for showing preview)
+    private var isStreamingModeEnabled: Bool {
+        UserDefaults.standard.bool(forKey: "StreamingModeEnabled")
+    }
+
+    // MARK: - Chat Bubble Streaming Preview
+
+    /// Dimensions for the preview area (30% larger)
+    private let previewBoxHeight: CGFloat = 210
+    private let previewBoxWidth: CGFloat = 416
+
+    /// Single chat bubble view
+    private func chatBubble(text: String, isLive: Bool) -> some View {
+        Text(text)
+            .font(.system(size: 13, weight: .regular))
+            .foregroundColor(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(isLive
+                        ? Color(red: 0.3, green: 0.3, blue: 0.35) // Slightly lighter for live
+                        : Color(red: 0.2, green: 0.2, blue: 0.25)) // Darker for committed
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(
+                        isLive
+                            ? Color(red: 1.0, green: 0.5, blue: 0.2).opacity(0.5) // Orange tint for live
+                            : Color.white.opacity(0.1),
+                        lineWidth: 1
+                    )
+            )
+            .frame(maxWidth: previewBoxWidth - 40, alignment: .leading)
+    }
+
+    private var streamingBubblesView: some View {
+        Group {
+            let hasContent = !whisperState.committedChunks.isEmpty || !whisperState.interimTranscription.isEmpty
+            let isRecording = whisperState.recordingState == .recording
+
+            if isStreamingModeEnabled && isRecording {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 8) {
+                            // Committed chunks (locked in)
+                            ForEach(Array(whisperState.committedChunks.enumerated()), id: \.offset) { index, chunk in
+                                if !chunk.isEmpty {
+                                    chatBubble(text: chunk, isLive: false)
+                                        .id("chunk-\(index)")
+                                }
+                            }
+
+                            // Live preview (still being corrected)
+                            if !whisperState.interimTranscription.isEmpty {
+                                chatBubble(text: whisperState.interimTranscription, isLive: true)
+                                    .id("live")
+                            }
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(width: previewBoxWidth, height: hasContent ? previewBoxHeight : 0)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.black.opacity(0.85))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
+                    )
+                    .opacity(hasContent ? 1 : 0)
+                    .animation(.easeInOut(duration: 0.2), value: hasContent)
+                    .onChange(of: whisperState.interimTranscription) { _, _ in
+                        withAnimation(.easeOut(duration: 0.15)) {
+                            proxy.scrollTo("live", anchor: .bottom)
+                        }
+                    }
+                    .onChange(of: whisperState.committedChunks.count) { _, _ in
+                        withAnimation(.easeOut(duration: 0.15)) {
+                            proxy.scrollTo("live", anchor: .bottom)
+                        }
+                    }
+                }
+                .transition(.opacity)
+            }
+        }
+    }
+
     private var backgroundView: some View {
         ZStack {
             // Mullet Town themed background
@@ -96,25 +184,35 @@ struct MiniRecorderView: View {
     var body: some View {
         Group {
             if windowManager.isVisible {
-                recorderCapsule
-                    .frame(maxWidth: 250) // Comfortable width with proper padding
-                    .onChange(of: whisperState.recordingState) { _, newState in
-                        if newState == .recording {
-                            recordingDuration = 0
-                            timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
-                                recordingDuration += 0.1
-                            }
-                        } else if newState == .transcribing {
-                            // Keep timer visible but stop updating
-                            timer?.invalidate()
-                            timer = nil
-                        } else {
-                            // Only reset on other states (idle, error, etc.)
-                            timer?.invalidate()
-                            timer = nil
-                            recordingDuration = 0
+                VStack(spacing: 16) {
+                    Spacer(minLength: 0)
+
+                    // Chat bubble streaming preview
+                    streamingBubblesView
+
+                    // The orange capsule recorder (fixed size to prevent balloon bug)
+                    recorderCapsule
+                        .frame(width: 250, height: 36)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .padding(.bottom, 8)
+                .onChange(of: whisperState.recordingState) { _, newState in
+                    if newState == .recording {
+                        recordingDuration = 0
+                        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+                            recordingDuration += 0.1
                         }
+                    } else if newState == .transcribing {
+                        // Keep timer visible but stop updating
+                        timer?.invalidate()
+                        timer = nil
+                    } else {
+                        // Only reset on other states (idle, error, etc.)
+                        timer?.invalidate()
+                        timer = nil
+                        recordingDuration = 0
                     }
+                }
             }
         }
     }

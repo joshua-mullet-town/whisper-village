@@ -14,13 +14,7 @@ You have an idea or found a bug. We iterate locally until it works.
 Local testing looks good. Time to release.
 
 **What you do:** Say "ship it" or "push new version."
-**What I do:**
-1. Build Release version
-2. Create DMG
-3. Update version numbers
-4. Create GitHub release
-5. Update appcast.xml for auto-updates
-6. Commit and push
+**What I do:** Follow the **Ship It Pipeline** below exactly.
 
 ### State 3: "I want to use the new version"
 New version is pushed. You want to update your production app.
@@ -93,73 +87,95 @@ xcodebuild -scheme VoiceInk -project /Users/joshuamullet/code/whisper-village/Vo
 
 ---
 
-## ⚠️ CRITICAL: Distribution Signing (READ THIS BEFORE SHIPPING)
+## 🚀 Ship It Pipeline (FOLLOW THIS EXACTLY)
 
-**This has caused issues multiple times. DO NOT SKIP THIS SECTION.**
+**This is the tested, working release process. Do not deviate.**
 
-### The Problem
-- "Apple Development" certificates ONLY work on devices registered in the Apple Developer account
-- To distribute to ANY Mac, you need a **Developer ID Application** certificate + notarization
+### Step 1: Bump Version
+Edit `VoiceInk.xcodeproj/project.pbxproj`:
+- Increment `CURRENT_PROJECT_VERSION` (build number)
+- Update `MARKETING_VERSION` (e.g., 1.2.0 → 1.3.0)
 
-### Check Available Certificates
+### Step 2: Build with Ad-Hoc Signing
 ```bash
-security find-identity -v -p codesigning | grep -i "developer id"
-```
-
-### Current Status (as of Dec 2025)
-**NO Developer ID certificate exists.** Only Apple Development certificates are available.
-
-To fix this:
-1. Go to https://developer.apple.com/account/resources/certificates/list
-2. Create a "Developer ID Application" certificate
-3. Download and install it in Keychain
-
-### Proper Distribution Build (Once Developer ID Exists)
-
-```bash
-# 1. Build and archive
-xcodebuild -scheme VoiceInk -project /Users/joshuamullet/code/whisper-village/VoiceInk.xcodeproj \
+xcodebuild -scheme VoiceInk \
+  -project /Users/joshuamullet/code/whisper-village/VoiceInk.xcodeproj \
   -configuration Release \
-  -archivePath /Users/joshuamullet/code/whisper-village/build/WhisperVillage.xcarchive \
-  clean archive
-
-# 2. Export with Developer ID signing
-xcodebuild -exportArchive \
-  -archivePath /Users/joshuamullet/code/whisper-village/build/WhisperVillage.xcarchive \
-  -exportPath /Users/joshuamullet/code/whisper-village/build/Export \
-  -exportOptionsPlist /Users/joshuamullet/code/whisper-village/ExportOptions.plist
-
-# 3. Notarize (required for Gatekeeper)
-xcrun notarytool submit /path/to/WhisperVillage.dmg \
-  --apple-id "your@email.com" \
-  --team-id "TEAM_ID" \
-  --password "app-specific-password" \
-  --wait
-
-# 4. Staple the notarization ticket
-xcrun stapler staple /path/to/WhisperVillage.dmg
+  -derivedDataPath /Users/joshuamullet/code/whisper-village/build/DerivedData \
+  clean build \
+  CODE_SIGN_IDENTITY="-" \
+  CODE_SIGNING_REQUIRED=NO \
+  CODE_SIGNING_ALLOWED=NO
 ```
 
-### ExportOptions.plist (Create This File)
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>method</key>
-    <string>developer-id</string>
-    <key>signingStyle</key>
-    <string>automatic</string>
-    <key>teamID</key>
-    <string>YOUR_TEAM_ID</string>
-</dict>
-</plist>
+**Why ad-hoc?** No Developer ID certificate exists. Ad-hoc removes provisioning profile requirements so the app can run on any Mac.
+
+### Step 3: Create DMG
+```bash
+create-dmg \
+  --volname "Whisper Village" \
+  --window-pos 200 120 \
+  --window-size 600 400 \
+  --icon-size 100 \
+  --icon "Whisper Village.app" 150 185 \
+  --app-drop-link 450 185 \
+  /Users/joshuamullet/code/whisper-village/WhisperVillage-X.X.X.dmg \
+  "/Users/joshuamullet/code/whisper-village/build/DerivedData/Build/Products/Release/Whisper Village.app"
 ```
 
-### When User Says "Ship It"
-1. **FIRST** run: `security find-identity -v -p codesigning | grep -i "developer id"`
-2. If no Developer ID cert exists → STOP and tell user to create one
-3. If cert exists → proceed with distribution build above
+### Step 4: Create/Update GitHub Release
+```bash
+# Check if release exists
+gh release view vX.X.X
+
+# Create new release (if doesn't exist)
+gh release create vX.X.X \
+  --title "Whisper Village vX.X.X" \
+  --notes "Release notes here" \
+  /Users/joshuamullet/code/whisper-village/WhisperVillage-X.X.X.dmg
+
+# Or update existing release
+gh release delete-asset vX.X.X WhisperVillage-X.X.X.dmg --yes
+gh release upload vX.X.X /Users/joshuamullet/code/whisper-village/WhisperVillage-X.X.X.dmg
+```
+
+### Step 5: Update appcast.xml
+Update `/Users/joshuamullet/code/whisper-village/appcast.xml`:
+- Add new `<item>` entry at top
+- Set correct `sparkle:version` (build number)
+- Set correct `sparkle:shortVersionString` (marketing version)
+- Set correct `length` (file size in bytes from DMG)
+- Set correct download URL
+
+### Step 6: Commit and Push
+```bash
+git add -A
+git commit -m "Release vX.X.X: [description]"
+git push
+```
+
+---
+
+## 📦 User Installation Instructions
+
+**IMPORTANT:** Users must do this after downloading:
+
+```bash
+xattr -cr /Applications/Whisper\ Village.app
+```
+
+This removes the quarantine flag. Without it, Gatekeeper blocks the ad-hoc signed app.
+
+Alternative: Right-click → Open → Click "Open" in the dialog (may need to do twice).
+
+---
+
+## 🔮 Future: Proper Signing (Optional)
+
+To eliminate the `xattr` requirement, get a Developer ID certificate:
+1. Go to https://developer.apple.com/account/resources/certificates/list
+2. Create "Developer ID Application" certificate
+3. Then use proper signing + notarization instead of ad-hoc
 
 ---
 

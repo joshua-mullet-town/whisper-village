@@ -1,0 +1,18 @@
+# Build artifacts
+build/
+*.dmg
+*.profraw
+DerivedData/
+
+# Xcode
+*.xcuserstate
+*.xcscmblueprint
+xcuserdata/
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Misc
+.hud.json

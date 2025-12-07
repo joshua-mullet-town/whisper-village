@@ -1,29 +1,41 @@
 <?xml version="1.0" standalone="yes"?>
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
-        <title>VoiceInk Releases</title>
+        <title>Whisper Village Releases</title>
         <item>
-            <title>1.53</title>
-            <pubDate>Sat, 1 Sep 2025 12:20:00 +0545</pubDate>
-            <sparkle:version>154</sparkle:version>
-            <sparkle:shortVersionString>1.53</sparkle:shortVersionString>
+            <title>1.2.0</title>
+            <pubDate>Sat, 7 Dec 2025 09:20:00 -0500</pubDate>
+            <sparkle:version>70</sparkle:version>
+            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
-
-                <h3>What's New in Version 1.53 🚀</h3>
+                <h3>What's New in Version 1.2.0</h3>
                 <ul>
-                    <li>Added AI model switcher to the menu bar</li>
-                    <li>Added an option to reorder power mode</li>
-                    <li>Added trailing space settings for CJK languages</li>
-                    <li>Add prompt details used during enhancement in history</li>
-                    <li>Fix memory issues with Perl</li>
-                    <li>Add a setting to disable auto update checks – @vaygr</li>
-                    <li>Implement Hover-to-Show Popovers for Recorder Controls – @gdmka</li>
-                    <li>Add mouse middle-Click to Toggle Recording – @gdmka</li>
-              </ul> 
-                
+                    <li>Fixed word replacement regex for patterns ending in apostrophe</li>
+                    <li>Added built-in fix that always converts I' to I'm</li>
+                    <li>Word replacement now auto-enables when adding first entry</li>
+                    <li>Fixed Release build error in VoiceActivityDetector</li>
+                    <li>Removed "A voice for every village" tagline from About page</li>
+                </ul>
             ]]></description>
-           <enclosure url="https://github.com/Beingpax/VoiceInk/releases/download/v1.53/VoiceInk.dmg" length="9415783" type="application/octet-stream" sparkle:edSignature="0VhMPxvoSO53H8/8PhYuJRE4uSl3Wj5Fr8bAniXlyQEud68rxCc7qG4UsRWZYX96X3WJLQuNuFITkf+wk5RJBg=="/>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.2.0/WhisperVillage-1.2.0.dmg" length="12138509" type="application/octet-stream"/>
+        </item>
+        <item>
+            <title>1.1.0</title>
+            <pubDate>Sun, 22 Sep 2025 12:23:00 +0000</pubDate>
+            <sparkle:version>69</sparkle:version>
+            <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>What's New in Version 1.1.0</h3>
+                <ul>
+                    <li>Enhanced Mini Recorder Experience</li>
+                    <li>Better spacing and window sizing</li>
+                    <li>Persistent timer during transcription</li>
+                    <li>Improved layout with centered status display</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.1.0/Whisper.Village.v1.1.0.dmg" length="0" type="application/octet-stream"/>
         </item>
     </channel>
 </rss>

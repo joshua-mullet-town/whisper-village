@@ -16,7 +16,3 @@ xcuserdata/
 
 # Misc
 .hud.json
-
-# Agent memory (local only)
-PLAN.md
-STATE.md

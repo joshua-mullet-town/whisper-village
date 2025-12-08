@@ -28,20 +28,28 @@ User says: "switch to the second terminal"
 4. Execute AppleScript to focus iTerm tab 2
 ```
 
-### Tests to Write
+### Tests Written ✓
 
-- [ ] `test_get_open_apps()` - Returns list of running applications
-- [ ] `test_get_iterm_tabs()` - Returns iTerm tab count and titles
-- [ ] `test_get_chrome_tabs()` - Returns Chrome tab count and titles
-- [ ] `test_llm_chooses_correct_app()` - Given "open browser", LLM picks Chrome
-- [ ] `test_llm_chooses_correct_tab()` - Given "second terminal", LLM picks iTerm tab 2
-- [ ] `test_llm_handles_ambiguity()` - Given "terminal", LLM picks iTerm (not Terminal.app)
+- [x] `test_get_open_apps()` - Returns list of running applications
+- [x] `test_get_iterm_tabs()` - Returns iTerm tab count and titles
+- [x] `test_get_chrome_tabs()` - Returns Chrome tab count and titles
+- [x] `test_llm_chooses_correct_app()` - Given "open browser", LLM picks Chrome
+- [x] `test_llm_chooses_correct_tab()` - Given "second terminal", LLM picks iTerm tab 2
+- [x] `test_llm_handles_ambiguity()` - Given "terminal", LLM picks iTerm (not Terminal.app)
+- [x] `test_tab_by_content()` - Given "commander tab", LLM finds tab with "commander" in name
+- [x] Natural language variations ("pull up", "show me", "can you switch to")
 
-### LLM Options to Test
+### LLM Results
 
-- **Ollama** - Easy setup, runs locally, supports tool use
-- **llama.cpp** - Lightweight, can embed directly
-- **MLX** - Apple Silicon optimized
+**Winner: Ollama + Llama 3.2 3B**
+- 600-700ms latency for basic commands
+- 1-1.8s for complex tab switching
+- 2GB model size
+- Few-shot prompting works great
+
+Other options (not tested yet):
+- llama.cpp - Could embed directly in Swift
+- MLX - Apple Silicon optimized, might be faster
 
 ---
 

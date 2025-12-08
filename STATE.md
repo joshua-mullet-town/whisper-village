@@ -4,6 +4,40 @@
 
 ---
 
+## [2025-12-08] Local LLM App Switching Proof of Concept
+
+**Achievement:** Proved local LLM (Ollama + Llama 3.2 3B) can interpret voice commands and choose correct app/tab.
+
+**Test Results:** 11/12 passing
+
+**Key Findings:**
+- **Latency:** 600-700ms for basic commands, 1-1.8s for tab switching
+- **Accuracy:** Correctly interprets "terminal" → iTerm2, "browser" → Chrome
+- **Smart:** Can find tabs by content (e.g., "commander tab" finds tab with "commander" in name)
+- **Natural:** Handles variations like "pull up", "switch to", "show me"
+
+**What Works:**
+```bash
+# Get open apps
+osascript -e 'tell app "System Events" to get name of every process whose background only is false'
+
+# Get iTerm tabs with names
+osascript (script that enumerates windows/tabs/session names)
+
+# Get Chrome tabs with titles
+osascript (script that enumerates windows/tabs/titles)
+```
+
+**LLM Setup:**
+- Ollama as local server
+- Model: llama3.2:3b (2GB)
+- Few-shot prompting with examples in prompt
+
+**Files Created:**
+- `tests/test_llm_app_switching.py` - Unit tests proving LLM choices
+
+---
+
 ## [2025-12-08] Voice Navigation Proof of Concept Working
 
 **Achievement:** Proved two key capabilities for hands-free workflow:

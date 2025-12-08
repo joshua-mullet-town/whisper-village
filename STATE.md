@@ -4,6 +4,36 @@
 
 ---
 
+## [2025-12-08] Voice Navigation Proof of Concept Working
+
+**Achievement:** Proved two key capabilities for hands-free workflow:
+
+### 1. Send & Continue
+- Say "next" → pastes current transcription, hits Enter, **keeps recording**
+- Can dictate multiple messages in one recording session
+- Buffer clears after send, ready for next dictation
+
+### 2. Focus App (Navigation)
+- Say "go to chrome" → focuses Chrome, keeps recording
+- Say "go to terminal" → focuses iTerm, keeps recording
+- AppleScript runs via `Process` to activate apps
+- Recording continues seamlessly after app switch
+
+**Test Flow That Works:**
+1. Start recording
+2. "Hello this is message one" → "next" → pastes to current app
+3. "go to chrome" → Chrome focuses
+4. "Here's message two" → "next" → pastes in Chrome
+5. "go to terminal" → iTerm focuses
+6. "Final message" → "send it" → pastes, stops recording
+
+**Key Insight:** The pieces work individually. Next challenge is making them seamless without accidental triggers.
+
+**Files Modified:**
+- `WhisperState.swift` - Added `.sendAndContinue` and `.focusApp` actions, targetApp field
+
+---
+
 ## [2025-12-08] Streaming Transcription Feature Complete (Phases 1-5)
 
 **Summary of what was built:**

@@ -81,13 +81,17 @@ class WhisperState: NSObject, ObservableObject {
     // MARK: - Voice Commands
     /// Voice command actions
     enum VoiceCommandAction: String, Codable, CaseIterable {
-        case stopAndPaste = "stop"           // Same as releasing hotkey
+        case stopAndPaste = "stop"              // Same as releasing hotkey
         case stopPasteAndEnter = "stopAndSend"  // Paste + hit Enter
+        case sendAndContinue = "sendContinue"   // Paste + Enter + keep recording
+        case focusApp = "focusApp"              // Focus an app, keep recording
 
         var displayName: String {
             switch self {
             case .stopAndPaste: return "Stop & Paste"
             case .stopPasteAndEnter: return "Stop, Paste & Send"
+            case .sendAndContinue: return "Send & Continue"
+            case .focusApp: return "Focus App"
             }
         }
     }
@@ -97,6 +101,7 @@ class WhisperState: NSObject, ObservableObject {
         var id = UUID()
         var phrase: String
         var action: VoiceCommandAction
+        var targetApp: String?  // For focusApp action
     }
 
     /// Default voice commands
@@ -104,6 +109,11 @@ class WhisperState: NSObject, ObservableObject {
         VoiceCommand(phrase: "send it", action: .stopPasteAndEnter),
         VoiceCommand(phrase: "stop recording", action: .stopAndPaste),
         VoiceCommand(phrase: "execute", action: .stopPasteAndEnter),
+        VoiceCommand(phrase: "next", action: .sendAndContinue),
+        VoiceCommand(phrase: "go to chrome", action: .focusApp, targetApp: "Google Chrome"),
+        VoiceCommand(phrase: "go to terminal", action: .focusApp, targetApp: "iTerm"),
+        VoiceCommand(phrase: "go to safari", action: .focusApp, targetApp: "Safari"),
+        VoiceCommand(phrase: "go to finder", action: .focusApp, targetApp: "Finder"),
     ]
 
     /// Load voice commands from UserDefaults or return defaults
@@ -720,13 +730,84 @@ class WhisperState: NSObject, ObservableObject {
         }
     }
 
-    /// Execute the detected voice command (stop recording)
+    /// Execute the detected voice command
     @MainActor
     private func executeVoiceCommand() async {
         guard recordingState == .recording else { return }
-        StreamingLogger.shared.log("Executing voice command - stopping recording")
+        guard let command = detectedVoiceCommand else { return }
 
-        // This triggers the same flow as releasing the hotkey
+        // Handle "focus app" - switch to an app, keep recording
+        if command.action == .focusApp, let appName = command.targetApp {
+            StreamingLogger.shared.log("Executing voice command: focus app '\(appName)'")
+
+            // Strip the command phrase from transcription (don't include "go to chrome" in text)
+            if !interimTranscription.isEmpty {
+                interimTranscription = stripVoiceCommand(command.phrase, from: interimTranscription)
+            }
+
+            // Run AppleScript to focus the app
+            let script = "tell application \"\(appName)\" to activate"
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            process.arguments = ["-e", script]
+
+            do {
+                try process.run()
+                process.waitUntilExit()
+                StreamingLogger.shared.log("Focused app: \(appName)")
+            } catch {
+                StreamingLogger.shared.log("Failed to focus app: \(error)")
+            }
+
+            // Reset voice command detection so we can detect again
+            detectedVoiceCommand = nil
+            return
+        }
+
+        // Handle "send and continue" - paste but keep recording
+        if command.action == .sendAndContinue {
+            StreamingLogger.shared.log("Executing voice command: send and continue")
+
+            // Build the full text from committed chunks + interim
+            var fullText = committedChunks.joined(separator: " ")
+            if !interimTranscription.isEmpty {
+                if !fullText.isEmpty {
+                    fullText += " "
+                }
+                fullText += interimTranscription
+            }
+
+            // Strip the voice command phrase
+            fullText = stripVoiceCommand(command.phrase, from: fullText)
+            fullText = fullText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if !fullText.isEmpty {
+                StreamingLogger.shared.log("Pasting and continuing: \"\(fullText)\"")
+
+                // Paste the text
+                CursorPaster.pasteAtCursor(fullText)
+
+                // Press Enter after a small delay
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    CursorPaster.pressEnter()
+                }
+            }
+
+            // Clear the buffers but keep recording
+            committedChunks = []
+            interimTranscription = ""
+            currentChunkStartSample = streamingRecorder.sampleCount
+            chunkStartTime = Date()
+
+            // Reset voice command detection so we can detect again
+            detectedVoiceCommand = nil
+
+            StreamingLogger.shared.log("Buffers cleared, continuing to record")
+            return
+        }
+
+        // For other actions (stop), trigger the normal flow
+        StreamingLogger.shared.log("Executing voice command - stopping recording")
         await toggleRecord()
     }
 

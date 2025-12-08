@@ -4,6 +4,74 @@
 
 ---
 
+## CURRENT: Local LLM for Smart App Switching
+
+**Goal:** Replace hard-coded "go to chrome" commands with intelligent LLM-based app switching.
+
+### What We Need to Prove
+
+1. **Get open applications** - Can we quickly list all running apps?
+2. **Get app details** - Can we see tabs in iTerm/Chrome?
+3. **LLM tool use** - Can a local LLM call a "focus_app" tool correctly?
+4. **Speed** - Is it fast enough for voice UX? (< 500ms ideally)
+
+### Technical Approach
+
+```
+User says: "switch to the second terminal"
+     ↓
+1. Get list of open apps + their windows/tabs
+2. Send to local LLM with tool definition:
+   - Tool: focus_app(app_name, tab_index?)
+   - Context: [iTerm: 3 tabs, Chrome: 5 tabs, Finder: 2 windows]
+3. LLM returns: focus_app("iTerm", 2)
+4. Execute AppleScript to focus iTerm tab 2
+```
+
+### Tests to Write
+
+- [ ] `test_get_open_apps()` - Returns list of running applications
+- [ ] `test_get_iterm_tabs()` - Returns iTerm tab count and titles
+- [ ] `test_get_chrome_tabs()` - Returns Chrome tab count and titles
+- [ ] `test_llm_chooses_correct_app()` - Given "open browser", LLM picks Chrome
+- [ ] `test_llm_chooses_correct_tab()` - Given "second terminal", LLM picks iTerm tab 2
+- [ ] `test_llm_handles_ambiguity()` - Given "terminal", LLM picks iTerm (not Terminal.app)
+
+### LLM Options to Test
+
+- **Ollama** - Easy setup, runs locally, supports tool use
+- **llama.cpp** - Lightweight, can embed directly
+- **MLX** - Apple Silicon optimized
+
+---
+
+## User Stories to Support
+
+These are the real workflows we're building toward:
+
+### Story 1: Multi-Terminal Flip-Flop
+> "I'm talking and I want to send to the current terminal, switch to a different terminal, then switch back."
+
+Flow: dictate → send → go to terminal 2 → dictate → send → go to terminal 1
+
+### Story 2: Terminal + Browser Validation
+> "Talking, switch to terminal, inject command, go to browser to validate, switch back to terminal, keep talking."
+
+Flow: dictate → go to terminal → send → go to browser → (visually check) → go to terminal → dictate
+
+### Story 3: Avoid Accidental Triggers
+> "I accidentally said 'execute' and it sent my incomplete message."
+
+**Problem:** Common words trigger actions unexpectedly.
+
+**Possible Solutions:**
+- Use uncommon trigger phrases ("whisper send", "village go")
+- Require a "command mode" activation word
+- Use tone/pause detection (command voice vs dictation voice)
+- LLM intent detection (is this a command or dictation?)
+
+---
+
 ## FUTURE: Phase 6 - Voice-Activated Start
 
 **Goal:** Start transcription with voice alone (no hotkey needed).
@@ -21,58 +89,23 @@
 
 ---
 
-## FUTURE: Phase 7 - Application Navigation
+## FUTURE: Phase 7 - Seamless Mode Switching
 
-**Goal:** Control your Mac with voice commands beyond transcription.
+**Goal:** Fluid transitions between dictation and commands without explicit mode switching.
 
-**Ideas:**
-- "Focus Safari" → switch to Safari
-- "Open terminal" → launch/focus Terminal
-- "New tab" → Cmd+T in current app
-- "Scroll down" → page navigation
+**The Dream:**
+- Just talk naturally
+- LLM figures out what's a command vs what's dictation
+- No "command mode" or "dictation mode" needed
+- Context-aware (knows you're in a text field vs desktop)
 
-**Challenges:**
-- Need robust phrase detection (not just end-of-speech)
-- Distinguishing commands from dictation
-- App-specific commands
-- System permissions for accessibility control
+**Reality Check:**
+- Latency might make this impractical
+- May need hybrid: obvious commands detected fast, ambiguous ones go to LLM
 
 ---
 
-## FUTURE: Phase 8 - Local LLM for Fuzzy Command Matching
-
-**Goal:** Use a local LLM to intelligently interpret voice commands instead of hard-coded phrase matching.
-
-**The Problem:**
-Hard-coded commands are brittle. If user says "open the browser" or "open Chrome" or "launch Chrome" or "go to Chrome" - they all mean the same thing, but string matching won't catch that.
-
-**The Idea:**
-- Run a small local LLM (like Llama, Phi, or similar)
-- Feed it the transcribed command + list of available actions
-- LLM determines intent and maps to correct action
-- Much more flexible than regex/string matching
-
-**Example:**
-```
-User says: "hey, can you pull up Chrome for me"
-LLM interprets: { action: "open_app", target: "Google Chrome" }
-```
-
-**Challenges:**
-- Latency - needs to be fast enough for voice UX
-- Model size vs accuracy tradeoff
-- Integration with existing command system
-- Keeping it truly local (no API calls)
-
-**Possible Approaches:**
-- llama.cpp with a small model (3B params or less)
-- MLX on Apple Silicon
-- Ollama as a local server
-- Fine-tuned model specifically for command interpretation
-
----
-
-## FUTURE: Phase 9 - Claude Code Meta Assistant
+## FUTURE: Phase 8 - Claude Code Meta Assistant
 
 **Goal:** A "copilot for the copilot" - local LLM that watches Claude Code sessions and provides guidance.
 
@@ -80,9 +113,7 @@ LLM interprets: { action: "open_app", target: "Google Chrome" }
 When returning to a Claude Code session, you have to:
 1. Remember what you asked Claude to do
 2. Read what Claude did
-3. Figure out what to do next (test it? approve it? ask for changes?)
-
-This context-switching is mentally taxing.
+3. Figure out what to do next
 
 **The Idea:**
 A local LLM that monitors Claude Code and provides concise summaries:
@@ -90,38 +121,24 @@ A local LLM that monitors Claude Code and provides concise summaries:
 - "Claude modified styles.css and says it's fixed"
 - "Next step: Test at localhost:3000 to verify"
 
-**How It Would Work:**
-1. Hook into Claude Code events (user prompt submitted, Claude response complete)
-2. Extract last user message + last Claude response
-3. Feed to local LLM with prompt: "Summarize what happened and suggest next action"
-4. Display summary somewhere visible
-
-**Where Should It Live?**
-Options to explore:
-- **Separate terminal window** - Always visible above main Claude Code terminal
-- **Inside Whisper Village** - A HUD/overlay that shows the summary
-- **tmux/terminal multiplexer** - Split pane that auto-updates
-- **Menu bar widget** - Quick glance at current state
-
 **Technical Approach:**
-- Use Claude Code hooks (they fire on tool calls and responses)
-- Write hook output to a file or pipe
-- Separate process reads and feeds to local LLM
-- Display result in chosen UI
-
-**Challenges:**
-- Parsing Claude Code's output format
-- Keeping summaries concise and actionable
-- Not being annoying (only update when meaningful)
-- Choosing the right local LLM for summarization
+- Use Claude Code hooks
+- Feed last exchange to local LLM
+- Display summary in HUD/overlay/separate terminal
 
 ---
 
 ## Notes
 
-These are ambitious features that go beyond transcription into voice assistant territory. Phase 8 and 9 both rely on local LLMs - may want to establish a shared LLM infrastructure first.
+**Accidental Trigger Problem:**
+This is a real UX issue. Options to explore:
+1. **Uncommon phrases** - "whisper send" instead of "send it"
+2. **Confirmation delay** - Show what will happen, 500ms to cancel
+3. **Command prefix** - "hey village, go to chrome" (only "hey village" activates command mode)
+4. **LLM gating** - Every phrase goes to LLM first to classify as command vs dictation
 
-Research existing solutions:
-- macOS Voice Control, Talon (for Phase 6-7)
-- Ollama, llama.cpp, MLX (for Phase 8-9)
-- Claude Code hooks documentation (for Phase 9)
+**Local LLM Infrastructure:**
+Phases 7 and 8 both need local LLM. Establish this infrastructure now:
+- Ollama as the server (easy, well-supported)
+- Small fast model for command interpretation (Phi-3, Llama 3.2 1B)
+- Larger model for summarization if needed

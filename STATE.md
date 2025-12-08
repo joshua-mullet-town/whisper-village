@@ -4,6 +4,39 @@
 
 ---
 
+## [2025-12-08] Streaming Transcription Feature Complete (Phases 1-5)
+
+**Summary of what was built:**
+- Phase 1: AVAudioEngine captures audio samples
+- Phase 2: Buffer accumulates at 16kHz mono
+- Phase 3: Timer-based streaming transcription (every 1s)
+- Phase 4: Chat bubble UI with chunk-commit (30s commits)
+- Phase 5: Voice Commands (stop, stop+send, user-configurable)
+- Parakeet V3 streaming support
+- Streaming preview polish (eyeball toggle, transparency, resize)
+- Window position persistence (capsule-based)
+
+**Releases:**
+- v1.3.0: Initial streaming preview
+- v1.4.0: Voice commands + polish
+
+**Key Files:**
+- `StreamingRecorder.swift` - AVAudioEngine capture
+- `WhisperState.swift` - Streaming logic, voice commands
+- `MiniRecorderView.swift` - Chat bubble UI
+- `MiniRecorderPanel.swift` - Window positioning
+- `ExperimentalFeaturesSection.swift` - Settings UI
+
+---
+
+## [2025-12-08] v1.4.0 Released
+
+**Achievement:** Voice Commands shipped to GitHub.
+
+**Release URL:** https://github.com/joshua-mullet-town/whisper-village/releases/tag/v1.4.0
+
+---
+
 ## [2025-12-08] Phase 5 Complete - Voice Commands
 
 **Achievement:** Full voice command system with user-configurable phrases.
@@ -193,7 +226,7 @@ The regex `\bI'\b` fails because `\b` (word boundary) doesn't work after apostro
 ## Project Facts
 
 **App Name:** Whisper Village (rebranded from VoiceInk)
-**Current Version:** v1.2.0
+**Current Version:** v1.4.0
 **Platform:** macOS
 **Distribution:** GitHub Releases + Sparkle auto-updates
 

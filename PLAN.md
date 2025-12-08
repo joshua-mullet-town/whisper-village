@@ -4,46 +4,29 @@
 
 ---
 
-## CURRENT: Phase 4 - Chunk-Commit Streaming UI
+## CURRENT: Streaming Preview Polish
 
-### The Vision
-Chat-bubble style streaming preview. Every 10 seconds, a new "bubble" commits and scrolls up. Live preview at the bottom keeps self-correcting.
+### Tasks
 
-### Implementation Tasks
+1. **Fix I' -> I'm in streaming preview**
+   - Final transcription shows "I'm" correctly
+   - Streaming preview shows "I'" (missing the built-in fix)
+   - Apply `WordReplacementService.applyBuiltInFixes()` to streaming results
 
-1. **Chunk-commit logic in WhisperState**
-   - Track `committedChunks: [String]` array
-   - Track `currentChunkStartTime`
-   - Every 3s: transcribe current chunk (can self-correct)
-   - Every 10s: commit chunk to array, start fresh
+2. **Add eyeball toggle on orange bar**
+   - Only visible when streaming mode is enabled in settings
+   - Open eye = preview box visible
+   - Closed eye = preview box hidden
+   - Quick toggle without going to settings
 
-2. **Chat-bubble UI in MiniRecorderView**
-   - ScrollView with bubbles (left-aligned, like texting yourself)
-   - Each committed chunk = one bubble
-   - Live preview at bottom = current bubble (still correcting)
-   - Auto-scroll as new bubbles appear
+3. **Add transparency control to preview box**
+   - Small control to increase/decrease opacity
+   - Persists preference for next time
 
-3. **Fix balloon bug**
-   - Orange capsule expands to full height before black box loads
-   - Give it a fixed frame so it doesn't balloon
-
-4. **Final transcription display**
-   - When recording stops, show REAL transcription (from full audio file)
-   - Display semi-transparent until clicked
-   - On click, become fully opaque
-   - Editable text box
-   - Same paste behavior as before
-
-### Cadence
-- t=3s: transcribe 0-3s → live preview
-- t=6s: transcribe 0-6s → live preview (self-corrects)
-- t=9s: transcribe 0-9s → live preview (self-corrects)
-- t=10s: transcribe 0-10s → COMMIT as bubble, start fresh
-- t=13s: transcribe 10-13s → new live preview
-- ...repeat
-
-### Key Point
-The bubbles are just visual feedback. Real transcription uses the full audio file at the end (existing proven approach). Bubbles don't affect final paste.
+4. **Add resizable preview box**
+   - Drag to resize (corner or edge handle)
+   - Size persists for next session
+   - Store in UserDefaults
 
 ---
 
@@ -51,8 +34,10 @@ The bubbles are just visual feedback. Real transcription uses the full audio fil
 
 - ✅ Phase 1: AVAudioEngine captures audio samples
 - ✅ Phase 2: Buffer accumulates at 16kHz mono
-- ✅ Phase 3: Timer-based streaming transcription (~1.8s per chunk)
-- ✅ Basic streaming preview UI (editable text box above capsule)
+- ✅ Phase 3: Timer-based streaming transcription
+- ✅ Phase 4: Chat bubble UI with chunk-commit (30s commits, 1s updates)
+- ✅ Parakeet V3 streaming support
+- ✅ v1.3.0 shipped to GitHub
 
 ---
 

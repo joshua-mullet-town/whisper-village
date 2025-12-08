@@ -218,6 +218,9 @@ class WhisperState: NSObject, ObservableObject {
                             }
 
                             await MainActor.run {
+                                // Clear streaming preview from last session
+                                self.committedChunks = []
+                                self.interimTranscription = ""
                                 self.recordingState = .recording
                             }
                             
@@ -614,7 +617,9 @@ class WhisperState: NSObject, ObservableObject {
             }
         }
 
+        // Apply built-in fixes (e.g., I' -> I'm) to streaming preview
         if !trimmedText.isEmpty {
+            trimmedText = WordReplacementService.shared.applyBuiltInFixes(to: trimmedText)
             interimTranscription = trimmedText
         }
 

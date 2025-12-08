@@ -4,6 +4,53 @@
 
 ---
 
+## [2025-12-08] Phase 5 Complete - Voice Commands
+
+**Achievement:** Full voice command system with user-configurable phrases.
+
+**What Works:**
+- Say trigger phrases to stop recording hands-free
+- Two actions: "Stop & Paste" or "Stop, Paste & Send" (hits Enter)
+- User-configurable phrases in Settings → Experimental Features
+- Case-insensitive detection, handles trailing punctuation
+- Trigger phrase stripped from final pasted text
+- Window position remembers capsule location (not window center)
+
+**Default Triggers:**
+- `"send it"` → Stop, Paste & Send
+- `"stop recording"` → Stop & Paste
+- `"execute"` → Stop, Paste & Send
+
+**Implementation:**
+- `VoiceCommand` struct with `phrase` and `action`
+- Stored in UserDefaults as JSON (`VoiceCommands` key)
+- Settings UI to add/delete/reset commands
+- `MiniRecorderPanel` saves capsule position for consistent placement
+
+**Files Modified:**
+- `WhisperState.swift` - VoiceCommand model, detection, execution
+- `ExperimentalFeaturesSection.swift` - Voice commands settings UI
+- `MiniRecorderPanel.swift` - Capsule-based position persistence
+
+---
+
+## [2025-12-08] Streaming Preview Polish Complete
+
+**Achievement:** Polished streaming preview UI with eyeball toggle, transparency controls, resizable box.
+
+**Features Added:**
+- Eyeball toggle on orange bar (right side near timer) - show/hide preview
+- Transparency +/- controls on preview box - affects background AND bubbles
+- Resizable preview box with drag handle (WindowDragBlocker prevents window movement)
+- Preview shows immediately when recording starts with "Listening..." placeholder
+- Old content cleared when new recording starts
+
+**Key Code:**
+- `WindowDragBlocker` - NSViewRepresentable that overrides `mouseDownCanMoveWindow` to block window drag
+- `@AppStorage` used for persisting visibility, opacity, width, height
+
+---
+
 ## [2025-12-07] Phase 4 Complete - Streaming Preview UI with Parakeet Support
 
 **Achievement:** Real-time chat-bubble streaming preview with chunk-commit system. Parakeet V3 works best.

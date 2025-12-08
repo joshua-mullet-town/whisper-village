@@ -76,8 +76,10 @@ struct MiniRecorderView: View {
         Group {
             let hasContent = !whisperState.committedChunks.isEmpty || !whisperState.interimTranscription.isEmpty
             let isRecording = whisperState.recordingState == .recording
+            let shouldShow = isStreamingModeEnabled && isRecording && isPreviewVisible
 
-            if isStreamingModeEnabled && isRecording && isPreviewVisible {
+            // Always allocate space when streaming mode enabled, use opacity to hide/show
+            if isStreamingModeEnabled {
                 ZStack(alignment: .topTrailing) {
                     ScrollViewReader { proxy in
                         ScrollView {
@@ -170,7 +172,7 @@ struct MiniRecorderView: View {
                             }
                     )
                 }
-                .transition(.opacity)
+                .opacity(shouldShow ? 1 : 0) // Hide via opacity instead of removing from layout
             }
         }
     }
@@ -270,17 +272,17 @@ struct MiniRecorderView: View {
     var body: some View {
         Group {
             if windowManager.isVisible {
+                // Fixed layout: preview box space always allocated, capsule always at bottom
                 VStack(spacing: 16) {
                     Spacer(minLength: 0)
 
-                    // Chat bubble streaming preview
+                    // Preview box - always takes space, hidden via opacity when not active
                     streamingBubblesView
 
-                    // The orange capsule recorder (fixed size to prevent balloon bug)
+                    // Orange capsule - always at bottom
                     recorderCapsule
                         .frame(width: 250, height: 36)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                 .padding(.bottom, 8)
                 .onChange(of: whisperState.recordingState) { _, newState in
                     if newState == .recording {

@@ -77,7 +77,47 @@ class WhisperState: NSObject, ObservableObject {
 
     /// Timer to track when to commit chunks
     private var chunkStartTime: Date?
-    
+
+    // MARK: - Voice Commands
+    /// Voice command actions
+    enum VoiceCommandAction: String, Codable, CaseIterable {
+        case stopAndPaste = "stop"           // Same as releasing hotkey
+        case stopPasteAndEnter = "stopAndSend"  // Paste + hit Enter
+
+        var displayName: String {
+            switch self {
+            case .stopAndPaste: return "Stop & Paste"
+            case .stopPasteAndEnter: return "Stop, Paste & Send"
+            }
+        }
+    }
+
+    /// Voice command model for persistence
+    struct VoiceCommand: Codable, Identifiable, Equatable {
+        var id = UUID()
+        var phrase: String
+        var action: VoiceCommandAction
+    }
+
+    /// Default voice commands
+    static let defaultVoiceCommands: [VoiceCommand] = [
+        VoiceCommand(phrase: "send it", action: .stopPasteAndEnter),
+        VoiceCommand(phrase: "stop recording", action: .stopAndPaste),
+        VoiceCommand(phrase: "execute", action: .stopPasteAndEnter),
+    ]
+
+    /// Load voice commands from UserDefaults or return defaults
+    private var voiceCommandTriggers: [VoiceCommand] {
+        if let data = UserDefaults.standard.data(forKey: "VoiceCommands"),
+           let commands = try? JSONDecoder().decode([VoiceCommand].self, from: data) {
+            return commands
+        }
+        return WhisperState.defaultVoiceCommands
+    }
+
+    /// Detected voice command (set during streaming, used during final transcription)
+    private var detectedVoiceCommand: VoiceCommand?
+
     // Prompt detection service for trigger word handling
     private let promptDetectionService = PromptDetectionService()
     
@@ -221,6 +261,7 @@ class WhisperState: NSObject, ObservableObject {
                                 // Clear streaming preview from last session
                                 self.committedChunks = []
                                 self.interimTranscription = ""
+                                self.detectedVoiceCommand = nil  // Reset voice command detection
                                 self.recordingState = .recording
                             }
                             
@@ -339,7 +380,13 @@ class WhisperState: NSObject, ObservableObject {
             if UserDefaults.standard.bool(forKey: "IsWordReplacementEnabled") {
                 text = WordReplacementService.shared.applyReplacements(to: text)
             }
-            
+
+            // Strip voice command trigger phrase from final text
+            if let voiceCommand = detectedVoiceCommand {
+                text = stripVoiceCommand(voiceCommand.phrase, from: text)
+                StreamingLogger.shared.log("Stripped voice command \"\(voiceCommand.phrase)\" from final text")
+            }
+
             let audioAsset = AVURLAsset(url: url)
             let actualDuration = (try? CMTimeGetSeconds(await audioAsset.load(.duration))) ?? 0.0
             var promptDetectionResult: PromptDetectionService.PromptDetectionResult? = nil
@@ -418,11 +465,25 @@ class WhisperState: NSObject, ObservableObject {
 
             if await checkCancellationAndCleanup() { return }
 
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [self] in
                 CursorPaster.pasteAtCursor(text)
 
-                let powerMode = PowerModeManager.shared
-                if let activeConfig = powerMode.currentActiveConfiguration, activeConfig.isAutoSendEnabled {
+                // Check if we should press Enter (voice command or power mode auto-send)
+                let shouldPressEnter: Bool = {
+                    // Voice command requested Enter
+                    if let voiceCommand = detectedVoiceCommand, voiceCommand.action == .stopPasteAndEnter {
+                        StreamingLogger.shared.log("Voice command action: pressing Enter")
+                        return true
+                    }
+                    // Power mode auto-send enabled
+                    let powerMode = PowerModeManager.shared
+                    if let activeConfig = powerMode.currentActiveConfiguration, activeConfig.isAutoSendEnabled {
+                        return true
+                    }
+                    return false
+                }()
+
+                if shouldPressEnter {
                     // Slight delay to ensure the paste operation completes
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                         CursorPaster.pressEnter()
@@ -621,9 +682,72 @@ class WhisperState: NSObject, ObservableObject {
         if !trimmedText.isEmpty {
             trimmedText = WordReplacementService.shared.applyBuiltInFixes(to: trimmedText)
             interimTranscription = trimmedText
+
+            // Check for voice commands at end of transcription
+            checkForVoiceCommand(in: trimmedText)
         }
 
         isStreamingTranscriptionInProgress = false
+    }
+
+    // MARK: - Voice Command Detection
+
+    /// Check if the transcription ends with a voice command trigger phrase
+    private func checkForVoiceCommand(in text: String) {
+        // Already detected a command in this session? Don't detect again.
+        guard detectedVoiceCommand == nil else { return }
+
+        let lowercasedText = text.lowercased()
+
+        for trigger in voiceCommandTriggers {
+            // Check if text ends with the trigger phrase (with optional trailing punctuation)
+            let pattern = trigger.phrase.lowercased()
+
+            // Match: ends with phrase, possibly followed by punctuation
+            if lowercasedText.hasSuffix(pattern) ||
+               lowercasedText.hasSuffix(pattern + ".") ||
+               lowercasedText.hasSuffix(pattern + "!") ||
+               lowercasedText.hasSuffix(pattern + ",") {
+                StreamingLogger.shared.log("Voice command detected: \"\(trigger.phrase)\" -> \(trigger.action)")
+                detectedVoiceCommand = trigger
+
+                // Trigger stop recording
+                Task { @MainActor in
+                    await self.executeVoiceCommand()
+                }
+                return
+            }
+        }
+    }
+
+    /// Execute the detected voice command (stop recording)
+    @MainActor
+    private func executeVoiceCommand() async {
+        guard recordingState == .recording else { return }
+        StreamingLogger.shared.log("Executing voice command - stopping recording")
+
+        // This triggers the same flow as releasing the hotkey
+        await toggleRecord()
+    }
+
+    /// Strip the voice command phrase from the end of the transcription
+    private func stripVoiceCommand(_ phrase: String, from text: String) -> String {
+        let lowercasedText = text.lowercased()
+        let lowercasedPhrase = phrase.lowercased()
+
+        // Find the phrase at the end (with optional trailing punctuation)
+        for suffix in [lowercasedPhrase, lowercasedPhrase + ".", lowercasedPhrase + "!", lowercasedPhrase + ","] {
+            if lowercasedText.hasSuffix(suffix) {
+                // Remove from original text (preserving case)
+                let startIndex = text.index(text.endIndex, offsetBy: -suffix.count)
+                var result = String(text[..<startIndex])
+                result = result.trimmingCharacters(in: .whitespacesAndNewlines)
+                return result
+            }
+        }
+
+        // Phrase not found at end, return original
+        return text
     }
 }
 

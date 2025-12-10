@@ -163,6 +163,15 @@ class StreamingRecorder: ObservableObject {
         return count
     }
 
+    /// Clear the buffer without stopping recording (for cancel/reset)
+    func clearBuffer() {
+        logger.log("clearBuffer() called - clearing \(sampleBuffer.count) samples")
+        bufferLock.lock()
+        sampleBuffer.removeAll()
+        bufferLock.unlock()
+        sampleCount = 0
+    }
+
     /// Process incoming audio buffer - convert to 16kHz mono and store
     private func processAudioBuffer(_ buffer: AVAudioPCMBuffer, inputFormat: AVAudioFormat) {
         guard let channelData = buffer.floatChannelData else { return }

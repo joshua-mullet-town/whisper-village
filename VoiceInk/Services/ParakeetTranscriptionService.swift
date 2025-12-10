@@ -62,12 +62,19 @@ class ParakeetTranscriptionService: TranscriptionService {
     /// Transcribe raw audio samples directly (for streaming preview)
     /// Does NOT cleanup after transcription to allow repeated calls
     func transcribeSamples(_ samples: [Float]) async throws -> String {
+        // Wait a moment if cleanup might be in progress (race condition mitigation)
+        if !isModelLoaded && asrManager != nil {
+            logger.notice("🦜 Model marked as not loaded but manager exists - possible cleanup in progress, waiting...")
+            try await Task.sleep(nanoseconds: 100_000_000) // 100ms
+        }
+
         if asrManager == nil || !isModelLoaded {
+            logger.notice("🦜 Loading model for streaming transcription...")
             try await loadModel()
         }
 
-        guard let asrManager = asrManager else {
-            logger.notice("🦜 Parakeet manager is still nil after attempting to load the model.")
+        guard let manager = asrManager, isModelLoaded else {
+            logger.notice("🦜 Parakeet manager is still nil or not loaded after attempting to load the model.")
             throw ASRError.notInitialized
         }
 
@@ -77,17 +84,25 @@ class ParakeetTranscriptionService: TranscriptionService {
             return ""
         }
 
-        let result = try await asrManager.transcribe(samples)
+        // Wrap transcription in do/catch to handle internal FluidAudio crashes gracefully
+        do {
+            let result = try await manager.transcribe(samples)
 
-        var text = result.text
+            var text = result.text
 
-        if UserDefaults.standard.object(forKey: "IsTextFormattingEnabled") as? Bool ?? true {
-            text = WhisperTextFormatter.format(text)
+            if UserDefaults.standard.object(forKey: "IsTextFormattingEnabled") as? Bool ?? true {
+                text = WhisperTextFormatter.format(text)
+            }
+
+            text = WhisperHallucinationFilter.filter(text)
+
+            return text
+        } catch {
+            logger.error("🦜 Streaming transcription failed: \(error.localizedDescription)")
+            // Mark model as not loaded so next attempt will reload
+            isModelLoaded = false
+            throw error
         }
-
-        text = WhisperHallucinationFilter.filter(text)
-
-        return text
     }
 
     func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {

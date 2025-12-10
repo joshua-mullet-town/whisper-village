@@ -53,30 +53,57 @@ extension WhisperState {
     }
     
     func dismissMiniRecorder() async {
-        if recordingState == .busy { return }
-        
+        StreamingLogger.shared.log("=== DISMISS MINI RECORDER CALLED ===")
+        StreamingLogger.shared.log("  recordingState: \(recordingState)")
+        StreamingLogger.shared.log("  debugLog.count BEFORE: \(debugLog.count)")
+
+        if recordingState == .busy {
+            StreamingLogger.shared.log("  EARLY RETURN: recordingState is .busy")
+            return
+        }
+
         let wasRecording = recordingState == .recording
-        
+
         logger.notice("📱 Dismissing \(self.recorderType) recorder")
-        
+
+        // CRITICAL: Stop streaming transcription timer FIRST to prevent race conditions
+        StreamingLogger.shared.log("  Stopping streaming transcription timer...")
+        stopStreamingTranscription()
+
+        // Clear the streaming recorder buffer to prevent old audio from being transcribed
+        StreamingLogger.shared.log("  Clearing streaming recorder buffer...")
+        await streamingRecorder.clearBuffer()
+
         await MainActor.run {
             self.recordingState = .busy
         }
-        
+
         if wasRecording {
             await recorder.stopRecording()
         }
-        
+
+        // Stop streaming recorder
+        _ = await streamingRecorder.stopRecording()
+
         hideRecorderPanel()
-        
+
         await MainActor.run {
             isMiniRecorderVisible = false
         }
-        
+
         await cleanupModelResources()
-        
+
         await MainActor.run {
+            StreamingLogger.shared.log("  CLEARING STATE in MainActor.run")
+            StreamingLogger.shared.log("  debugLog.count BEFORE clear: \(debugLog.count)")
             recordingState = .idle
+            // Clear debug log and streaming state on dismiss
+            debugLog = []
+            committedChunks = []
+            interimTranscription = ""
+            isInJarvisCommandMode = false
+            StreamingLogger.shared.log("  debugLog.count AFTER clear: \(debugLog.count)")
+            StreamingLogger.shared.log("=== DISMISS COMPLETE ===")
         }
     }
     

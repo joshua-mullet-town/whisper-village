@@ -5,10 +5,10 @@ struct ExperimentalFeaturesSection: View {
     @AppStorage("StreamingModeEnabled") private var isStreamingModeEnabled = false
     @ObservedObject private var playbackController = PlaybackController.shared
 
-    // Voice commands state
-    @State private var voiceCommands: [WhisperState.VoiceCommand] = []
-    @State private var newPhrase: String = ""
-    @State private var newAction: WhisperState.VoiceCommandAction = .stopPasteAndEnter
+    // Jarvis settings
+    @AppStorage("JarvisEnabled") private var isJarvisEnabled = true
+    @AppStorage("JarvisWakeWord") private var jarvisWakeWord = "jarvis"
+    @State private var ollamaStatus: String = "Checking..."
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -61,61 +61,68 @@ struct ExperimentalFeaturesSection: View {
                     .toggleStyle(.switch)
                     .help("Shows real-time transcription preview while recording. Requires a local Whisper model.")
 
-                    // Voice Commands section (only when streaming enabled)
+                    // Jarvis Commands section (only when streaming enabled)
                     if isStreamingModeEnabled {
                         Divider()
                             .padding(.vertical, 4)
 
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Voice Commands")
-                                .font(.headline)
-                            Text("Say these phrases to control recording with your voice")
+                            HStack {
+                                Text("Jarvis Commands")
+                                    .font(.headline)
+                                Spacer()
+                                Toggle("", isOn: $isJarvisEnabled)
+                                    .toggleStyle(.switch)
+                                    .labelsHidden()
+                            }
+                            Text("Say your wake word followed by a command (e.g., \"Jarvis send it\")")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
 
-                            // List of existing commands
-                            ForEach(voiceCommands) { command in
+                            if isJarvisEnabled {
+                                // Wake word field
                                 HStack {
-                                    Text("\"\(command.phrase)\"")
-                                        .font(.system(.body, design: .monospaced))
+                                    Text("Wake Word:")
+                                        .frame(width: 80, alignment: .leading)
+                                    TextField("jarvis", text: $jarvisWakeWord)
+                                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                                        .frame(maxWidth: 150)
                                     Spacer()
-                                    Text(command.action.displayName)
+                                }
+                                .padding(.top, 4)
+
+                                // Ollama status
+                                HStack {
+                                    Text("LLM Status:")
+                                        .frame(width: 80, alignment: .leading)
+                                    Text(ollamaStatus)
                                         .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    Button(action: { deleteCommand(command) }) {
-                                        Image(systemName: "trash")
-                                            .foregroundColor(.red.opacity(0.8))
+                                        .foregroundColor(ollamaStatus.contains("Ready") ? .green : .orange)
+                                    Button("Check") {
+                                        checkOllamaStatus()
                                     }
-                                    .buttonStyle(PlainButtonStyle())
+                                    .buttonStyle(.borderless)
+                                    .font(.caption)
+                                    Spacer()
                                 }
-                                .padding(.vertical, 4)
-                            }
 
-                            // Add new command
-                            HStack {
-                                TextField("New phrase...", text: $newPhrase)
-                                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                                    .frame(maxWidth: 200)
+                                // Built-in commands reference
+                                Text("Built-in Commands:")
+                                    .font(.subheadline)
+                                    .padding(.top, 8)
 
-                                Picker("", selection: $newAction) {
-                                    ForEach(WhisperState.VoiceCommandAction.allCases, id: \.self) { action in
-                                        Text(action.displayName).tag(action)
-                                    }
+                                VStack(alignment: .leading, spacing: 4) {
+                                    jarvisCommandRow("send it", "Paste + Enter, enter command mode")
+                                    jarvisCommandRow("stop", "Paste (no Enter), stop recording")
+                                    jarvisCommandRow("cancel", "Discard, stop recording")
+                                    jarvisCommandRow("pause", "Enter command mode, preserve buffer")
+                                    jarvisCommandRow("listen", "Resume transcribing")
+                                    jarvisCommandRow("go to [app]", "Focus app, enter command mode")
+                                    jarvisCommandRow("[nth] terminal tab", "Focus iTerm tab")
                                 }
-                                .frame(width: 150)
-
-                                Button("Add") {
-                                    addCommand()
-                                }
-                                .disabled(newPhrase.trimmingCharacters(in: .whitespaces).isEmpty)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                             }
-
-                            // Reset to defaults button
-                            Button("Reset to Defaults") {
-                                resetToDefaults()
-                            }
-                            .font(.caption)
-                            .foregroundColor(.secondary)
                         }
                         .padding(.top, 4)
                     }
@@ -129,49 +136,31 @@ struct ExperimentalFeaturesSection: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(CardBackground(isSelected: false, useAccentGradientWhenSelected: true))
         .onAppear {
-            loadVoiceCommands()
+            if isStreamingModeEnabled && isJarvisEnabled {
+                checkOllamaStatus()
+            }
         }
     }
 
-    // MARK: - Voice Command Management
+    // MARK: - Jarvis UI Helpers
 
-    private func loadVoiceCommands() {
-        if let data = UserDefaults.standard.data(forKey: "VoiceCommands"),
-           let commands = try? JSONDecoder().decode([WhisperState.VoiceCommand].self, from: data) {
-            voiceCommands = commands
-        } else {
-            voiceCommands = WhisperState.defaultVoiceCommands
+    @ViewBuilder
+    private func jarvisCommandRow(_ command: String, _ description: String) -> some View {
+        HStack {
+            Text("\"\(jarvisWakeWord) \(command)\"")
+                .font(.system(.caption, design: .monospaced))
+                .frame(width: 200, alignment: .leading)
+            Text(description)
         }
     }
 
-    private func saveVoiceCommands() {
-        if let data = try? JSONEncoder().encode(voiceCommands) {
-            UserDefaults.standard.set(data, forKey: "VoiceCommands")
+    private func checkOllamaStatus() {
+        ollamaStatus = "Checking..."
+        Task {
+            let isReady = await OllamaClient.shared.healthCheck()
+            await MainActor.run {
+                ollamaStatus = isReady ? "Ready (llama3.2:3b)" : "Not available - run 'ollama serve'"
+            }
         }
-    }
-
-    private func addCommand() {
-        let phrase = newPhrase.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !phrase.isEmpty else { return }
-
-        // Check for duplicates
-        guard !voiceCommands.contains(where: { $0.phrase.lowercased() == phrase }) else { return }
-
-        let command = WhisperState.VoiceCommand(phrase: phrase, action: newAction)
-        voiceCommands.append(command)
-        saveVoiceCommands()
-        newPhrase = ""
-    }
-
-    private func deleteCommand(_ command: WhisperState.VoiceCommand) {
-        voiceCommands.removeAll { $0.id == command.id }
-        saveVoiceCommands()
-    }
-
-    private func resetToDefaults() {
-        voiceCommands = WhisperState.defaultVoiceCommands
-        saveVoiceCommands()
     }
 }
-
-

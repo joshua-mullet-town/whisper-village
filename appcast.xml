@@ -3,6 +3,27 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.5.0</title>
+            <pubDate>Tue, 10 Dec 2025 07:45:00 -0500</pubDate>
+            <sparkle:version>73</sparkle:version>
+            <sparkle:shortVersionString>1.5.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>What's New in Version 1.5.0 - Jarvis Voice Commands</h3>
+                <ul>
+                    <li><strong>Jarvis Command System</strong> - Say "Jarvis" + command to control transcription hands-free</li>
+                    <li>"Jarvis send it" → Paste and send (hits Enter), keep recording</li>
+                    <li>"Jarvis pause/listen" → Toggle command mode</li>
+                    <li>"Jarvis go to Chrome" → Focus apps/tabs with local LLM navigation</li>
+                    <li><strong>Visual Timeline</strong> - Real-time log of transcriptions and commands</li>
+                    <li>Smart scroll - stays at bottom unless you scroll up</li>
+                    <li>Fixed duplicate commands with 3-second debounce</li>
+                </ul>
+                <p><em>Optional: For navigation commands, install Ollama + llama3.2:3b</em></p>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.5.0/WhisperVillage-1.5.0.dmg" length="12239632" type="application/octet-stream"/>
+        </item>
+        <item>
             <title>1.4.0</title>
             <pubDate>Sun, 8 Dec 2025 09:15:00 -0500</pubDate>
             <sparkle:version>72</sparkle:version>

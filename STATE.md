@@ -4,6 +4,117 @@
 
 ---
 
+## [2025-12-10] User Stories & Mode Switching Complete
+
+**User Stories - All Working:**
+1. **Multi-Terminal Flip-Flop** ✓ - dictate → send → go to terminal 2 → dictate → send → go to terminal 1
+2. **Terminal + Browser Validation** ✓ - dictate → go to terminal → send → go to browser → go to terminal → dictate
+3. **Accidental Trigger Prevention** ✓ - Solved with "Jarvis" wake word prefix
+
+**Phase 7 (Seamless Mode Switching) - Solved:**
+The wake word approach ("Jarvis X") provides clear command/dictation separation without LLM latency overhead. User explicitly signals intent - no ambiguity, no false triggers, predictable behavior.
+
+---
+
+## [2025-12-10] Debug Log UI Polish Complete
+
+**Achievement:** Polished the streaming preview into a proper timeline with visual states and smart scrolling.
+
+**Features Implemented:**
+
+1. **Unified Bubble Design** - All entries use consistent bubble styling with state indicators:
+   - **Active**: Orange background + orange waveform (currently transcribing)
+   - **Pending**: Gray background + gray waveform (will be sent)
+   - **Sent**: Green-tinted background + checkmark (already sent)
+   - **Command Pills**: Colored capsules for pause/listen/navigate/send actions
+   - **Listening**: Green waveform pill after resume
+
+2. **Duplicate Command Prevention** - Commands now use time-based debounce:
+   - Compares `commandPart` (not full phrase) to handle transcription variations
+   - 3-second window to prevent re-executing similar commands
+   - Fixes "go to terminal" showing twice due to streaming re-detection
+
+3. **Smart Scroll Behavior** - Using `defaultScrollAnchor(.bottom)`:
+   - Starts at bottom, stays anchored when content changes
+   - If user scrolls up, respects their position (no auto-pull-back)
+   - When user scrolls back to bottom, auto-scroll resumes
+   - Much simpler than manual scroll tracking attempts
+
+4. **Visual Polish**:
+   - Larger font (15pt) for live transcription bubble
+   - Bottom padding (24px) for breathing room
+   - Command pills with contextual icons and colors
+
+**Key Learning:** SwiftUI's `defaultScrollAnchor(.bottom)` (macOS 14+) handles "stick to bottom" chat behavior automatically. Manual scroll position tracking via GeometryReader/PreferenceKey doesn't work because those only fire on layout changes, not scroll events.
+
+**Files Modified:**
+- `MiniRecorderView.swift` - Simplified scroll view with `defaultScrollAnchor(.bottom)`, visual state bubbles
+- `WhisperState.swift` - Time-based command debounce with `lastExecutedJarvisCommandPart` and `lastJarvisCommandTime`
+
+---
+
+## [2025-12-09] Jarvis Command System - Full Debug & Polish
+
+**Major Fixes Completed:**
+
+1. **Debug Log Preview** - Transformed streaming preview into a persistent debug log showing all events (transcriptions, commands, actions, state changes). Nothing disappears during recording session.
+
+2. **Cancel Flow Fixed** - Double-escape and X button now properly clear ALL state:
+   - Stop streaming transcription timer FIRST (prevents race conditions)
+   - Clear StreamingRecorder audio buffer (was causing old audio to re-transcribe)
+   - Clear debug log, committed chunks, interim transcription, command mode
+   - Added `clearBuffer()` method to StreamingRecorder
+
+3. **"Jarvis listen" Resume Fixed** - Two issues resolved:
+   - Added fuzzy matching for common transcription errors: "lake", "lists", "listing", "liston", "lesson" all map to "listen"
+   - Built-in commands can now interrupt slow LLM calls (previously would skip with "already executing")
+
+4. **Duplicate Entry Prevention** - Added `isExecutingJarvisCommand` flag and `lastExecutedJarvisCommand` tracking to prevent same command executing multiple times.
+
+**Key Insight:** The cancel flow was clearing the debug log, but the StreamingRecorder still had old audio samples. When new recording started, it immediately transcribed the OLD audio and added it back to the log. Fix: Clear the audio buffer explicitly on dismiss.
+
+**Files Modified:**
+- `WhisperState.swift` - Debug log model, duplicate prevention, logging
+- `WhisperState+UI.swift` - Proper cleanup in dismissMiniRecorder
+- `StreamingRecorder.swift` - Added `clearBuffer()` method
+- `JarvisCommandService.swift` - Fuzzy matching for listen, `isBuiltInCommand()` method
+- `MiniRecorderView.swift` - Debug log entry rendering
+
+---
+
+## [2025-12-08] Jarvis Command Mode - Visual Indicator + Command Stripping
+
+**Completed:**
+1. **Pause state indicator** - Orange "⏸ Paused - say 'Jarvis listen' to resume" shows in preview box when in command mode
+2. **Command stripping** - "Jarvis pause", "Jarvis send it", etc. are now stripped from transcription using `command.textBefore`
+
+**Files Modified:**
+- `WhisperState.swift` - Made `isInJarvisCommandMode` published, added command stripping in `executeJarvisCommand`
+- `MiniRecorderView.swift` - Added pause indicator UI
+
+---
+
+## [2025-12-08] Jarvis Command System Implemented
+
+**Achievement:** Voice-controlled command system with wake word detection and local LLM interpretation.
+
+**How It Works:**
+- Say "Jarvis" followed by any command
+- Built-in commands: send it, stop, cancel, pause, listen, go to [app]
+- LLM interprets natural language for app/tab navigation
+- Enters "command mode" after most commands (stop transcribing)
+- "Jarvis listen" resumes transcription
+
+**Files Created:**
+- `VoiceInk/Services/JarvisCommandService.swift` - Command detection and execution
+- `VoiceInk/Services/OllamaClient.swift` - Local LLM client (Ollama + llama3.2:3b)
+
+**Files Modified:**
+- `WhisperState.swift` - Jarvis integration, command mode tracking
+- `ExperimentalFeaturesSection.swift` - Jarvis settings UI (wake word, status)
+
+---
+
 ## [2025-12-08] Local LLM App Switching Proof of Concept
 
 **Achievement:** Proved local LLM (Ollama + Llama 3.2 3B) can interpret voice commands and choose correct app/tab.

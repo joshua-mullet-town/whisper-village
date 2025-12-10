@@ -1,0 +1,224 @@
+# Jarvis Command System - Implementation Plan
+
+## The Vision
+
+**Wake word: "Jarvis"** (user-configurable)
+
+When the user says "Jarvis", everything after it is interpreted as a command:
+- "Jarvis send it" → paste current transcription + Enter
+- "Jarvis switch to terminal tab 2" → navigate to iTerm tab 2
+- "Jarvis go to Chrome" → focus Chrome
+- "Jarvis listen" / "Jarvis transcribe" → resume transcription mode
+
+The wake word signals: "Stop dictating, I'm giving you a command now."
+
+---
+
+## Architecture
+
+### Current State
+```
+Recording → Streaming transcription → Detect "send it" at end → Stop
+```
+- Hard-coded trigger phrases
+- Detected by string matching at end of text
+- Each phrase maps to a specific action
+
+### New Jarvis System
+```
+Recording → Streaming transcription → Detect "Jarvis X" anywhere
+                                           ↓
+                                    Extract command "X"
+                                           ↓
+                                    Send to LLM for interpretation
+                                           ↓
+                                    Execute action
+                                           ↓
+                                    Strip "Jarvis X" from text
+                                           ↓
+                                    Continue recording (unless stop)
+```
+
+---
+
+## Command Categories
+
+### 1. Transcription Control
+- "Jarvis send it" → Paste current text + Enter, keep recording
+- "Jarvis send" → Same as above
+- "Jarvis stop" → Paste current text, stop recording
+- "Jarvis cancel" → Discard text, stop recording
+- "Jarvis listen" / "Jarvis transcribe" → Clear buffer, resume listening
+
+### 2. Navigation (LLM-interpreted)
+- "Jarvis go to Chrome" → Focus Chrome
+- "Jarvis switch to terminal" → Focus iTerm
+- "Jarvis second terminal tab" → Focus iTerm tab 2
+- "Jarvis open my email" → Focus Chrome (Gmail tab)
+
+### 3. Future Extensions
+- "Jarvis scroll down" → Send Page Down
+- "Jarvis new tab" → Cmd+T
+- "Jarvis close tab" → Cmd+W
+
+---
+
+## Implementation Steps
+
+### Step 1: Create JarvisCommandService
+**New file:** `VoiceInk/Services/JarvisCommandService.swift`
+
+```swift
+class JarvisCommandService {
+    /// User-configurable wake word (default: "jarvis")
+    @AppStorage("JarvisWakeWord") var wakeWord: String = "jarvis"
+
+    /// Detect if text contains a Jarvis command
+    func detectCommand(in text: String) -> JarvisCommand?
+
+    /// Execute a Jarvis command
+    func execute(_ command: JarvisCommand) async -> JarvisResult
+}
+
+struct JarvisCommand {
+    let fullPhrase: String      // "jarvis switch to terminal"
+    let commandPart: String     // "switch to terminal"
+    let range: Range<String.Index>  // Where in text this was found
+}
+
+enum JarvisResult {
+    case sendAndContinue       // Paste + Enter, keep recording
+    case sendAndStop           // Paste, stop recording
+    case navigate(app: String, window: Int?, tab: Int?)
+    case cancel                // Discard, stop
+    case continueListening     // Clear buffer, keep going
+}
+```
+
+### Step 2: Integrate Ollama Client
+**New file:** `VoiceInk/Services/OllamaClient.swift`
+
+```swift
+class OllamaClient {
+    let baseURL = "http://localhost:11434"
+    let model = "llama3.2:3b"
+
+    func interpret(command: String, context: AppContext) async throws -> JarvisResult
+}
+
+struct AppContext {
+    let openApps: [String]
+    let itermTabs: [(window: Int, tab: Int, name: String)]
+    let chromeTabs: [(window: Int, tab: Int, title: String)]
+}
+```
+
+### Step 3: Modify WhisperState
+**File:** `VoiceInk/Whisper/WhisperState.swift`
+
+Changes:
+1. Add `JarvisCommandService` as a dependency
+2. In streaming transcription callback, check for Jarvis commands
+3. When detected:
+   - Extract command
+   - Send to LLM for interpretation
+   - Execute result
+   - Strip command from transcription text
+   - Continue or stop based on result
+
+### Step 4: Add Settings UI
+**File:** `VoiceInk/Views/Settings/ExperimentalFeaturesSection.swift`
+
+Add:
+- Toggle: "Enable Jarvis Commands"
+- Text field: "Wake word" (default: "jarvis")
+- List of recognized commands (read-only, for reference)
+
+### Step 5: Remove Old Voice Commands
+Once Jarvis is working, deprecate the old hard-coded triggers:
+- Remove `VoiceCommand` struct
+- Remove `voiceCommandTriggers`
+- Remove individual trigger detection
+
+---
+
+## LLM Prompt Template
+
+```
+You interpret voice commands for Mac app switching.
+
+CONTEXT:
+Open apps: {apps}
+iTerm tabs: {iterm_tabs}
+Chrome tabs: {chrome_tabs}
+
+COMMAND: "{command}"
+
+Respond with JSON:
+- {"action": "send"} - paste and send current text
+- {"action": "stop"} - paste and stop recording
+- {"action": "cancel"} - discard and stop
+- {"action": "listen"} - clear and continue listening
+- {"action": "focus_app", "app_name": "..."} - focus an app
+- {"action": "focus_tab", "app_name": "...", "window": N, "tab": N} - focus a tab
+```
+
+---
+
+## Settings Storage
+
+```swift
+// New UserDefaults keys
+"JarvisEnabled": Bool (default: true when streaming enabled)
+"JarvisWakeWord": String (default: "jarvis")
+"JarvisOllamaURL": String (default: "http://localhost:11434")
+"JarvisOllamaModel": String (default: "llama3.2:3b")
+```
+
+---
+
+## Flow Diagram
+
+```
+User speaks: "Hello this is my message Jarvis send it and thanks"
+                                        ↓
+              Streaming detects "jarvis send it" in text
+                                        ↓
+              Extract: command = "send it", position = 27
+                                        ↓
+              Text before command: "Hello this is my message"
+              Text after command: "and thanks"
+                                        ↓
+              LLM interprets "send it" → action: send
+                                        ↓
+              Execute: Paste "Hello this is my message", hit Enter
+                                        ↓
+              Clear buffer, keep recording with "and thanks" as start
+```
+
+---
+
+## Edge Cases
+
+1. **Multiple Jarvis in one phrase**: Take first occurrence
+2. **Jarvis at start**: "Jarvis go to Chrome" - no text to paste, just navigate
+3. **Jarvis at end with no command**: "...Jarvis" - wait for more input
+4. **Ollama not running**: Fall back to built-in commands (send, stop, cancel)
+5. **Unknown command**: Log it, continue recording, don't crash
+
+---
+
+## Dependencies
+
+- Ollama must be running (`brew services start ollama`)
+- Model must be pulled (`ollama pull llama3.2:3b`)
+- Could add a health check in settings UI
+
+---
+
+## Migration Path
+
+1. Ship Jarvis alongside existing voice commands
+2. Default: Jarvis enabled for new users, existing commands still work
+3. Eventually deprecate old hard-coded commands
+4. Users can disable Jarvis and use old system if preferred

@@ -65,27 +65,27 @@ class TranscriptionAutoCleanupService {
             return
         }
 
-        
-
-        // Delete the audio file if it exists
-        if let urlString = transcription.audioFileURL,
-           let url = URL(string: urlString) {
-            do {
-                try FileManager.default.removeItem(at: url)
-                
-            } catch {
-                logger.error("Failed to delete audio file: \(error.localizedDescription)")
+        // IMPORTANT: Must run on MainActor to avoid race condition with SwiftUI @Query
+        // The modelContext is not thread-safe and @Query reads from main thread
+        Task { @MainActor in
+            // Delete the audio file if it exists
+            if let urlString = transcription.audioFileURL,
+               let url = URL(string: urlString) {
+                do {
+                    try FileManager.default.removeItem(at: url)
+                } catch {
+                    self.logger.error("Failed to delete audio file: \(error.localizedDescription)")
+                }
             }
-        }
 
-        // Delete the transcription from the database
-        modelContext.delete(transcription)
+            // Delete the transcription from the database
+            modelContext.delete(transcription)
 
-        do {
-            try modelContext.save()
-            
-        } catch {
-            logger.error("Failed to save after transcription deletion: \(error.localizedDescription)")
+            do {
+                try modelContext.save()
+            } catch {
+                self.logger.error("Failed to save after transcription deletion: \(error.localizedDescription)")
+            }
         }
     }
 

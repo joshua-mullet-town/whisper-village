@@ -3,6 +3,22 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.6.1</title>
+            <pubDate>Wed, 11 Dec 2025 08:45:00 -0500</pubDate>
+            <sparkle:version>75</sparkle:version>
+            <sparkle:shortVersionString>1.6.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>What's Fixed in Version 1.6.1 - Stability Fixes</h3>
+                <ul>
+                    <li><strong>Fixed Parakeet crash</strong> - Resolved race condition between streaming and model cleanup</li>
+                    <li><strong>Fixed SwiftData crash</strong> - Added thread safety to transcription auto-cleanup</li>
+                    <li><strong>Install script</strong> - One-line installation now available</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.6.1/WhisperVillage-1.6.1.dmg" length="12258918" type="application/octet-stream"/>
+        </item>
+        <item>
             <title>1.6.0</title>
             <pubDate>Tue, 10 Dec 2025 16:45:00 -0500</pubDate>
             <sparkle:version>74</sparkle:version>

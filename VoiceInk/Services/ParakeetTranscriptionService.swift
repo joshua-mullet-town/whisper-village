@@ -170,14 +170,13 @@ class ParakeetTranscriptionService: TranscriptionService {
         }
         
         let result = try await asrManager.transcribe(speechAudio)
-        
-        // Reset decoder state and cleanup after transcription to avoid blocking the transcription start
-        Task {
-            asrManager.cleanup()
-            isModelLoaded = false
-            logger.notice("🦜 Parakeet ASR models cleaned up from memory")
-        }
-        
+
+        // NOTE: We intentionally do NOT cleanup here anymore.
+        // The old code ran cleanup in a background Task which caused race conditions
+        // with streaming transcription (transcribeSamples) - the decoder state would
+        // get deallocated while streaming was still using it, causing crashes.
+        // The model will stay loaded in memory until the app quits or cleanupModelResources() is called.
+
         // Check for empty results (vocabulary issue indicator)
         if result.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             logger.notice("🦜 Warning: Empty transcription result for \(audioSamples.count) samples - possible vocabulary issue")

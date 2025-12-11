@@ -188,6 +188,25 @@ To eliminate the `xattr` requirement, get a Developer ID certificate:
 
 ---
 
+## ⚠️ CRITICAL: Development Workflow
+
+**NEVER modify or install to the production app during development.**
+
+During bug fixing and feature development:
+1. **ONLY build and test with "Whisper Village Dev"** (Debug configuration)
+2. **NEVER touch `/Applications/Whisper Village.app`** until "Ship it" is requested
+3. The Dev app has its own bundle ID (`town.mullet.WhisperVillage.debug`) and permissions
+4. User tests with Dev app, confirms it works, THEN we ship to production
+
+This separation exists because:
+- Production app has user's real permissions and data
+- Crashing production app disrupts user's workflow
+- Dev app can crash without consequences
+
+**When user says "ship it"** - ONLY THEN do we build Release and update production.
+
+---
+
 ## Important Instructions
 
 Do what has been asked; nothing more, nothing less.

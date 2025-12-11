@@ -37,10 +37,10 @@ if [ -d "/Applications/Whisper Village.app" ]; then
     INSTALLED_VERSION=$(defaults read "/Applications/Whisper Village.app/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null || echo "unknown")
     echo -e "${YELLOW}→ Existing installation found: v${INSTALLED_VERSION}${NC}"
 
-    # Quit if running
-    if pgrep -f "Whisper Village" > /dev/null 2>&1; then
+    # Quit if running (be specific to not kill Dev app)
+    if pgrep -x "Whisper Village" > /dev/null 2>&1; then
         echo -e "${YELLOW}→ Quitting Whisper Village...${NC}"
-        pkill -f "Whisper Village" 2>/dev/null || true
+        pkill -x "Whisper Village" 2>/dev/null || true
         sleep 1
     fi
 fi
@@ -54,13 +54,27 @@ curl -L --progress-bar -o "$DMG_PATH" "$DMG_URL"
 
 # Mount DMG
 echo -e "${YELLOW}→ Mounting disk image...${NC}"
-MOUNT_POINT=$(hdiutil attach "$DMG_PATH" -nobrowse -quiet | grep "/Volumes" | awk '{print $3}')
+MOUNT_OUTPUT=$(hdiutil attach "$DMG_PATH" -nobrowse 2>&1)
+MOUNT_RESULT=$?
 
-if [ -z "$MOUNT_POINT" ]; then
+if [ $MOUNT_RESULT -ne 0 ]; then
     echo -e "${RED}✗ Failed to mount DMG${NC}"
+    echo -e "${RED}Error: ${MOUNT_OUTPUT}${NC}"
     rm -rf "$TEMP_DIR"
     exit 1
 fi
+
+# Extract mount point (handles spaces in path)
+MOUNT_POINT=$(echo "$MOUNT_OUTPUT" | grep "/Volumes/" | sed 's/.*\(\/Volumes\/.*\)/\1/' | head -1)
+
+if [ -z "$MOUNT_POINT" ] || [ ! -d "$MOUNT_POINT" ]; then
+    echo -e "${RED}✗ Could not find mount point${NC}"
+    echo -e "${RED}Output: ${MOUNT_OUTPUT}${NC}"
+    rm -rf "$TEMP_DIR"
+    exit 1
+fi
+
+echo -e "${GREEN}✓ Mounted at: ${MOUNT_POINT}${NC}"
 
 # Copy to Applications
 echo -e "${YELLOW}→ Installing to /Applications...${NC}"

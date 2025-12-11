@@ -1,6 +1,53 @@
 # Whisper Village State - What We Know
 
-**Purpose:** Knowledge base of accomplished work, lessons learned, and current facts. Always add new entries at the top with timestamps.
+**Purpose:** Knowledge base of accomplished work, lessons learned, and current facts. Always add new entries at the top with full timestamps (date + time).
+
+---
+
+## [2025-12-10 16:30] Transcription Architecture Fix - Full Audio Output
+
+**Problem:** Two bugs caused by using live streaming preview as actual output:
+1. **Last words cut off** - Preview buffer only updated every 1 second, so words spoken in the last second were missed
+2. **30-second chunking artifacts** - Timer-based chunks could split words at boundaries
+
+**Root Cause:** The code used `jarvisTranscriptionBuffer` (continuously updated preview text) for final output instead of transcribing the complete audio.
+
+**The Fix - New Architecture:**
+- **Live transcription = PREVIEW ONLY** (visual feedback in UI, never used for output)
+- **On pause/send:** Transcribe the FULL audio buffer from `StreamingRecorder`
+- **Store chunks only at USER pause boundaries** (not timer-based 30-second commits)
+- **Final output = concatenated chunks from user actions**
+
+**Key Changes:**
+1. Added `finalTranscribedChunks: [String]` array - only populated on "Jarvis pause"
+2. Added `transcribeFullAudioBuffer()` helper - transcribes complete audio in one shot
+3. Added `voiceCommandSetFinalText` flag - distinguishes voice command stops from hotkey stops
+4. Updated pause/send handlers to use full audio transcription
+5. Updated `toggleRecord()` to transcribe full buffer on Option+Space (not use preview)
+
+**Bonus - Trailing Words Capture:**
+- Added configurable "linger" delay (0-1500ms) after hotkey stop
+- Audio keeps recording during delay to capture any trailing words
+- Setting in: Experimental Features → Jarvis Commands → Trailing Words Capture
+- Default: 750ms (though the architecture fix made this mostly unnecessary)
+
+**Files Modified:**
+- `WhisperState.swift` - Core architecture changes
+- `JarvisCommandService.swift` - Added `stripCommand()` helper
+- `ExperimentalFeaturesSection.swift` - Added linger slider UI
+- `StreamingRecorder.swift` - Added `audioEngine = nil` to release mic
+
+---
+
+## [2025-12-10 08:30] History Recording Fixed for Streaming Mode
+
+**Problem:** Transcriptions weren't being saved to history when using streaming/Jarvis mode. Option+Cmd+V (paste last message) showed "No transcription available" and History view was empty.
+
+**Root Cause:** The Jarvis `sendAndContinue` and `sendAndStop` actions pasted text directly via `CursorPaster.pasteAtCursor()` but never saved to `modelContext`. The original non-streaming code path went through `transcribeAndPaste()` which creates a `Transcription` object and inserts it into the database.
+
+**Fix:** Added `saveStreamingTranscriptionToHistory()` helper function in WhisperState.swift that creates a `Transcription` object and saves to modelContext. Called from both `sendAndContinue` and `sendAndStop` cases.
+
+**Files Modified:** `VoiceInk/Whisper/WhisperState.swift` (lines 824-839, 948-949, 970-971)
 
 ---
 

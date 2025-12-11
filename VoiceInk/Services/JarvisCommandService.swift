@@ -270,6 +270,24 @@ class JarvisCommandService: ObservableObject {
         logger.log("Jarvis: Focused \(app) window \(window) tab \(tab)")
     }
 
+    // MARK: - Text Processing
+
+    /// Strip a Jarvis command from transcribed text, returning only the text before the command
+    func stripCommand(_ command: DetectedCommand, from text: String) -> String {
+        let lowercased = text.lowercased()
+        let wakeWordLower = wakeWord.lowercased()
+
+        // Find the wake word in the text
+        guard let wakeWordRange = lowercased.range(of: wakeWordLower) else {
+            // Wake word not found, return original text
+            return text
+        }
+
+        // Return everything before the wake word
+        let textBefore = String(text[..<wakeWordRange.lowerBound])
+        return textBefore.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     // MARK: - Helpers
 
     private func runAppleScript(_ script: String) -> String? {

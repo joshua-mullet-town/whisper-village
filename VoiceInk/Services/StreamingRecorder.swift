@@ -104,6 +104,10 @@ class StreamingRecorder: ObservableObject {
         audioEngine?.stop()
         inputNode?.removeTap(onBus: 0)
 
+        // Fully release engine to give mic back to other apps (Teams, Zoom, etc.)
+        audioEngine = nil
+        inputNode = nil
+
         isRecording = false
         audioMeter = AudioMeter(averagePower: 0, peakPower: 0)
 

@@ -3,6 +3,23 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.6.0</title>
+            <pubDate>Tue, 10 Dec 2025 16:45:00 -0500</pubDate>
+            <sparkle:version>74</sparkle:version>
+            <sparkle:shortVersionString>1.6.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>What's New in Version 1.6.0 - Transcription Architecture Fix</h3>
+                <ul>
+                    <li><strong>Last words no longer cut off</strong> - Complete audio is now transcribed at stop</li>
+                    <li><strong>30-second chunking artifacts eliminated</strong> - Output from full audio, not timer-based chunks</li>
+                    <li><strong>Trailing Words Capture</strong> - Configurable delay (0-1500ms) after hotkey stop</li>
+                    <li>Live preview is now UI-only - never used for actual output</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.6.0/WhisperVillage-1.6.0.dmg" length="12257989" type="application/octet-stream"/>
+        </item>
+        <item>
             <title>1.5.0</title>
             <pubDate>Tue, 10 Dec 2025 07:45:00 -0500</pubDate>
             <sparkle:version>73</sparkle:version>

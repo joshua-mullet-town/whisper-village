@@ -8,6 +8,7 @@ struct ExperimentalFeaturesSection: View {
     // Jarvis settings
     @AppStorage("JarvisEnabled") private var isJarvisEnabled = true
     @AppStorage("JarvisWakeWord") private var jarvisWakeWord = "jarvis"
+    @AppStorage("RecordingLingerMs") private var recordingLingerMs = 750
     @State private var ollamaStatus: String = "Checking..."
 
     var body: some View {
@@ -105,6 +106,45 @@ struct ExperimentalFeaturesSection: View {
                                     .font(.caption)
                                     Spacer()
                                 }
+
+                                Divider()
+                                    .padding(.vertical, 4)
+
+                                // Trailing words capture (linger) setting
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Trailing Words Capture")
+                                        .font(.subheadline)
+                                    Text("Continue recording briefly after hotkey stop to capture final words")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+
+                                    HStack {
+                                        Text("Delay:")
+                                            .frame(width: 80, alignment: .leading)
+                                        Slider(
+                                            value: Binding(
+                                                get: { Double(recordingLingerMs) },
+                                                set: { recordingLingerMs = Int($0) }
+                                            ),
+                                            in: 0...1500,
+                                            step: 50
+                                        )
+                                        .frame(maxWidth: 200)
+                                        Text("\(recordingLingerMs)ms")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                            .frame(width: 60, alignment: .trailing)
+                                    }
+                                    if recordingLingerMs == 0 {
+                                        Text("Disabled - stops immediately on hotkey")
+                                            .font(.caption)
+                                            .foregroundColor(.orange)
+                                    }
+                                }
+                                .padding(.vertical, 4)
+
+                                Divider()
+                                    .padding(.vertical, 4)
 
                                 // Built-in commands reference
                                 Text("Built-in Commands:")

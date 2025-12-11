@@ -4,9 +4,22 @@
 
 ---
 
-## CURRENT: [No active task]
+## CURRENT: Bug - Mic Permanently Stolen from Other Apps
+**Problem:** When Whisper Village activates, it permanently kills audio input for other apps (e.g., Teams). When Teams tries to re-enable mic, it also unmutes you - causing accidental unmutes in meetings.
 
-Pick from Future phases below.
+**Research Findings:**
+- This is a **known Teams bug on macOS** - Teams loses mic when other apps use it mid-call
+- macOS 15.2 supposedly fixed it, but user is on 15.5 and still seeing issues
+- Teams creates `MSTeamsAudioDevice.driver` in `/Library/Audio/Plug-Ins/HAL`
+- Workaround: Toggle mic in Teams settings during call
+
+**Fix Applied (testing needed):**
+Added `audioEngine = nil` and `inputNode = nil` in `StreamingRecorder.stopRecording()` to fully release mic.
+
+**If still broken, possible next steps:**
+- Check if regular `Recorder.swift` (AVAudioRecorder) also causes issues
+- Investigate Teams' Core Audio Driver conflicts
+- Consider if we need to avoid using mic while Teams has it
 
 ---
 
@@ -27,23 +40,7 @@ Pick from Future phases below.
 
 ---
 
-## FUTURE: Phase 7 - Seamless Mode Switching
-
-**Goal:** Fluid transitions between dictation and commands without explicit mode switching.
-
-**The Dream:**
-- Just talk naturally
-- LLM figures out what's a command vs what's dictation
-- No "command mode" or "dictation mode" needed
-- Context-aware (knows you're in a text field vs desktop)
-
-**Reality Check:**
-- Latency might make this impractical
-- May need hybrid: obvious commands detected fast, ambiguous ones go to LLM
-
----
-
-## FUTURE: Phase 8 - Claude Code Meta Assistant
+## FUTURE: Phase 7 - Claude Code Meta Assistant
 
 **Goal:** A "copilot for the copilot" - local LLM that watches Claude Code sessions and provides guidance.
 

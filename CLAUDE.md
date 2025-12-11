@@ -31,7 +31,7 @@ New version is pushed. You want to update your production app.
 ### STATE.md - What We Know (The Past)
 - **Location:** `/Users/joshuamullet/code/whisper-village/STATE.md`
 - **Contains:** Facts, lessons learned, accomplished work
-- **Organization:** Newest entries at top with timestamps
+- **Organization:** Newest entries at top with **full timestamps** (date AND time, e.g., `[2025-12-10 14:30]`)
 
 ### PLAN.md - What We're Doing (The Future)
 - **Location:** `/Users/joshuamullet/code/whisper-village/PLAN.md`
@@ -42,7 +42,7 @@ New version is pushed. You want to update your production app.
 1. Work on top item in PLAN.md
 2. When completed: scoop it off the top
 3. Consolidate into concise learning
-4. Drop at top of STATE.md with timestamp
+4. Drop at top of STATE.md with **full timestamp** (date + time)
 
 ---
 

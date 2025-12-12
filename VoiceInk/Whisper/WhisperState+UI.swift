@@ -99,7 +99,6 @@ extension WhisperState {
             recordingState = .idle
             // Clear debug log and streaming state on dismiss
             debugLog = []
-            committedChunks = []
             interimTranscription = ""
             isInJarvisCommandMode = false
             StreamingLogger.shared.log("  debugLog.count AFTER clear: \(debugLog.count)")

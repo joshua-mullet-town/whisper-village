@@ -4,6 +4,46 @@
 
 ---
 
+## [2025-12-11 10:30] Streaming Transcription Simplification - One Pipeline
+
+**Problem:** App crashed with EXC_BAD_ACCESS in TdtDecoderState. Root cause: two transcription paths racing on a non-thread-safe decoder:
+- Streaming preview: Timer-based, transcribed chunks every 1s, committed every 30s
+- Final transcription: Transcribed full buffer at stop
+
+**The Fix - One Pipeline:**
+Simplified to always transcribe the FULL audio buffer. Preview = Final.
+
+**Changes Made:**
+1. **Removed chunk tracking variables:**
+   - `currentChunkStartSample`, `chunkStartTime`, `chunkCommitIntervalSeconds`, `committedChunks`
+   - `streamingTranscriptionTimer` (timer-based approach)
+
+2. **New Task-based streaming loop:**
+   - `streamingTranscriptionTask` replaces Timer
+   - Runs continuously while recording, with 100ms delay between transcriptions
+   - Completion-based, not interval-based
+
+3. **Simplified `performInterimTranscription()`:**
+   - Always calls `streamingRecorder.getCurrentSamples()` (full buffer)
+   - No more chunk logic - preview IS the full transcription
+   - `interimTranscription` = `jarvisTranscriptionBuffer` (same thing now)
+
+4. **Preserved user-boundary chunks:**
+   - `finalTranscribedChunks` still exists for "Jarvis pause" feature
+   - Only populated when USER initiates a pause, not timer-based
+
+**Benefits:**
+- Preview = Final: What you see is what you get
+- One code path: No race conditions
+- ~50-70 lines of code deleted
+- Natural rate limiting: Short recording = fast updates, long recording = slower (acceptable)
+
+**Files Modified:**
+- `WhisperState.swift` - Core simplification
+- `WhisperState+UI.swift` - Removed committedChunks reference
+
+---
+
 ## [2025-12-10 16:30] Transcription Architecture Fix - Full Audio Output
 
 **Problem:** Two bugs caused by using live streaming preview as actual output:

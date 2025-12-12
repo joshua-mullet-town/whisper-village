@@ -79,30 +79,18 @@ class WhisperState: NSObject, ObservableObject {
         UserDefaults.standard.bool(forKey: "StreamingModeEnabled")
     }
 
-    // MARK: - Streaming Transcription (Chunk-Commit)
-    private var streamingTranscriptionTimer: Timer?
+    // MARK: - Streaming Transcription (Simplified - Full Buffer)
+    /// Task for the streaming transcription loop
+    private var streamingTranscriptionTask: Task<Void, Never>?
     private var isStreamingTranscriptionInProgress = false
+    /// Flag to request graceful stop (allows current transcription to complete + one final pass)
+    private var shouldStopStreamingGracefully = false
 
-    /// Committed chunks (locked in, won't change)
-    @Published var committedChunks: [String] = []
-
-    /// Current live preview (still being corrected)
+    /// Current live preview - shows the FULL transcription (preview = final)
     @Published var interimTranscription: String = ""
 
     /// Debug log entries for the current recording session (never cleared until new recording starts)
     @Published var debugLog: [DebugLogEntry] = []
-
-    /// When the current chunk started (sample index in the buffer)
-    private var currentChunkStartSample: Int = 0
-
-    /// How often to run interim transcription (in seconds)
-    private let streamingIntervalSeconds: TimeInterval = 1.0
-
-    /// How long before committing a chunk (in seconds)
-    private let chunkCommitIntervalSeconds: TimeInterval = 30.0
-
-    /// Timer to track when to commit chunks
-    private var chunkStartTime: Date?
 
     // MARK: - Jarvis Command Mode
     /// Whether we're in command mode (not transcribing, waiting for Jarvis commands)
@@ -315,16 +303,68 @@ class WhisperState: NSObject, ObservableObject {
                 return
             }
 
-            // Non-Jarvis streaming mode
+            // ============================================================
+            // SIMPLE STREAMING (Jarvis disabled) - Clean, simple path
+            // No command detection, no chunks, no voice command flags
+            // Uses SAME transcription flow as live preview (graceful stop)
+            // ============================================================
             if isStreamingModeEnabled {
-                stopStreamingTranscription()
-                let samples = await streamingRecorder.stopRecording()
-                StreamingLogger.shared.log("Streaming stopped. Got \(samples.count) samples (\(String(format: "%.2f", Double(samples.count) / 16000.0)) seconds)")
+                StreamingLogger.shared.log("=== TOGGLE RECORD STOP (Simple Streaming - no Jarvis) ===")
+
+                // Optional linger delay - keep recording AND transcribing during this time
+                // This allows trailing words to be captured in the live transcription
+                let lingerMs = UserDefaults.standard.integer(forKey: "RecordingLingerMs")
+                if lingerMs > 0 {
+                    StreamingLogger.shared.log("Lingering for \(lingerMs)ms to capture trailing words...")
+                    try? await Task.sleep(nanoseconds: UInt64(lingerMs) * 1_000_000)
+                }
+
+                // Graceful stop: waits for current transcription to complete, then does ONE final pass
+                // This uses the exact same transcription flow as live preview - no separate re-transcription
+                let textToPaste = await stopStreamingTranscriptionGracefully()
+                StreamingLogger.shared.log("Simple streaming final (from graceful stop): \"\(textToPaste)\"")
+
+                // Stop recorders
+                _ = await streamingRecorder.stopRecording()
+                await recorder.stopRecording()
+
+                if shouldCancelRecording || textToPaste.isEmpty {
+                    await MainActor.run {
+                        recordingState = .idle
+                    }
+                    await cleanupModelResources()
+                    await dismissMiniRecorder()
+                } else {
+                    // Save to history for Option+Cmd+V
+                    saveStreamingTranscriptionToHistory(textToPaste)
+
+                    await MainActor.run {
+                        recordingState = .idle
+                    }
+
+                    // Apply word replacements if enabled
+                    var finalText = textToPaste
+                    if UserDefaults.standard.bool(forKey: "IsWordReplacementEnabled") {
+                        finalText = WordReplacementService.shared.applyReplacements(to: finalText)
+                    }
+
+                    let shouldAddSpace = UserDefaults.standard.object(forKey: "AppendTrailingSpace") as? Bool ?? true
+                    if shouldAddSpace {
+                        finalText += " "
+                    }
+
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        CursorPaster.pasteAtCursor(finalText)
+                    }
+
+                    await dismissMiniRecorder()
+                }
+                return
             }
 
+            // Traditional (non-streaming) mode
             await recorder.stopRecording()
 
-            // Fall back to traditional transcription for non-Jarvis mode
             if let recordedFile {
                 if !shouldCancelRecording {
                     await transcribeAudio(recordedFile)
@@ -378,7 +418,6 @@ class WhisperState: NSObject, ObservableObject {
                                 StreamingLogger.shared.log("  debugLog.count BEFORE: \(self.debugLog.count)")
 
                                 // Clear streaming preview and debug log from last session
-                                self.committedChunks = []
                                 self.interimTranscription = ""
                                 self.debugLog = []  // Fresh debug log for new recording
                                 self.recordingState = .recording
@@ -669,7 +708,7 @@ class WhisperState: NSObject, ObservableObject {
 
     // MARK: - Streaming Transcription Methods
 
-    /// Start the streaming transcription timer
+    /// Start the streaming transcription loop (Task-based, not timer)
     func startStreamingTranscription() {
         guard isStreamingModeEnabled else { return }
 
@@ -684,57 +723,89 @@ class WhisperState: NSObject, ObservableObject {
             return
         }
 
-        StreamingLogger.shared.log("Starting streaming transcription timer (every \(streamingIntervalSeconds)s, commit every \(chunkCommitIntervalSeconds)s) [provider: \(model.provider.rawValue)]")
+        StreamingLogger.shared.log("Starting streaming transcription loop (full buffer mode) [provider: \(model.provider.rawValue)]")
 
-        // Reset chunk tracking
-        committedChunks = []
+        // Reset state
         interimTranscription = ""
-        currentChunkStartSample = 0
-        chunkStartTime = Date()
+        shouldStopStreamingGracefully = false
 
-        // Create timer on main thread
-        streamingTranscriptionTimer = Timer.scheduledTimer(withTimeInterval: streamingIntervalSeconds, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                await self?.performInterimTranscription()
+        // Start the transcription loop as a Task
+        streamingTranscriptionTask = Task { @MainActor [weak self] in
+            while let self = self,
+                  self.recordingState == .recording,
+                  self.isStreamingModeEnabled,
+                  !self.shouldStopStreamingGracefully,
+                  !Task.isCancelled {
+                await self.performInterimTranscription()
             }
+
+            // Graceful stop: do one final transcription to catch any trailing audio
+            if let self = self, self.shouldStopStreamingGracefully {
+                StreamingLogger.shared.log("Graceful stop: performing final transcription...")
+                await self.performInterimTranscription()
+                StreamingLogger.shared.log("Graceful stop: final transcription complete")
+            }
+
+            StreamingLogger.shared.log("Streaming transcription loop ended")
         }
     }
 
-    /// Stop the streaming transcription timer
+    /// Stop the streaming transcription loop (immediate, may interrupt)
     func stopStreamingTranscription() {
-        StreamingLogger.shared.log("Stopping streaming transcription timer")
-        streamingTranscriptionTimer?.invalidate()
-        streamingTranscriptionTimer = nil
+        StreamingLogger.shared.log("Stopping streaming transcription loop")
+        streamingTranscriptionTask?.cancel()
+        streamingTranscriptionTask = nil
+        isStreamingTranscriptionInProgress = false
+        // Note: We don't clear interimTranscription here - it contains the full transcription
+    }
+
+    /// Stop the streaming transcription loop gracefully
+    /// Waits for current transcription to complete, then does one final pass
+    /// Returns the final transcription result (from interimTranscription)
+    func stopStreamingTranscriptionGracefully() async -> String {
+        StreamingLogger.shared.log("Gracefully stopping streaming transcription loop...")
+
+        // Signal the loop to stop after its current iteration
+        shouldStopStreamingGracefully = true
+
+        // Wait for the task to complete (which will do one final transcription)
+        if let task = streamingTranscriptionTask {
+            await task.value
+        }
+
+        // Clean up
+        streamingTranscriptionTask = nil
         isStreamingTranscriptionInProgress = false
 
-        // Commit any remaining interim transcription as final chunk
-        if !interimTranscription.isEmpty {
-            committedChunks.append(interimTranscription)
-            debugLog.append(.transcription(text: interimTranscription))
-            StreamingLogger.shared.log("Committed final chunk: \"\(interimTranscription)\"")
-        }
-
-        interimTranscription = ""
-        chunkStartTime = nil
+        let result = interimTranscription.trimmingCharacters(in: .whitespacesAndNewlines)
+        StreamingLogger.shared.log("Graceful stop complete. Result: \"\(result.prefix(100))...\"")
+        return result
     }
 
-    /// Clear all streaming UI (call after final transcription is shown)
+    /// Clear all streaming UI state
     func clearStreamingPreview() {
-        committedChunks = []
         interimTranscription = ""
     }
 
-    /// Perform one interim transcription on the current chunk
+    /// Perform one interim transcription of the FULL audio buffer
+    /// This is the simplified architecture: preview = final
     private func performInterimTranscription() async {
-        // Skip if in Jarvis command mode (not transcribing, waiting for commands)
-        if isInJarvisCommandMode {
+        // ============================================================
+        // JARVIS BYPASS: When Jarvis is disabled, use simple path
+        // No command mode, no command detection, just transcription
+        // ============================================================
+        let jarvisEnabled = jarvisService.isEnabled
+
+        // Skip if in Jarvis command mode (only possible if Jarvis is enabled)
+        if jarvisEnabled && isInJarvisCommandMode {
             // Still check for Jarvis commands even in command mode
-            // (to detect "Jarvis listen" or other commands)
+            // Add delay to prevent tight loop (the function is sync, returns immediately)
             checkForJarvisCommandInCommandMode()
+            try? await Task.sleep(nanoseconds: 500_000_000)  // 500ms - commands don't need fast polling
             return
         }
 
-        // Skip if already transcribing (previous one still running)
+        // Skip if already transcribing (serialization actor handles this, but good to skip early)
         guard !isStreamingTranscriptionInProgress else {
             StreamingLogger.shared.log("Skipping interim transcription - previous still in progress")
             return
@@ -746,31 +817,16 @@ class WhisperState: NSObject, ObservableObject {
             return
         }
 
-        // Check if it's time to commit the current chunk
-        if let startTime = chunkStartTime,
-           Date().timeIntervalSince(startTime) >= chunkCommitIntervalSeconds,
-           !interimTranscription.isEmpty {
-            // Commit current chunk
-            committedChunks.append(interimTranscription)
-            debugLog.append(.transcription(text: interimTranscription))
-            StreamingLogger.shared.log("Committed chunk \(committedChunks.count): \"\(interimTranscription)\"")
+        // Get ALL samples from the buffer (not chunks - full buffer mode)
+        let samples = await streamingRecorder.getCurrentSamples()
 
-            // Reset for new chunk
-            interimTranscription = ""
-            currentChunkStartSample = await streamingRecorder.getCurrentSampleCount()
-            chunkStartTime = Date()
-        }
-
-        // Get samples for current chunk only (from chunk start to now)
-        let samples = await streamingRecorder.getSamplesFromIndex(currentChunkStartSample)
-
-        guard samples.count > 0 else {
-            StreamingLogger.shared.log("Skipping interim transcription - no samples in current chunk")
+        guard samples.count >= 16000 else {  // Need at least 1 second
+            // Don't log this - it's normal at the start of recording
             return
         }
 
         let sampleDuration = Double(samples.count) / 16000.0
-        StreamingLogger.shared.log("Transcribing chunk \(committedChunks.count + 1) with \(samples.count) samples (\(String(format: "%.2f", sampleDuration))s) [provider: \(model.provider.rawValue)]")
+        StreamingLogger.shared.log("Transcribing full buffer: \(samples.count) samples (\(String(format: "%.2f", sampleDuration))s) [provider: \(model.provider.rawValue)]")
 
         isStreamingTranscriptionInProgress = true
         let startTime = Date()
@@ -784,10 +840,10 @@ class WhisperState: NSObject, ObservableObject {
                 let text = try await parakeetTranscriptionService.transcribeSamples(samples)
                 trimmedText = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
                 let elapsed = Date().timeIntervalSince(startTime)
-                StreamingLogger.shared.log("Parakeet interim result (\(String(format: "%.2f", elapsed))s): \"\(trimmedText)\"")
+                StreamingLogger.shared.log("Full buffer result (\(String(format: "%.2f", elapsed))s): \"\(trimmedText.prefix(100))...\"")
             } catch {
                 let elapsed = Date().timeIntervalSince(startTime)
-                StreamingLogger.shared.log("Parakeet interim transcription failed after \(String(format: "%.2f", elapsed))s: \(error)")
+                StreamingLogger.shared.log("Transcription failed after \(String(format: "%.2f", elapsed))s: \(error)")
             }
         } else if model.provider == .local, let context = whisperContext {
             // Use Whisper
@@ -797,28 +853,22 @@ class WhisperState: NSObject, ObservableObject {
             if success {
                 let text = await context.getTranscription()
                 trimmedText = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
-                StreamingLogger.shared.log("Whisper interim result (\(String(format: "%.2f", elapsed))s): \"\(trimmedText)\"")
+                StreamingLogger.shared.log("Full buffer result (\(String(format: "%.2f", elapsed))s): \"\(trimmedText.prefix(100))...\"")
             } else {
-                StreamingLogger.shared.log("Whisper interim transcription failed after \(String(format: "%.2f", elapsed))s")
+                StreamingLogger.shared.log("Transcription failed after \(String(format: "%.2f", elapsed))s")
             }
         }
 
-        // Apply built-in fixes (e.g., I' -> I'm) to streaming preview
+        // Apply built-in fixes (e.g., I' -> I'm) to preview
         if !trimmedText.isEmpty {
             trimmedText = WordReplacementService.shared.applyBuiltInFixes(to: trimmedText)
             interimTranscription = trimmedText
 
-            // DON'T log every interim update - only log when chunks commit
-            // The interimTranscription updates in place in the view
-
-            // Update Jarvis buffer (only when not in command mode, which we already checked above)
-            // committedChunks already contains any preserved pre-listen content, so just combine
-            // all chunks + current interim to get the full buffer
-            let currentSessionText = (committedChunks + [trimmedText]).joined(separator: " ")
-            jarvisTranscriptionBuffer = currentSessionText
-
-            // Check for voice commands at end of transcription
-            checkForVoiceCommand(in: trimmedText)
+            // JARVIS: Only update Jarvis buffers and check for commands if enabled
+            if jarvisEnabled {
+                jarvisTranscriptionBuffer = trimmedText
+                checkForVoiceCommand(in: trimmedText)
+            }
         }
 
         isStreamingTranscriptionInProgress = false
@@ -856,8 +906,16 @@ class WhisperState: NSObject, ObservableObject {
             isStreamingTranscriptionInProgress = false
 
             // Check for Jarvis command in the transcribed text
+            // Guard against duplicate execution (same pattern as checkForVoiceCommand)
+            guard !isExecutingJarvisCommand else {
+                StreamingLogger.shared.log("checkForJarvisCommandInCommandMode: Skipping - already executing a command")
+                return
+            }
+
             if !text.isEmpty, let jarvisCommand = jarvisService.detectCommand(in: text) {
                 StreamingLogger.shared.log("Jarvis command detected in command mode: \"\(jarvisCommand.commandPart)\"")
+                isExecutingJarvisCommand = true
+                defer { isExecutingJarvisCommand = false }
                 await executeJarvisCommand(jarvisCommand, fullText: text)
             }
         }
@@ -867,20 +925,28 @@ class WhisperState: NSObject, ObservableObject {
 
     /// Check if the transcription contains a Jarvis command
     private func checkForVoiceCommand(in text: String) {
+        // Don't detect new commands while one is executing (prevents duplicate Task spawning)
+        // This guard must be BEFORE spawning any Task - otherwise multiple Tasks race to set the flag
+        guard !isExecutingJarvisCommand else {
+            StreamingLogger.shared.log("checkForVoiceCommand: Skipping - already executing a command")
+            return
+        }
+
         // Check for Jarvis command (if enabled)
         if jarvisService.isEnabled {
-            // Build full text from all chunks + current interim
-            var fullText = committedChunks.joined(separator: " ")
-            if !text.isEmpty {
-                if !fullText.isEmpty { fullText += " " }
-                fullText += text
-            }
+            // In full buffer mode, text IS the full transcription
+            let fullText = text
 
             if let jarvisCommand = jarvisService.detectCommand(in: fullText) {
                 StreamingLogger.shared.log("Jarvis command detected: \"\(jarvisCommand.commandPart)\"")
+
+                // Set flag BEFORE spawning Task to prevent race condition
+                // Multiple transcriptions could detect the same command before any Task starts executing
+                isExecutingJarvisCommand = true
+
                 // Execute command - visual feedback is handled in executeJarvisCommand
-                // (transcription bubble shows text, pause indicator/checkmark shows state)
                 Task { @MainActor in
+                    defer { self.isExecutingJarvisCommand = false }  // ALWAYS clear, even if guards return early
                     await self.executeJarvisCommand(jarvisCommand, fullText: fullText)
                 }
                 return
@@ -977,17 +1043,8 @@ class WhisperState: NSObject, ObservableObject {
     private func executeJarvisCommand(_ command: JarvisCommandService.DetectedCommand, fullText: String) async {
         guard recordingState == .recording else { return }
 
-        // Check if this is a built-in command FIRST (before duplicate check)
-        // Built-in commands should be able to interrupt slow LLM commands
-        let isBuiltInCommand = jarvisService.isBuiltInCommand(command.commandPart)
-
-        // Prevent duplicate execution (but allow built-in commands to interrupt)
-        if isExecutingJarvisCommand && !isBuiltInCommand {
-            StreamingLogger.shared.log("Jarvis: Skipping - already executing a command (not built-in)")
-            return
-        }
-
         // Prevent re-executing similar commands (compare commandPart + time debounce)
+        // Note: duplicate execution prevention is now handled in checkForVoiceCommand() via isExecutingJarvisCommand flag
         let timeSinceLastCommand = Date().timeIntervalSince(lastJarvisCommandTime)
         let normalizedCommandPart = command.commandPart.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         let isSimilarCommand = normalizedCommandPart.hasPrefix(lastExecutedJarvisCommandPart.lowercased()) ||
@@ -998,10 +1055,8 @@ class WhisperState: NSObject, ObservableObject {
             return
         }
 
-        isExecutingJarvisCommand = true
         lastExecutedJarvisCommandPart = normalizedCommandPart
         lastJarvisCommandTime = Date()
-        defer { isExecutingJarvisCommand = false }
 
         // DEBUG: Log all state before execution
         StreamingLogger.shared.log("=== JARVIS COMMAND START ===")
@@ -1011,35 +1066,28 @@ class WhisperState: NSObject, ObservableObject {
         StreamingLogger.shared.log("  fullText param: \"\(fullText)\"")
         StreamingLogger.shared.log("  isInJarvisCommandMode: \(isInJarvisCommandMode)")
         StreamingLogger.shared.log("  jarvisTranscriptionBuffer: \"\(jarvisTranscriptionBuffer)\"")
-        StreamingLogger.shared.log("  jarvisPreListenBuffer: \"\(jarvisPreListenBuffer)\"")
-        StreamingLogger.shared.log("  committedChunks: \(committedChunks)")
 
         // Execute the command first to determine result type
         let result = await jarvisService.execute(command)
         StreamingLogger.shared.log("  Execution result: \(result)")
 
-        // For resumeListening, don't strip - just exit command mode
-        // The buffer is already preserved from the pause
+        // For resumeListening, clear buffer and start fresh
+        // Text was already saved to finalTranscribedChunks during pause
         if case .resumeListening = result {
             StreamingLogger.shared.log("  -> RESUME LISTENING (early return path)")
-            StreamingLogger.shared.log("     jarvisTranscriptionBuffer before: \"\(jarvisTranscriptionBuffer)\"")
+
+            // Clear the audio buffer - text is already saved, audio is disposable
+            await streamingRecorder.clearBuffer()
+            StreamingLogger.shared.log("     Cleared audio buffer for fresh start")
 
             // Add listening indicator to show we're ready to transcribe again
             debugLog.append(.listening())
 
             isInJarvisCommandMode = false
-            // Visual: show the preserved buffer
-            let existingText = jarvisTranscriptionBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
-            StreamingLogger.shared.log("     existingText: \"\(existingText)\"")
-            if !existingText.isEmpty && committedChunks.isEmpty {
-                committedChunks = [existingText]
-                StreamingLogger.shared.log("     Set committedChunks to: \(committedChunks)")
-            }
+            // Clear the preview - we're starting fresh
             interimTranscription = ""
-            currentChunkStartSample = streamingRecorder.sampleCount
-            jarvisBufferStartSample = streamingRecorder.sampleCount
-            chunkStartTime = Date()
-            StreamingLogger.shared.log("=== JARVIS RESUME COMPLETE === buffer: \"\(jarvisTranscriptionBuffer)\", visual: \(committedChunks)")
+            jarvisTranscriptionBuffer = ""
+            StreamingLogger.shared.log("=== JARVIS RESUME COMPLETE === Starting fresh transcription")
             return
         }
 
@@ -1061,10 +1109,9 @@ class WhisperState: NSObject, ObservableObject {
             jarvisTranscriptionBuffer = cleanedText
             StreamingLogger.shared.log("     jarvisTranscriptionBuffer AFTER: \"\(jarvisTranscriptionBuffer)\"")
 
-            // Update visual state to show cleaned text (without the command) as a single chunk
-            committedChunks = cleanedText.isEmpty ? [] : [cleanedText]
-            interimTranscription = ""
-            StreamingLogger.shared.log("     committedChunks: \(committedChunks)")
+            // Update visual state to show cleaned text (without the command)
+            interimTranscription = cleanedText
+            StreamingLogger.shared.log("     interimTranscription: \"\(interimTranscription)\"")
         }
 
         switch result {
@@ -1105,7 +1152,6 @@ class WhisperState: NSObject, ObservableObject {
             finalTranscribedChunks = []
             jarvisTranscriptionBuffer = ""
             jarvisPreListenBuffer = ""
-            committedChunks = []
             interimTranscription = ""
             isInJarvisCommandMode = true
             StreamingLogger.shared.log("Jarvis: Sent, now in command mode")
@@ -1195,8 +1241,7 @@ class WhisperState: NSObject, ObservableObject {
             }
 
             isInJarvisCommandMode = true
-            // Update visual state
-            committedChunks = finalTranscribedChunks
+            // Clear live preview - saved chunks are in finalTranscribedChunks
             interimTranscription = ""
             StreamingLogger.shared.log("=== JARVIS PAUSED COMPLETE === finalChunks: \(finalTranscribedChunks.count), debugLog count: \(debugLog.count)")
 

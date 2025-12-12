@@ -3,13 +3,22 @@ import AVFoundation
 import FluidAudio
 import os.log
 
-
+/// Actor that serializes all transcription calls to prevent concurrent access to TdtDecoderState
+/// This fixes the crash where streaming preview and final transcription race on the decoder
+private actor TranscriptionSerializer {
+    func serialize<T>(_ operation: @Sendable () async throws -> T) async throws -> T {
+        return try await operation()
+    }
+}
 
 class ParakeetTranscriptionService: TranscriptionService {
     private var asrManager: AsrManager?
     private let customModelsDirectory: URL?
     @Published var isModelLoaded = false
-    
+
+    // Serializer ensures only one transcription runs at a time
+    private let transcriptionSerializer = TranscriptionSerializer()
+
     // Logger for Parakeet transcription service
     private let logger = Logger(subsystem: "com.voiceink.app", category: "ParakeetTranscriptionService")
     
@@ -61,6 +70,7 @@ class ParakeetTranscriptionService: TranscriptionService {
 
     /// Transcribe raw audio samples directly (for streaming preview)
     /// Does NOT cleanup after transcription to allow repeated calls
+    /// IMPORTANT: Serialized via actor to prevent concurrent decoder access crashes
     func transcribeSamples(_ samples: [Float]) async throws -> String {
         // Wait a moment if cleanup might be in progress (race condition mitigation)
         if !isModelLoaded && asrManager != nil {
@@ -84,24 +94,28 @@ class ParakeetTranscriptionService: TranscriptionService {
             return ""
         }
 
-        // Wrap transcription in do/catch to handle internal FluidAudio crashes gracefully
-        do {
-            let result = try await manager.transcribe(samples)
+        // Serialize transcription through actor to prevent concurrent access to TdtDecoderState
+        // This fixes the crash where streaming preview and final transcription race on the decoder
+        return try await transcriptionSerializer.serialize { [self] in
+            // Wrap transcription in do/catch to handle internal FluidAudio crashes gracefully
+            do {
+                let result = try await manager.transcribe(samples)
 
-            var text = result.text
+                var text = result.text
 
-            if UserDefaults.standard.object(forKey: "IsTextFormattingEnabled") as? Bool ?? true {
-                text = WhisperTextFormatter.format(text)
+                if UserDefaults.standard.object(forKey: "IsTextFormattingEnabled") as? Bool ?? true {
+                    text = WhisperTextFormatter.format(text)
+                }
+
+                text = WhisperHallucinationFilter.filter(text)
+
+                return text
+            } catch {
+                logger.error("🦜 Streaming transcription failed: \(error.localizedDescription)")
+                // Mark model as not loaded so next attempt will reload
+                isModelLoaded = false
+                throw error
             }
-
-            text = WhisperHallucinationFilter.filter(text)
-
-            return text
-        } catch {
-            logger.error("🦜 Streaming transcription failed: \(error.localizedDescription)")
-            // Mark model as not loaded so next attempt will reload
-            isModelLoaded = false
-            throw error
         }
     }
 
@@ -168,30 +182,33 @@ class ParakeetTranscriptionService: TranscriptionService {
             logger.notice("🦜 Audio too short for transcription after VAD: \(speechAudio.count) samples")
             throw ASRError.invalidAudioData
         }
-        
-        let result = try await asrManager.transcribe(speechAudio)
 
-        // NOTE: We intentionally do NOT cleanup here anymore.
-        // The old code ran cleanup in a background Task which caused race conditions
-        // with streaming transcription (transcribeSamples) - the decoder state would
-        // get deallocated while streaming was still using it, causing crashes.
-        // The model will stay loaded in memory until the app quits or cleanupModelResources() is called.
+        // Serialize transcription through actor to prevent concurrent access to TdtDecoderState
+        return try await transcriptionSerializer.serialize { [self] in
+            let result = try await asrManager.transcribe(speechAudio)
 
-        // Check for empty results (vocabulary issue indicator)
-        if result.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            logger.notice("🦜 Warning: Empty transcription result for \(audioSamples.count) samples - possible vocabulary issue")
+            // NOTE: We intentionally do NOT cleanup here anymore.
+            // The old code ran cleanup in a background Task which caused race conditions
+            // with streaming transcription (transcribeSamples) - the decoder state would
+            // get deallocated while streaming was still using it, causing crashes.
+            // The model will stay loaded in memory until the app quits or cleanupModelResources() is called.
+
+            // Check for empty results (vocabulary issue indicator)
+            if result.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                logger.notice("🦜 Warning: Empty transcription result for \(audioSamples.count) samples - possible vocabulary issue")
+            }
+
+            var text = result.text
+
+            if UserDefaults.standard.object(forKey: "IsTextFormattingEnabled") as? Bool ?? true {
+                text = WhisperTextFormatter.format(text)
+            }
+
+            // Apply hallucination and filler word filtering
+            text = WhisperHallucinationFilter.filter(text)
+
+            return text
         }
-        
-        var text = result.text
-        
-        if UserDefaults.standard.object(forKey: "IsTextFormattingEnabled") as? Bool ?? true {
-            text = WhisperTextFormatter.format(text)
-        }
-        
-        // Apply hallucination and filler word filtering
-        text = WhisperHallucinationFilter.filter(text)
-        
-        return text
     }
 
     private func readAudioSamples(from url: URL) throws -> [Float] {

@@ -3,6 +3,23 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.6.2</title>
+            <pubDate>Thu, 12 Dec 2025 10:30:00 -0500</pubDate>
+            <sparkle:version>76</sparkle:version>
+            <sparkle:shortVersionString>1.6.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>What's Fixed in Version 1.6.2 - Transcription Consistency</h3>
+                <ul>
+                    <li><strong>Graceful stop</strong> - Stop now waits for current transcription to complete</li>
+                    <li><strong>No more re-transcription</strong> - Final output uses same flow as live preview</li>
+                    <li><strong>Eliminated "2010" bug</strong> - Fixed issue where final transcription could differ from preview</li>
+                </ul>
+                <p>What you see in the preview is now exactly what you get when you stop.</p>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.6.2/WhisperVillage-1.6.2.dmg" length="12269447" type="application/octet-stream"/>
+        </item>
+        <item>
             <title>1.6.1</title>
             <pubDate>Wed, 11 Dec 2025 08:45:00 -0500</pubDate>
             <sparkle:version>75</sparkle:version>

@@ -58,6 +58,14 @@ class JarvisCommandService: ObservableObject {
             return nil
         }
 
+        // Reject commands that are too short (just punctuation, single chars, etc.)
+        // This prevents false positives like "Jarvis." being detected as command "."
+        let cleanedCommand = afterWakeWord.components(separatedBy: CharacterSet.punctuationCharacters).joined().trimmingCharacters(in: .whitespaces)
+        if cleanedCommand.count < 2 {
+            logger.log("Jarvis: Rejecting too-short command: \"\(afterWakeWord)\" (cleaned: \"\(cleanedCommand)\")")
+            return nil
+        }
+
         // Extract command (everything after wake word until end or next sentence)
         // For now, take everything after wake word
         let commandPart = afterWakeWord
@@ -100,8 +108,14 @@ class JarvisCommandService: ObservableObject {
             case .listen:
                 return .resumeListening
             case .focusApp(let name):
-                await focusApp(name)
-                return .navigated
+                let success = await focusApp(name)
+                if success {
+                    return .navigated
+                } else {
+                    // App not found - silently fail, stay in normal mode
+                    logger.log("Jarvis: Navigation failed, ignoring command")
+                    return .failed("App not found")
+                }
             case .focusTab(let app, let window, let tab):
                 await focusTab(app: app, window: window, tab: tab)
                 return .navigated
@@ -235,10 +249,30 @@ class JarvisCommandService: ObservableObject {
     // MARK: - Navigation Actions
 
     @MainActor
-    private func focusApp(_ name: String) {
-        let script = "tell application \"\(name)\" to activate"
+    private func focusApp(_ name: String) -> Bool {
+        // Validate app name - reject empty/whitespace/punctuation-only names
+        let cleanedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if cleanedName.isEmpty || cleanedName.count < 2 {
+            logger.log("Jarvis: Rejecting invalid app name: \"\(name)\"")
+            return false
+        }
+
+        // Check if an app with this name (or similar) is actually open
+        let openApps = getOpenApps()
+        let matchingApp = openApps.first { app in
+            app.lowercased().contains(cleanedName.lowercased()) ||
+            cleanedName.lowercased().contains(app.lowercased())
+        }
+
+        guard let appToFocus = matchingApp else {
+            logger.log("Jarvis: No open app matches \"\(cleanedName)\". Open apps: \(openApps)")
+            return false
+        }
+
+        let script = "tell application \"\(appToFocus)\" to activate"
         _ = runAppleScript(script)
-        logger.log("Jarvis: Focused app \(name)")
+        logger.log("Jarvis: Focused app \(appToFocus)")
+        return true
     }
 
     @MainActor

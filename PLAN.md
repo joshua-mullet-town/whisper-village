@@ -4,23 +4,53 @@
 
 ---
 
-## CURRENT: Test Streaming Simplification (needs user testing)
+## NEXT: Simple Mode vs Live Mode Toggle
 
-**What Changed:**
-- Simplified streaming from two transcription paths to ONE
-- Preview now always transcribes FULL audio buffer
-- Preview = Final output (no more race conditions)
-- Task-based loop instead of timer (100ms between transcriptions)
+**The Question:** Do users actually want live transcription, or would a simpler "record → stop → result" flow be better?
 
-**Status:** Code complete, build succeeded. Needs user testing.
+**Two Modes:**
 
-**Test Plan:**
-1. Short recording (5-10 seconds): Preview should update quickly (~1s)
-2. Medium recording (1-2 minutes): Preview updates slower but still works
-3. Long recording (5+ minutes): Preview might take 3-4s to update - acceptable
-4. Stop during transcription: Should wait for current transcription, then output
-5. Jarvis pause: Should save current text, clear buffer, continue fresh
-6. **Rapid start/stop**: The original crash scenario - try to trigger stop during active streaming
+### Mode 1: Live Transcribe (current)
+- Real-time preview updates as you speak
+- More complex, more CPU usage
+- Good for: seeing progress, catching mistakes early, voice commands
+
+### Mode 2: Simple Transcribe (new)
+- No live preview while recording
+- Just shows recording indicator (timer, audio level)
+- On stop: transcribe full audio → paste
+- Optional "Preview" button to see what you said before pasting
+- Much simpler, potentially faster/more reliable
+
+**UI Concept:**
+- Toggle in Settings: "Live Preview" on/off
+- When OFF: Mini recorder shows just timer + waveform
+- "Preview" button appears after stop (before auto-paste)
+- Skip preview = immediate paste
+
+**Benefits of Simple Mode:**
+- No streaming transcription overhead
+- No race conditions
+- Simpler code path
+- Better for users who just want the result
+- Easier to make rock-solid reliable
+
+**Implementation:**
+- Already have most pieces (Recorder.swift records to file, transcribe on stop)
+- Need: toggle setting, simplified UI for non-streaming mode
+- Could share the graceful stop logic for consistency
+
+---
+
+## COMPLETED: Streaming Simplification (v1.6.2)
+
+**Shipped:** Dec 12, 2025
+
+**What we fixed:**
+- Graceful stop - waits for current transcription to complete
+- Preview = Final (no more re-transcription on stop)
+- Eliminated "2010" bug where final could differ from preview
+- Clean Jarvis bypass toggle
 
 ---
 

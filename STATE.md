@@ -4,6 +4,31 @@
 
 ---
 
+## [2025-12-12 11:00] v1.6.2 - Graceful Stop & Jarvis Bypass
+
+**Problem:** Final transcription could differ from live preview ("2010" bug). Root cause: stopping triggered a SEPARATE re-transcription of the same audio, and Parakeet model is non-deterministic.
+
+**The Fix - Graceful Stop:**
+1. Added `shouldStopStreamingGracefully` flag
+2. Stop signals loop to finish current iteration + do ONE final pass
+3. `stopStreamingTranscriptionGracefully()` waits for task completion
+4. Returns `interimTranscription` directly - no separate re-transcription
+
+**Key Insight:** The live transcription and "final" transcription were using identical code paths but being called separately. Model non-determinism meant same audio could produce different results. Solution: don't call it twice.
+
+**Jarvis Bypass:**
+- Toggle already existed: `@AppStorage("JarvisEnabled")`
+- Added early guards in `performInterimTranscription()` and `toggleRecord()`
+- When Jarvis OFF: simple path with no command detection, no chunks, no complexity
+
+**Files Modified:**
+- `WhisperState.swift` - Graceful stop + Jarvis bypass guards
+- `JarvisCommandService.swift` - Minimum command length check (reject "." as command)
+
+**Lesson Learned:** If live preview works well, use its result directly. Don't re-transcribe.
+
+---
+
 ## [2025-12-11 10:30] Streaming Transcription Simplification - One Pipeline
 
 **Problem:** App crashed with EXC_BAD_ACCESS in TdtDecoderState. Root cause: two transcription paths racing on a non-thread-safe decoder:

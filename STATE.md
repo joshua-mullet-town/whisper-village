@@ -4,6 +4,31 @@
 
 ---
 
+## [2025-12-16] v1.7.0 Released - Native ML Cleanup
+
+**Release:** https://github.com/joshua-mullet-town/whisper-village/releases/tag/v1.7.0
+
+### What Shipped
+
+| Feature | Description |
+|---------|-------------|
+| **Native CoreML ML Cleanup** | Filler/repetition removal runs on-device via CoreML |
+| **Escape Key Fix** | No longer blocks escape from reaching other apps |
+| **Cleaner Settings UI** | Removed abandoned experimental features |
+
+### Escape Key Fix Details
+
+**Problem:** Global hotkey capture via KeyboardShortcuts library was blocking escape key from reaching other apps (like Slack) while recording.
+
+**Solution:** Switched from `KeyboardShortcuts.setShortcut()` to local/global NSEvent monitors:
+- `NSEvent.addLocalMonitorForEvents()` - handles escape when app is focused
+- `NSEvent.addGlobalMonitorForEvents()` - handles escape when recording but another app is focused
+- Neither blocks the event from propagating to other apps
+
+**File Modified:** `MiniRecorderShortcutManager.swift`
+
+---
+
 ## [2025-12-16] Native CoreML ML Cleanup - Python Server No Longer Needed
 
 **Goal:** Ship ML cleanup functionality as part of the app bundle, no external dependencies.
@@ -910,8 +935,9 @@ The regex `\bI'\b` fails because `\b` (word boundary) doesn't work after apostro
 ## Project Facts
 
 **App Name:** Whisper Village (rebranded from VoiceInk)
-**Current Version:** v1.4.0
+**Current Version:** v1.7.0
 **Platform:** macOS
 **Distribution:** GitHub Releases + Sparkle auto-updates
+**DMG Size:** 242MB (includes ~252MB CoreML models)
 
 ---

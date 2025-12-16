@@ -4,46 +4,7 @@
 
 ---
 
-## 🔥 ACTIVE: CoreML Conversion - Native ML Cleanup
-
-**Goal:** Convert filler/repetition models from PyTorch to CoreML so they run natively in Swift without a Python server.
-
-**Why:**
-- Ship ML cleanup to other devices without requiring `python ml/server.py`
-- Zero external dependencies
-- Uses Apple Neural Engine for fast inference
-- Single self-contained app
-
-**Steps:**
-- [ ] Spike: Convert filler model (BERT token classifier) to CoreML
-- [ ] Write Swift inference wrapper for CoreML model
-- [ ] Test accuracy matches Python version
-- [ ] If successful: convert repetition model too
-- [ ] Replace MLCleanupService HTTP calls with native CoreML inference
-- [ ] Remove Python server dependency for core features
-
-**Models to convert:**
-| Model | Type | Priority |
-|-------|------|----------|
-| filler-remover | BERT token classifier | HIGH |
-| repetition-remover | BERT token classifier | HIGH |
-| repair-remover | BERT token classifier | LOW (experimental) |
-| list-formatter | T5 seq2seq | LOW (harder, experimental) |
-
----
-
-## ✅ DONE: Auto List Formatting Model
-
-**Date:** 2025-12-15 (completed)
-
-**Status:** Model trained, 100% content accuracy. See STATE.md for details.
-
-**Next steps for integration:**
-- [x] Create `ListFormatter` class in `ml/pipeline/models.py`
-- [x] Add post-processing: `_fix_newlines()` regex to handle inline dashes
-- [x] Create pytest test suite (`ml/tests/test_list.py`) - 22 tests passing
-- [x] Add to pipeline as optional stage
-- [x] User toggle in settings (4 individual toggles)
+## 🔥 ACTIVE: (none - ready for new work)
 
 ---
 

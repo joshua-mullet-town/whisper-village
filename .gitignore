@@ -16,3 +16,6 @@ xcuserdata/
 
 # Misc
 .hud.json
+
+# ML Models (too large for GitHub, distributed via DMG)
+VoiceInk/Resources/MLModels/

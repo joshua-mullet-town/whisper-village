@@ -3,6 +3,23 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.7.0</title>
+            <pubDate>Mon, 16 Dec 2025 10:30:00 -0500</pubDate>
+            <sparkle:version>77</sparkle:version>
+            <sparkle:shortVersionString>1.7.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>What's New in Version 1.7.0 - Native ML Cleanup</h3>
+                <ul>
+                    <li><strong>On-device ML cleanup</strong> - Filler and repetition removal now runs via CoreML, no Python server needed</li>
+                    <li><strong>Escape key fix</strong> - No longer blocks escape from reaching other apps while recording</li>
+                    <li><strong>Cleaner settings</strong> - Removed experimental features that weren't ready (self-correction, list formatting)</li>
+                    <li>~126MB ML models bundled with the app for instant disfluency removal</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.7.0/WhisperVillage-1.7.0.dmg" length="253978180" type="application/octet-stream"/>
+        </item>
+        <item>
             <title>1.6.2</title>
             <pubDate>Thu, 12 Dec 2025 10:30:00 -0500</pubDate>
             <sparkle:version>76</sparkle:version>

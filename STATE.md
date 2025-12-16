@@ -4,6 +4,403 @@
 
 ---
 
+## [2025-12-16] Native CoreML ML Cleanup - Python Server No Longer Needed
+
+**Goal:** Ship ML cleanup functionality as part of the app bundle, no external dependencies.
+
+### What Shipped (CoreML Native)
+
+| Model | Purpose | Accuracy | Size | Status |
+|-------|---------|----------|------|--------|
+| Filler Remover | "uh", "um", "er" removal | 99.7% F1 | 126 MB | ✅ Shipped |
+| Repetition Remover | "I I I" → "I" | 86.9% F1 | 126 MB | ✅ Shipped |
+
+### Files Created for Native Inference
+
+| File | Purpose |
+|------|---------|
+| `VoiceInk/Services/BertTokenizer.swift` | BERT WordPiece tokenizer in Swift |
+| `VoiceInk/Services/CoreMLCleanupService.swift` | Native CoreML inference wrapper |
+| `VoiceInk/Resources/MLModels/vocab.txt` | Tokenizer vocabulary |
+| `VoiceInk/Resources/MLModels/filler_remover.mlpackage` | CoreML filler model |
+| `VoiceInk/Resources/MLModels/repetition_remover.mlpackage` | CoreML repetition model |
+| `ml/export/convert_to_coreml.py` | PyTorch → CoreML conversion script |
+
+### What Was Attempted But Abandoned
+
+| Feature | Why Abandoned |
+|---------|---------------|
+| **Repair Removal** | 54.6% F1 - too many false positives, removed words that should stay |
+| **List Formatting** | Required T5 model + Python server - not portable |
+| **Truecasing/Capitalization** | Made sentences worse during testing |
+
+### Architecture Change
+
+**Before:** Swift → HTTP POST → Python server (localhost:8000) → Response
+**After:** Swift → CoreMLCleanupService.shared.cleanup() → Native inference
+
+### Key Technical Details
+
+- Models converted from PyTorch (DistilBERT) using `coremltools`
+- WordPiece tokenization reimplemented in Swift
+- Token-to-word mapping preserves original text structure
+- Falls back to HTTP if CoreML unavailable (macOS < 13)
+- 100% prediction match between PyTorch and CoreML versions
+
+### Settings Location
+
+Settings → Experimental Features → ML Cleanup (Beta):
+- **Filler Removal** (default ON): removes "uh", "um", "er"
+- **Repetition Removal** (default ON): removes word repetitions
+
+---
+
+## [2025-12-15 20:00] ML Cleanup Integration Complete - Swift + Python Server
+
+**Goal:** Integrate ML disfluency removal models into Whisper Village app for real-time transcript cleanup.
+
+### Architecture
+
+```
+Whisper Village (Swift) → HTTP POST → localhost:8000 → ML Pipeline (Python)
+                        ← cleaned text ←
+```
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `ml/server.py` | Flask server on localhost:8000, serves all 4 models |
+| `VoiceInk/Services/MLCleanupService.swift` | HTTP client to call Python server |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `WhisperState.swift` | Added ML cleanup step after word replacements (2 locations) |
+| `ExperimentalFeaturesSection.swift` | Added 4 individual model toggles in UI |
+
+### User Settings
+
+Settings → Experimental Features → ML Cleanup (Beta):
+- **Filler Removal** (default ON): uh, um, er → removed
+- **Repetition Removal** (default ON): I I I think → I think
+- **Self-Correction Removal** (default OFF): experimental, can have false positives
+- **List Formatting** (default OFF): one X two Y → bullet points
+
+### Key Findings
+
+- **Model interference**: Running filler+list works well, but repetition/repair models can cause false positives on list-style text (they remove list indicators like "one finish report")
+- **Solution**: Individual toggles with safe defaults (filler+repetition ON, repair+list OFF)
+- **Pipeline order matters**: filler → repetition → repair → list (disfluency cleanup before structure transformation)
+
+### How to Use
+
+1. Start Python server: `python ml/server.py` (runs on localhost:8000)
+2. Enable in app: Settings → Experimental → Streaming Mode → ML Cleanup → Toggle ON
+3. Select models to enable
+4. Dictate - text is cleaned before pasting
+
+### Test Results
+
+Input: "So the other day I was thinking I I I I had this idea..."
+Output: "So the other day I was thinking I had this idea..."
+
+---
+
+## [2025-12-15 18:15] List Formatter Model Trained - 100% Content Accuracy
+
+**Goal:** Auto-format spoken list indicators ("one, two, three" or "first, second, third") into bullet points - Wispr Flow style.
+
+### Results
+
+| Metric | Score |
+|--------|-------|
+| Content Match | **100%** |
+| Exact Match | 21.3% (newline formatting difference) |
+
+### What It Does
+
+```
+Input:  "my goals are one finish report two send email"
+Output: "my goals are - Finish report - Send email"
+
+Input:  "first call mom second pick up groceries third schedule appointment"
+Output: "- Call mom - Pick up groceries - Schedule appointment"
+
+Input:  "I spoke with the client about the proposal"
+Output: "I spoke with the client about the proposal"  (unchanged - no list)
+```
+
+### Model Details
+
+- **Model:** T5-small (~60MB)
+- **Training data:** 1,500 synthetic examples (1,200 train / 150 val / 150 test)
+- **Training:** 5 epochs, ~3 min on Mac M-series
+- **Location:** `ml/models/list-formatter/`
+
+### Key Finding
+
+Model outputs bullets inline (`- item - item`) instead of with newlines (`- item\n- item`). Easy post-processing fix: `text.replace(" - ", "\n- ")`. The content detection is perfect.
+
+### Files Created
+
+- `ml/training/generate_list_data.py` - Synthetic data generator
+- `ml/training/train_list_formatter.py` - T5 training script
+- `ml/data/list-formatting/*.json` - Generated datasets
+
+---
+
+## [2025-12-15 18:00] Split Models Complete - RepetitionRemover + RepairRemover
+
+**Goal:** Separate disfluency handling into modular, toggleable models.
+
+### What We Built
+
+| Model | F1 Score | Training Data | What It Catches |
+|-------|----------|---------------|-----------------|
+| FillerRemover | 99.7% | DisfluencySpeech | "uh", "um" |
+| RepetitionRemover | 86.9% | Switchboard (≥50% word overlap) | "I I" → "I" |
+| RepairRemover | 54.6% | Switchboard (<50% word overlap) | "store → mall" |
+
+**New Pipeline:**
+```
+Raw → [FillerRemover] → [RepetitionRemover] → [RepairRemover] → Clean
+```
+
+### Data Split Heuristic
+
+Analyzed Switchboard: if reparandum words overlap ≥50% with repair words → repetition, else → repair.
+- 74% of data = repetitions (15,680 examples)
+- 26% of data = repairs (5,649 examples)
+
+### Test Suite Expanded
+
+From ~15 handcrafted tests to **81 total tests**:
+- repetition_tests: 5 → 18 (sampled from Switchboard)
+- repair_tests: 4 → 15 (sampled from Switchboard)
+- All 81 tests passing
+
+### Files Created/Modified
+
+- `ml/training/train_repetition_only.py` - filters for repetitions
+- `ml/training/train_repair_only.py` - filters for repairs
+- `ml/pipeline/models.py` - added RepairRemover class
+- `ml/pipeline/pipeline.py` - added `enable_repairs` flag (default: False)
+- `ml/tests/test_repair.py` - new test file
+- `ml/tests/fixtures.json` - expanded with real Switchboard examples
+
+### Key Insight
+
+Repairs (54% F1) are much harder than repetitions (87% F1). The RepairRemover is experimental - disabled by default. Users can toggle each model independently.
+
+---
+
+## [2025-12-15 14:30] ML Pipeline Formalized - Production-Ready Structure
+
+**Goal:** Organize ML models with proper structure, testing, and documentation for iteration.
+
+### What We Built
+
+```
+ml/
+├── models/                    # Trained models (~265MB each, gitignored)
+│   ├── filler-remover/        # 99.7% F1 filler removal
+│   └── repetition-remover/    # 79.4% F1 repetition removal
+├── pipeline/                  # Python module
+│   ├── __init__.py           # Public API
+│   ├── models.py             # FillerRemover, RepetitionRemover classes
+│   ├── pipeline.py           # TranscriptPipeline orchestration
+│   └── server.py             # HTTP server for Whisper Village integration
+├── training/                  # Training scripts (rescued from /tmp/)
+│   ├── train_filler.py
+│   └── train_repetition.py
+├── tests/                     # 48 tests, all passing
+│   ├── fixtures.json
+│   ├── test_filler.py
+│   ├── test_repetition.py
+│   └── test_pipeline.py
+├── README.md                  # Documentation for future agents
+├── requirements.txt
+└── .gitignore                 # Excludes models/
+```
+
+### Usage
+
+```python
+from ml.pipeline import TranscriptPipeline
+pipeline = TranscriptPipeline()
+clean = pipeline.process("i uh think um we we should go")
+# Returns: "i think we should go"
+```
+
+### HTTP Server
+
+```bash
+python -m ml.pipeline.server  # Runs on localhost:8765
+curl -X POST http://localhost:8765/cleanup -d '{"text": "i uh think"}'
+```
+
+### Key Decisions
+
+- **Models gitignored**: ~265MB each, stored locally, retrain from scripts if needed
+- **HTTP server approach**: Clean integration with Swift app via network calls
+- **BaseModel pattern**: Easy to add new models (just inherit and set MODEL_DIR)
+
+### Critical Fix
+
+**Rescued models from /tmp/** - repetition model was in `/tmp/disfluency-tagger-combined/` which would be deleted on reboot. Now safely in `ml/models/`.
+
+---
+
+## [2025-12-15 11:10] Specialized Model Pipeline for Transcript Cleanup - SUCCESS
+
+**Goal:** Build small, specialized BERT models for disfluency removal (instead of using LLMs).
+
+### What We Built
+
+| Model | Task | F1 Score | Size | Speed |
+|-------|------|----------|------|-------|
+| **Filler Remover** | "uh", "um" | **99.7%** | 265MB | ~10ms |
+| **Repetition Remover** | "I I" → "I" | **79.4%** | 265MB | ~10ms |
+
+### Key Insight: Specialized Models Beat Combined
+
+Training one model on both fillers AND repetitions degraded performance. When we mixed:
+- Switchboard (153K examples of repetitions/repairs)
+- DisfluencySpeech (4.5K examples including fillers)
+
+The massive Switchboard data drowned out filler learning. **Solution:** Train separate specialized models.
+
+### Datasets Used
+
+- **DisfluencySpeech** (HuggingFace) - 4,500 examples with `{F}` filler tags
+- **Switchboard** (GitHub) - 153K examples with BIO disfluency tags
+
+### Training Facts
+
+- Base model: `distilbert-base-uncased`
+- Filler training: ~2 min on Mac M-series (4.5K examples)
+- Repetition training: ~45 min on Mac M-series (157K examples)
+- Tag scheme: BIO format (B-FILL, I-FILL, B-REP, I-REP, O)
+
+### Pipeline Architecture
+
+```
+Raw transcript → [Filler Remover] → [Repetition Remover] → Clean
+```
+
+Each model only removes what it's trained for. Discourse markers ("well", "you know") are deliberately KEPT.
+
+### Model Locations
+
+- Filler: `./filler-remover-model/`
+- Repetition: `/tmp/disfluency-tagger-combined/`
+- Training scripts: `/tmp/train_filler_model_colab.py`, `/tmp/train_disfluency_bert_combined.py`
+
+### Comparison to LLM Approach
+
+| Aspect | BERT Pipeline | LLM (Mistral 7B) |
+|--------|---------------|------------------|
+| Accuracy | 99.7% filler, 79% rep | ~70% overall |
+| Speed | ~20ms | 800-1200ms |
+| Hallucination | Never | Sometimes |
+| Model Size | 265MB x2 | 4.5GB |
+
+**Winner:** BERT pipeline for disfluency removal. Use LLM only for semantic tasks (self-correction).
+
+---
+
+## [2025-12-14 16:00] LLM Transcription Correction - Model Evaluation
+
+**Goal:** Clean up voice transcriptions using local LLM before pasting.
+
+**Test Cases:**
+1. Filler words: "This is um a test of the uh cleanup like feature you know"
+2. Stuttering: "I I I think we should do this"
+3. Self-correction: "Lets meet at 2pm, no wait, 4pm tomorrow"
+
+**Model Comparison:**
+
+| Model | Filler | Stuttering | Self-Correction | Notes |
+|-------|--------|------------|-----------------|-------|
+| llama3.2:3b | ✓ | ⚠️ Removes "I think" | ⚠️ Rewrites too much | Too aggressive |
+| gemma2:2b | ✓ | ✓ | ✗ Keeps both times | Better but can't do corrections |
+| **mistral:7b** | ✓ | ✓ | ✓ | **Winner - all tests pass** |
+
+**Mistral 7B Results:**
+- Filler: "This is a test of the cleanup feature" ✓
+- Stuttering: "I think we should do this" ✓
+- Self-correction: "Meet at 4pm tomorrow" ✓
+
+**Implementation:**
+- `LLMCorrectionService.swift` (new) - Calls Ollama for cleanup
+- Toggle in Settings → Experimental Features → LLM Correction
+- Applied after Whisper transcription, before word replacements
+- 10-second timeout (skip if LLM slow)
+- Sanity check: reject empty or 2x longer results
+
+**Key Insight:** Larger models (7B) handle instruction-following better than small models (2-3B). Mistral 7B is the sweet spot for local transcription correction.
+
+---
+
+## [2025-12-14 14:30] Peek Toast + Keyboard Shortcut Fix
+
+**Peek Toast Improvements:**
+- New `PeekToastView` for showing transcription previews
+- Dynamic height: expands to fit content (up to 350px max)
+- Hover-to-pause: hovering pauses the auto-dismiss countdown
+- Shows "Paused" indicator when hovered
+- Eyeball button now works in Simple Mode (triggers peek)
+
+**Keyboard Shortcut Conflict Fixed:**
+- **Problem:** Cmd+1-9 (prompt selection) was registered as global hotkeys, blocking browser/terminal tab switching
+- **Root Cause:** KeyboardShortcuts library registers system-wide hotkeys that capture events before other apps
+- **Fix:** Changed prompt shortcuts from `Cmd+1-9` → `Ctrl+Cmd+1-9`
+- Tab switching in Chrome/iTerm now works while recording
+
+**Files Modified:**
+- `PeekToastView.swift` (new) - Dynamic height toast with hover-to-pause
+- `NotificationManager.swift` - Added `showPeekToast()` method
+- `MiniRecorderView.swift` - Eyeball triggers peek in Simple Mode
+- `WhisperState.swift` - `peekTranscription()` uses new toast
+- `MiniRecorderShortcutManager.swift` - Changed Cmd+1-9 to Ctrl+Cmd+1-9
+
+**Key Insight:** Global hotkeys capture key events system-wide. Use uncommon modifier combinations to avoid conflicts with standard app shortcuts.
+
+---
+
+## [2025-12-14 12:00] Simple Mode + Recording Action Shortcuts
+
+**Achievement:** Added Simple Mode (no live transcription) and configurable recording action shortcuts.
+
+**Simple Mode (Live Preview OFF):**
+- Toggle: Settings → Experimental Features → Streaming Mode → Live Preview
+- When OFF: Records audio only, no transcription loop running
+- On stop: Transcribes full buffer once → pastes
+- Preview box and eyeball toggle hidden in Simple Mode
+- Much simpler code path, no background CPU usage
+
+**Recording Action Shortcuts:**
+- `sendRecorder` - Stop + Transcribe + Paste + Enter (configurable in Settings → Recording Shortcuts)
+- `peekTranscription` - On-demand transcription without stopping (configurable)
+
+**Peek in Simple Mode:**
+- Does single transcription of current buffer
+- Shows result via notification (preview box stays hidden)
+- Recording continues after peek
+
+**Files Modified:**
+- `WhisperState.swift` - `isLivePreviewEnabled` property, Simple Mode paths in `toggleRecord()` and `performInterimTranscription()`, new `stopRecordingAndSend()` and `peekTranscription()` functions
+- `MiniRecorderShortcutManager.swift` - Added `sendRecorder` and `peekTranscription` shortcut handlers
+- `MiniRecorderView.swift` - Preview box and eyeball toggle only show when `isLivePreviewEnabled`
+- `ExperimentalFeaturesSection.swift` - Live Preview toggle UI with "Simple Mode" label
+- `SettingsView.swift` - Recording Actions shortcuts section
+
+**Key Insight:** Simple Mode eliminates streaming transcription entirely - just audio capture → single transcription on demand. Much more reliable for users who don't need live preview.
+
+---
+
 ## [2025-12-12 11:00] v1.6.2 - Graceful Stop & Jarvis Bypass
 
 **Problem:** Final transcription could differ from live preview ("2010" bug). Root cause: stopping triggered a SEPARATE re-transcription of the same audio, and Parakeet model is non-deterministic.

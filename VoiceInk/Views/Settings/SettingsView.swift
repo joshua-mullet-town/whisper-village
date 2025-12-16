@@ -108,8 +108,47 @@ struct SettingsView: View {
                             Spacer()
                         }
 
-                        
-                        
+                        Divider()
+                            .padding(.vertical, 4)
+
+                        Text("Recording Actions")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.primary)
+
+                        // Send Shortcut (Stop + Paste + Enter)
+                        HStack(spacing: 12) {
+                            Text("Send (Paste + Enter)")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.secondary)
+
+                            KeyboardShortcuts.Recorder(for: .sendRecorder)
+                                .controlSize(.small)
+
+                            InfoTip(
+                                title: "Send Recording",
+                                message: "Stop recording, transcribe, paste the text, and press Enter to send. Great for chat apps."
+                            )
+
+                            Spacer()
+                        }
+
+                        // Peek Shortcut (Show transcription without stopping)
+                        HStack(spacing: 12) {
+                            Text("Peek Transcription")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.secondary)
+
+                            KeyboardShortcuts.Recorder(for: .peekTranscription)
+                                .controlSize(.small)
+
+                            InfoTip(
+                                title: "Peek Transcription",
+                                message: "Show what you've said so far without stopping the recording. Only works in streaming mode."
+                            )
+
+                            Spacer()
+                        }
+
                         // Custom Cancel Shortcut
                         VStack(alignment: .leading, spacing: 12) {
                             HStack(spacing: 8) {

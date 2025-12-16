@@ -29,6 +29,12 @@ struct MiniRecorderView: View {
         UserDefaults.standard.bool(forKey: "StreamingModeEnabled")
     }
 
+    /// Whether live preview is enabled (continuous transcription)
+    /// When OFF, we're in Simple Mode - no preview box during recording
+    private var isLivePreviewEnabled: Bool {
+        UserDefaults.standard.bool(forKey: "LivePreviewEnabled")
+    }
+
     /// Whether preview box is visible (persisted)
     @AppStorage("StreamingPreviewVisible") private var isPreviewVisible: Bool = true
 
@@ -224,10 +230,10 @@ struct MiniRecorderView: View {
         Group {
             let hasContent = !whisperState.debugLog.isEmpty
             let isRecording = whisperState.recordingState == .recording
-            let shouldShow = isStreamingModeEnabled && isRecording && isPreviewVisible
+            let shouldShow = isStreamingModeEnabled && isLivePreviewEnabled && isRecording && isPreviewVisible
 
-            // Always allocate space when streaming mode enabled, use opacity to hide/show
-            if isStreamingModeEnabled {
+            // Allocate space for preview box only when Live Preview is enabled
+            if isStreamingModeEnabled && isLivePreviewEnabled {
                 ZStack(alignment: .topTrailing) {
                     // Using defaultScrollAnchor(.bottom) - iOS 17+ / macOS 14+
                     // This automatically:
@@ -376,14 +382,29 @@ struct MiniRecorderView: View {
                 .frame(width: 80)
             Spacer()
 
-            // Eyeball toggle (only when streaming mode enabled) - right side near timer
+            // Eyeball button - different behavior based on mode
+            // Live Preview: toggle preview box visibility
+            // Simple Mode: trigger peek (on-demand transcription)
             if isStreamingModeEnabled {
-                Button(action: { isPreviewVisible.toggle() }) {
-                    Image(systemName: isPreviewVisible ? "eye.fill" : "eye.slash.fill")
+                Button(action: {
+                    if isLivePreviewEnabled {
+                        // Live Preview mode: toggle preview visibility
+                        isPreviewVisible.toggle()
+                    } else {
+                        // Simple Mode: trigger peek transcription
+                        Task { @MainActor in
+                            await whisperState.peekTranscription()
+                        }
+                    }
+                }) {
+                    Image(systemName: isLivePreviewEnabled
+                        ? (isPreviewVisible ? "eye.fill" : "eye.slash.fill")
+                        : "eye.fill")
                         .font(.system(size: 12))
                         .foregroundColor(.white.opacity(0.8))
                 }
                 .buttonStyle(PlainButtonStyle())
+                .help(isLivePreviewEnabled ? "Toggle preview" : "Peek transcription")
             }
 
             // Timer display

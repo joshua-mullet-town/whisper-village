@@ -6,6 +6,9 @@ extension KeyboardShortcuts.Name {
     static let escapeRecorder = Self("escapeRecorder")
     static let cancelRecorder = Self("cancelRecorder")
     static let toggleEnhancement = Self("toggleEnhancement")
+    // Recording action shortcuts
+    static let sendRecorder = Self("sendRecorder")       // Stop + Paste + Enter
+    static let peekTranscription = Self("peekTranscription") // Show preview without stopping
     // AI Prompt selection shortcuts
     static let selectPrompt1 = Self("selectPrompt1")
     static let selectPrompt2 = Self("selectPrompt2")
@@ -36,7 +39,9 @@ class MiniRecorderShortcutManager: ObservableObject {
     private var visibilityTask: Task<Void, Never>?
     
     private var isCancelHandlerSetup = false
-    
+    private var isSendHandlerSetup = false
+    private var isPeekHandlerSetup = false
+
     // Double-tap Escape handling
     private var escFirstPressTime: Date? = nil
     private let escSecondPressThreshold: TimeInterval = 1.5
@@ -49,6 +54,8 @@ class MiniRecorderShortcutManager: ObservableObject {
         setupEnhancementShortcut()
         setupEscapeHandlerOnce()
         setupCancelHandlerOnce()
+        setupSendHandlerOnce()
+        setupPeekHandlerOnce()
     }
     
     private func setupVisibilityObserver() {
@@ -71,48 +78,69 @@ class MiniRecorderShortcutManager: ObservableObject {
         }
     }
     
-    // Setup escape handler once
+    // Local escape monitor (doesn't block other apps)
+    private var escapeLocalMonitor: Any?
+    private var escapeGlobalMonitor: Any?
+
+    // Setup escape handler using local event monitoring (not global hotkey capture)
     private func setupEscapeHandlerOnce() {
         guard !isEscapeHandlerSetup else { return }
         isEscapeHandlerSetup = true
-        
-        KeyboardShortcuts.onKeyDown(for: .escapeRecorder) { [weak self] in
-            Task { @MainActor in
-                guard let self = self,
-                      await self.whisperState.isMiniRecorderVisible else { return }
-                
-                // Don't process if custom shortcut is configured
-                guard KeyboardShortcuts.getShortcut(for: .cancelRecorder) == nil else { return }
-                
-                let now = Date()
-                if let firstTime = self.escFirstPressTime,
-                   now.timeIntervalSince(firstTime) <= self.escSecondPressThreshold {
-                    self.escFirstPressTime = nil
-                    SoundManager.shared.playEscSound()
-                    await self.whisperState.dismissMiniRecorder()
-                } else {
-                    self.escFirstPressTime = now
-                    SoundManager.shared.playEscSound()
-                    NotificationManager.shared.showNotification(
-                        title: "Press ESC again to cancel recording",
-                        type: .info,
-                        duration: self.escSecondPressThreshold
-                    )
-                    self.escapeTimeoutTask = Task { [weak self] in
-                        try? await Task.sleep(nanoseconds: UInt64((self?.escSecondPressThreshold ?? 1.5) * 1_000_000_000))
-                        await MainActor.run {
-                            self?.escFirstPressTime = nil
-                        }
-                    }
-                }
-            }
-        }
+        // Handler setup is done in activateEscapeShortcut using local monitors
     }
-    
+
     private func activateEscapeShortcut() {
         // Don't activate if custom shortcut is configured
         guard KeyboardShortcuts.getShortcut(for: .cancelRecorder) == nil else { return }
-        KeyboardShortcuts.setShortcut(.init(.escape), for: .escapeRecorder)
+
+        // Use local event monitoring instead of global hotkey capture
+        // This allows escape to pass through to other apps while still working for our app
+        escapeLocalMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard event.keyCode == 53 else { return event } // 53 = Escape key
+
+            Task { @MainActor in
+                await self?.handleEscapePress()
+            }
+            return nil // Consume the event locally
+        }
+
+        // Also monitor global events but DON'T consume them - just listen
+        escapeGlobalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard event.keyCode == 53 else { return } // 53 = Escape key
+
+            // Only handle if our app is not the active app (background monitoring)
+            // This way escape still works when recording but another app is focused
+            Task { @MainActor in
+                await self?.handleEscapePress()
+            }
+        }
+    }
+
+    private func handleEscapePress() async {
+        guard whisperState.isMiniRecorderVisible else { return }
+        guard KeyboardShortcuts.getShortcut(for: .cancelRecorder) == nil else { return }
+
+        let now = Date()
+        if let firstTime = escFirstPressTime,
+           now.timeIntervalSince(firstTime) <= escSecondPressThreshold {
+            escFirstPressTime = nil
+            SoundManager.shared.playEscSound()
+            await whisperState.dismissMiniRecorder()
+        } else {
+            escFirstPressTime = now
+            SoundManager.shared.playEscSound()
+            NotificationManager.shared.showNotification(
+                title: "Press ESC again to cancel recording",
+                type: .info,
+                duration: escSecondPressThreshold
+            )
+            escapeTimeoutTask = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64((self?.escSecondPressThreshold ?? 1.5) * 1_000_000_000))
+                await MainActor.run {
+                    self?.escFirstPressTime = nil
+                }
+            }
+        }
     }
     
     // Setup cancel handler once
@@ -137,7 +165,15 @@ class MiniRecorderShortcutManager: ObservableObject {
     }
     
     private func deactivateEscapeShortcut() {
-        KeyboardShortcuts.setShortcut(nil, for: .escapeRecorder)
+        // Remove local and global monitors
+        if let monitor = escapeLocalMonitor {
+            NSEvent.removeMonitor(monitor)
+            escapeLocalMonitor = nil
+        }
+        if let monitor = escapeGlobalMonitor {
+            NSEvent.removeMonitor(monitor)
+            escapeGlobalMonitor = nil
+        }
         escFirstPressTime = nil
         escapeTimeoutTask?.cancel()
         escapeTimeoutTask = nil
@@ -146,7 +182,43 @@ class MiniRecorderShortcutManager: ObservableObject {
     private func deactivateCancelShortcut() {
         // Shortcut managed by user settings
     }
-    
+
+    // MARK: - Send Shortcut (Stop + Paste + Enter)
+
+    private func setupSendHandlerOnce() {
+        guard !isSendHandlerSetup else { return }
+        isSendHandlerSetup = true
+
+        KeyboardShortcuts.onKeyDown(for: .sendRecorder) { [weak self] in
+            Task { @MainActor in
+                guard let self = self,
+                      await self.whisperState.isMiniRecorderVisible,
+                      await self.whisperState.recordingState == .recording,
+                      KeyboardShortcuts.getShortcut(for: .sendRecorder) != nil else { return }
+
+                await self.whisperState.stopRecordingAndSend()
+            }
+        }
+    }
+
+    // MARK: - Peek Shortcut (Show transcription without stopping)
+
+    private func setupPeekHandlerOnce() {
+        guard !isPeekHandlerSetup else { return }
+        isPeekHandlerSetup = true
+
+        KeyboardShortcuts.onKeyDown(for: .peekTranscription) { [weak self] in
+            Task { @MainActor in
+                guard let self = self,
+                      await self.whisperState.isMiniRecorderVisible,
+                      await self.whisperState.recordingState == .recording,
+                      KeyboardShortcuts.getShortcut(for: .peekTranscription) != nil else { return }
+
+                await self.whisperState.peekTranscription()
+            }
+        }
+    }
+
     private func setupEnhancementShortcut() {
         KeyboardShortcuts.onKeyDown(for: .toggleEnhancement) { [weak self] in
             Task { @MainActor in
@@ -217,16 +289,17 @@ class MiniRecorderShortcutManager: ObservableObject {
     }
     
     private func setupPromptShortcuts() {
-        KeyboardShortcuts.setShortcut(.init(.one, modifiers: .command), for: .selectPrompt1)
-        KeyboardShortcuts.setShortcut(.init(.two, modifiers: .command), for: .selectPrompt2)
-        KeyboardShortcuts.setShortcut(.init(.three, modifiers: .command), for: .selectPrompt3)
-        KeyboardShortcuts.setShortcut(.init(.four, modifiers: .command), for: .selectPrompt4)
-        KeyboardShortcuts.setShortcut(.init(.five, modifiers: .command), for: .selectPrompt5)
-        KeyboardShortcuts.setShortcut(.init(.six, modifiers: .command), for: .selectPrompt6)
-        KeyboardShortcuts.setShortcut(.init(.seven, modifiers: .command), for: .selectPrompt7)
-        KeyboardShortcuts.setShortcut(.init(.eight, modifiers: .command), for: .selectPrompt8)
-        KeyboardShortcuts.setShortcut(.init(.nine, modifiers: .command), for: .selectPrompt9)
-        KeyboardShortcuts.setShortcut(.init(.zero, modifiers: .command), for: .selectPrompt10)
+        // Use Ctrl+Cmd+1-9 to avoid conflicts with browser/terminal tab switching (Cmd+1-9)
+        KeyboardShortcuts.setShortcut(.init(.one, modifiers: [.control, .command]), for: .selectPrompt1)
+        KeyboardShortcuts.setShortcut(.init(.two, modifiers: [.control, .command]), for: .selectPrompt2)
+        KeyboardShortcuts.setShortcut(.init(.three, modifiers: [.control, .command]), for: .selectPrompt3)
+        KeyboardShortcuts.setShortcut(.init(.four, modifiers: [.control, .command]), for: .selectPrompt4)
+        KeyboardShortcuts.setShortcut(.init(.five, modifiers: [.control, .command]), for: .selectPrompt5)
+        KeyboardShortcuts.setShortcut(.init(.six, modifiers: [.control, .command]), for: .selectPrompt6)
+        KeyboardShortcuts.setShortcut(.init(.seven, modifiers: [.control, .command]), for: .selectPrompt7)
+        KeyboardShortcuts.setShortcut(.init(.eight, modifiers: [.control, .command]), for: .selectPrompt8)
+        KeyboardShortcuts.setShortcut(.init(.nine, modifiers: [.control, .command]), for: .selectPrompt9)
+        KeyboardShortcuts.setShortcut(.init(.zero, modifiers: [.control, .command]), for: .selectPrompt10)
         
         // Setup handlers
         setupPromptHandler(for: .selectPrompt1, index: 0)

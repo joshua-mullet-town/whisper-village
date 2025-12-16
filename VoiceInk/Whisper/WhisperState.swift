@@ -79,6 +79,12 @@ class WhisperState: NSObject, ObservableObject {
         UserDefaults.standard.bool(forKey: "StreamingModeEnabled")
     }
 
+    /// Whether live preview is enabled (continuous transcription while recording)
+    /// When OFF: Simple Mode - just record, transcribe only on stop/peek/send
+    var isLivePreviewEnabled: Bool {
+        UserDefaults.standard.bool(forKey: "LivePreviewEnabled")
+    }
+
     // MARK: - Streaming Transcription (Simplified - Full Buffer)
     /// Task for the streaming transcription loop
     private var streamingTranscriptionTask: Task<Void, Never>?
@@ -289,6 +295,17 @@ class WhisperState: NSObject, ObservableObject {
                         finalText = WordReplacementService.shared.applyReplacements(to: finalText)
                     }
 
+                    // ML Cleanup - filler removal (if enabled)
+                    if UserDefaults.standard.bool(forKey: "IsMLCleanupEnabled") {
+                        // Try CoreML first (native, no Python server needed)
+                        if #available(macOS 13.0, *), CoreMLCleanupService.shared.isAvailable {
+                            finalText = CoreMLCleanupService.shared.cleanup(text: finalText)
+                        } else {
+                            // Fall back to HTTP-based cleanup
+                            finalText = await MLCleanupService.shared.cleanup(text: finalText)
+                        }
+                    }
+
                     let shouldAddSpace = UserDefaults.standard.object(forKey: "AppendTrailingSpace") as? Bool ?? true
                     if shouldAddSpace {
                         finalText += " "
@@ -306,23 +323,50 @@ class WhisperState: NSObject, ObservableObject {
             // ============================================================
             // SIMPLE STREAMING (Jarvis disabled) - Clean, simple path
             // No command detection, no chunks, no voice command flags
-            // Uses SAME transcription flow as live preview (graceful stop)
+            // OPTIMIZED: Hides UI immediately for perceived responsiveness
             // ============================================================
             if isStreamingModeEnabled {
-                StreamingLogger.shared.log("=== TOGGLE RECORD STOP (Simple Streaming - no Jarvis) ===")
+                StreamingLogger.shared.log("=== TOGGLE RECORD STOP (Streaming Mode) ===")
 
-                // Optional linger delay - keep recording AND transcribing during this time
-                // This allows trailing words to be captured in the live transcription
-                let lingerMs = UserDefaults.standard.integer(forKey: "RecordingLingerMs")
-                if lingerMs > 0 {
-                    StreamingLogger.shared.log("Lingering for \(lingerMs)ms to capture trailing words...")
-                    try? await Task.sleep(nanoseconds: UInt64(lingerMs) * 1_000_000)
+                // OPTIMIZATION: Hide UI immediately - user stopped recording, they're done
+                hideRecorderPanel()
+                await MainActor.run {
+                    isMiniRecorderVisible = false
                 }
+                StreamingLogger.shared.log("UI hidden immediately for responsiveness")
 
-                // Graceful stop: waits for current transcription to complete, then does ONE final pass
-                // This uses the exact same transcription flow as live preview - no separate re-transcription
-                let textToPaste = await stopStreamingTranscriptionGracefully()
-                StreamingLogger.shared.log("Simple streaming final (from graceful stop): \"\(textToPaste)\"")
+                var textToPaste = ""
+
+                if isLivePreviewEnabled {
+                    // Live Preview ON: Use graceful stop
+                    StreamingLogger.shared.log("Live Preview Mode - graceful stop")
+
+                    // Optional linger delay
+                    let lingerMs = UserDefaults.standard.integer(forKey: "RecordingLingerMs")
+                    if lingerMs > 0 {
+                        StreamingLogger.shared.log("Lingering for \(lingerMs)ms to capture trailing words...")
+                        try? await Task.sleep(nanoseconds: UInt64(lingerMs) * 1_000_000)
+                    }
+
+                    textToPaste = await stopStreamingTranscriptionGracefully()
+                    StreamingLogger.shared.log("Live preview final: \"\(textToPaste)\"")
+                } else {
+                    // Live Preview OFF: Simple Mode - transcribe full audio buffer once
+                    StreamingLogger.shared.log("Simple Mode - full audio transcription")
+
+                    // Optional linger delay
+                    let lingerMs = UserDefaults.standard.integer(forKey: "RecordingLingerMs")
+                    if lingerMs > 0 {
+                        StreamingLogger.shared.log("Lingering for \(lingerMs)ms to capture trailing words...")
+                        try? await Task.sleep(nanoseconds: UInt64(lingerMs) * 1_000_000)
+                    }
+
+                    // Transcribe the full audio buffer ONCE (UI already hidden)
+                    if let transcribedText = await transcribeFullAudioBuffer(clearBufferAfter: false) {
+                        textToPaste = transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    }
+                    StreamingLogger.shared.log("Simple mode final: \"\(textToPaste)\"")
+                }
 
                 // Stop recorders
                 _ = await streamingRecorder.stopRecording()
@@ -333,19 +377,33 @@ class WhisperState: NSObject, ObservableObject {
                         recordingState = .idle
                     }
                     await cleanupModelResources()
-                    await dismissMiniRecorder()
+                    await cleanupAfterSend()
                 } else {
-                    // Save to history for Option+Cmd+V
                     saveStreamingTranscriptionToHistory(textToPaste)
 
                     await MainActor.run {
                         recordingState = .idle
                     }
 
-                    // Apply word replacements if enabled
                     var finalText = textToPaste
+
+                    // LLM Correction (if enabled) - runs before word replacements
+                    finalText = await LLMCorrectionService.shared.correct(finalText)
+
+                    // Word replacements (if enabled)
                     if UserDefaults.standard.bool(forKey: "IsWordReplacementEnabled") {
                         finalText = WordReplacementService.shared.applyReplacements(to: finalText)
+                    }
+
+                    // ML Cleanup - filler removal (if enabled)
+                    if UserDefaults.standard.bool(forKey: "IsMLCleanupEnabled") {
+                        // Try CoreML first (native, no Python server needed)
+                        if #available(macOS 13.0, *), CoreMLCleanupService.shared.isAvailable {
+                            finalText = CoreMLCleanupService.shared.cleanup(text: finalText)
+                        } else {
+                            // Fall back to HTTP-based cleanup
+                            finalText = await MLCleanupService.shared.cleanup(text: finalText)
+                        }
                     }
 
                     let shouldAddSpace = UserDefaults.standard.object(forKey: "AppendTrailingSpace") as? Bool ?? true
@@ -353,11 +411,12 @@ class WhisperState: NSObject, ObservableObject {
                         finalText += " "
                     }
 
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    // Reduced delay for snappier feel
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
                         CursorPaster.pasteAtCursor(finalText)
                     }
 
-                    await dismissMiniRecorder()
+                    await cleanupAfterSend()
                 }
                 return
             }
@@ -460,13 +519,16 @@ class WhisperState: NSObject, ObservableObject {
                             }
 
                             // Start streaming transcription if enabled and using local or parakeet model
-                            if self.isStreamingModeEnabled {
+                            // Only start live preview loop if LivePreviewEnabled is true
+                            if self.isStreamingModeEnabled && self.isLivePreviewEnabled {
                                 if let model = self.currentTranscriptionModel,
                                    (model.provider == .local || model.provider == .parakeet) {
                                     self.startStreamingTranscription()
                                 } else {
                                     StreamingLogger.shared.log("Streaming transcription only works with local/parakeet models (current: \(self.currentTranscriptionModel?.provider.rawValue ?? "none"))")
                                 }
+                            } else if self.isStreamingModeEnabled && !self.isLivePreviewEnabled {
+                                StreamingLogger.shared.log("Simple Mode: Recording audio only, no live transcription")
                             }
 
                         } catch {
@@ -483,7 +545,165 @@ class WhisperState: NSObject, ObservableObject {
             }
         }
     }
-    
+
+    // MARK: - Stop Recording and Send (Paste + Enter)
+
+    /// Stops recording, transcribes, pastes, and presses Enter to send
+    /// This is similar to toggleRecord() stop path but also presses Enter after paste
+    /// OPTIMIZED: Hides UI immediately for perceived responsiveness
+    func stopRecordingAndSend() async {
+        guard recordingState == .recording else { return }
+
+        // For streaming mode
+        if isStreamingModeEnabled {
+            StreamingLogger.shared.log("=== STOP RECORDING AND SEND ===")
+
+            // OPTIMIZATION 1: Hide UI immediately - user pressed send, they're done
+            // The transcription continues in the background
+            hideRecorderPanel()
+            await MainActor.run {
+                isMiniRecorderVisible = false
+            }
+            StreamingLogger.shared.log("UI hidden immediately for responsiveness")
+
+            var textToPaste = ""
+
+            // Optional linger delay
+            let lingerMs = UserDefaults.standard.integer(forKey: "RecordingLingerMs")
+            if lingerMs > 0 {
+                StreamingLogger.shared.log("Lingering for \(lingerMs)ms to capture trailing words...")
+                try? await Task.sleep(nanoseconds: UInt64(lingerMs) * 1_000_000)
+            }
+
+            if isLivePreviewEnabled {
+                // Live Preview ON: Use graceful stop
+                textToPaste = await stopStreamingTranscriptionGracefully()
+                StreamingLogger.shared.log("Send final (live preview): \"\(textToPaste)\"")
+            } else {
+                // Simple Mode: Transcribe full audio buffer once
+                await MainActor.run {
+                    recordingState = .transcribing
+                }
+                if let transcribedText = await transcribeFullAudioBuffer(clearBufferAfter: false) {
+                    textToPaste = transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+                StreamingLogger.shared.log("Send final (simple mode): \"\(textToPaste)\"")
+            }
+
+            // Stop recorders
+            _ = await streamingRecorder.stopRecording()
+            await recorder.stopRecording()
+
+            if shouldCancelRecording || textToPaste.isEmpty {
+                await MainActor.run {
+                    recordingState = .idle
+                }
+                await cleanupModelResources()
+                // Cleanup remaining state
+                await cleanupAfterSend()
+            } else {
+                // Save to history (fast SwiftData insert, non-blocking)
+                saveStreamingTranscriptionToHistory(textToPaste)
+
+                await MainActor.run {
+                    recordingState = .idle
+                }
+
+                var finalText = textToPaste
+
+                // LLM Correction (if enabled) - runs before word replacements
+                finalText = await LLMCorrectionService.shared.correct(finalText)
+
+                // Word replacements (if enabled)
+                if UserDefaults.standard.bool(forKey: "IsWordReplacementEnabled") {
+                    finalText = WordReplacementService.shared.applyReplacements(to: finalText)
+                }
+
+                // OPTIMIZATION 2 & 3: Reduced delays (50ms→20ms paste, 100ms→50ms enter)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
+                    CursorPaster.pasteAtCursor(finalText)
+                    // Press Enter after paste
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        CursorPaster.pressEnter()
+                    }
+                }
+
+                // Cleanup remaining state (UI already hidden)
+                await cleanupAfterSend()
+            }
+            return
+        }
+
+        // For non-streaming mode, just call toggleRecord and then press Enter
+        await toggleRecord()
+    }
+
+    /// Cleanup state after send - called when UI is already hidden
+    private func cleanupAfterSend() async {
+        StreamingLogger.shared.log("=== CLEANUP AFTER SEND ===")
+        stopStreamingTranscription()
+        await streamingRecorder.clearBuffer()
+        await cleanupModelResources()
+        await MainActor.run {
+            debugLog = []
+            interimTranscription = ""
+            isInJarvisCommandMode = false
+        }
+        StreamingLogger.shared.log("=== CLEANUP COMPLETE ===")
+    }
+
+    // MARK: - Peek Transcription (Show preview without stopping)
+
+    /// Triggers a transcription of current audio and shows the result
+    /// Recording continues after showing the preview
+    func peekTranscription() async {
+        guard recordingState == .recording else { return }
+
+        guard isStreamingModeEnabled else {
+            NotificationManager.shared.showNotification(
+                title: "Peek requires streaming mode",
+                type: .info,
+                duration: 2.0
+            )
+            return
+        }
+
+        StreamingLogger.shared.log("=== PEEK TRANSCRIPTION ===")
+
+        var currentText = ""
+
+        if isLivePreviewEnabled {
+            // Live Preview ON: Use the already-computed interim transcription
+            currentText = interimTranscription.trimmingCharacters(in: .whitespacesAndNewlines)
+            StreamingLogger.shared.log("Peek (live preview): \"\(currentText)\"")
+        } else {
+            // Simple Mode: Do an on-demand transcription of current audio buffer
+            // Note: This transcribes but doesn't stop recording
+            StreamingLogger.shared.log("Peek (simple mode): Transcribing current audio...")
+            if let transcribedText = await transcribeFullAudioBuffer(clearBufferAfter: false) {
+                currentText = transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            StreamingLogger.shared.log("Peek (simple mode) result: \"\(currentText)\"")
+        }
+
+        if currentText.isEmpty {
+            NotificationManager.shared.showNotification(
+                title: "No transcription yet",
+                type: .info,
+                duration: 2.0
+            )
+        } else {
+            // Show the full transcription in the peek toast
+            // - Full text (scrollable if long)
+            // - Hover to pause auto-dismiss
+            // - 8 second default duration
+            NotificationManager.shared.showPeekToast(
+                text: currentText,
+                duration: 8.0
+            )
+        }
+    }
+
     private func requestRecordPermission(response: @escaping (Bool) -> Void) {
         response(true)
     }

@@ -3,6 +3,7 @@ import SwiftUI
 struct ExperimentalFeaturesSection: View {
     @AppStorage("isExperimentalFeaturesEnabled") private var isExperimentalFeaturesEnabled = false
     @AppStorage("StreamingModeEnabled") private var isStreamingModeEnabled = false
+    @AppStorage("LivePreviewEnabled") private var isLivePreviewEnabled = true
     @ObservedObject private var playbackController = PlaybackController.shared
 
     // Jarvis settings
@@ -10,6 +11,15 @@ struct ExperimentalFeaturesSection: View {
     @AppStorage("JarvisWakeWord") private var jarvisWakeWord = "jarvis"
     @AppStorage("RecordingLingerMs") private var recordingLingerMs = 750
     @State private var ollamaStatus: String = "Checking..."
+
+    // LLM Correction settings
+    @AppStorage("LLMCorrectionEnabled") private var isLLMCorrectionEnabled = false
+    @State private var correctionOllamaStatus: String = "Checking..."
+
+    // ML Cleanup settings (native CoreML)
+    @AppStorage("IsMLCleanupEnabled") private var isMLCleanupEnabled = false
+    @AppStorage("MLCleanupFillerEnabled") private var isFillerEnabled = true
+    @AppStorage("MLCleanupRepetitionEnabled") private var isRepetitionEnabled = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -53,14 +63,140 @@ struct ExperimentalFeaturesSection: View {
 
                     Toggle(isOn: $isStreamingModeEnabled) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Real-Time Streaming Preview")
-                            Text("Show live transcription bubbles as you speak")
+                            Text("Streaming Mode")
+                            Text("Use streaming audio recorder for real-time features")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
                     }
                     .toggleStyle(.switch)
-                    .help("Shows real-time transcription preview while recording. Requires a local Whisper model.")
+                    .help("Enables streaming audio capture. Required for live preview and Jarvis commands.")
+
+                    // Live Preview toggle (only when streaming enabled)
+                    if isStreamingModeEnabled {
+                        Toggle(isOn: $isLivePreviewEnabled) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack {
+                                    Text("Live Preview")
+                                    if !isLivePreviewEnabled {
+                                        Text("(Simple Mode)")
+                                            .font(.caption)
+                                            .foregroundColor(.orange)
+                                    }
+                                }
+                                Text(isLivePreviewEnabled
+                                    ? "Show transcription as you speak (uses more CPU)"
+                                    : "Just record - transcribe once when you stop")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .padding(.leading, 20)
+                        .help("When ON: continuous transcription preview. When OFF: Simple Mode - transcribe only on stop/peek.")
+
+                        // LLM Correction toggle
+                        Divider()
+                            .padding(.vertical, 4)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("LLM Correction")
+                                    .font(.headline)
+                                Spacer()
+                                Toggle("", isOn: $isLLMCorrectionEnabled)
+                                    .toggleStyle(.switch)
+                                    .labelsHidden()
+                            }
+                            Text("Use local LLM to clean up transcriptions before pasting")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+
+                            if isLLMCorrectionEnabled {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Fixes:")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Text("• Filler words (um, uh, like, you know)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Text("• Self-corrections (\"2pm, no wait, 4pm\" → \"4pm\")")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Text("• Stuttering and word duplications")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                .padding(.leading, 8)
+
+                                HStack {
+                                    Text("LLM Status:")
+                                        .frame(width: 80, alignment: .leading)
+                                    Text(correctionOllamaStatus)
+                                        .font(.caption)
+                                        .foregroundColor(correctionOllamaStatus.contains("Ready") ? .green : .orange)
+                                    Button("Check") {
+                                        checkCorrectionOllamaStatus()
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .font(.caption)
+                                    Spacer()
+                                }
+                                .padding(.top, 4)
+
+                                Text("Requires: ollama serve + llama3.1:8b-instruct-q4_0")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+
+                        // ML Cleanup section (local Python server)
+                        Divider()
+                            .padding(.vertical, 4)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("ML Cleanup (Beta)")
+                                    .font(.headline)
+                                Spacer()
+                                Toggle("", isOn: $isMLCleanupEnabled)
+                                    .toggleStyle(.switch)
+                                    .labelsHidden()
+                            }
+                            Text("Use local ML models to clean up transcriptions")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+
+                            if isMLCleanupEnabled {
+                                // Model toggles
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Toggle(isOn: $isFillerEnabled) {
+                                        VStack(alignment: .leading, spacing: 1) {
+                                            Text("Filler Removal")
+                                                .font(.subheadline)
+                                            Text("uh, um, er → removed")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
+                                    .toggleStyle(.switch)
+
+                                    Toggle(isOn: $isRepetitionEnabled) {
+                                        VStack(alignment: .leading, spacing: 1) {
+                                            Text("Repetition Removal")
+                                                .font(.subheadline)
+                                            Text("I I I think → I think")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
+                                    .toggleStyle(.switch)
+                                }
+                                .padding(.leading, 8)
+                                .padding(.top, 4)
+                            }
+                        }
+                    }
 
                     // Jarvis Commands section (only when streaming enabled)
                     if isStreamingModeEnabled {
@@ -172,6 +308,7 @@ struct ExperimentalFeaturesSection: View {
         }
         .animation(.easeInOut(duration: 0.3), value: isExperimentalFeaturesEnabled)
         .animation(.easeInOut(duration: 0.2), value: isStreamingModeEnabled)
+        .animation(.easeInOut(duration: 0.2), value: isLivePreviewEnabled)
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(CardBackground(isSelected: false, useAccentGradientWhenSelected: true))
@@ -200,6 +337,16 @@ struct ExperimentalFeaturesSection: View {
             let isReady = await OllamaClient.shared.healthCheck()
             await MainActor.run {
                 ollamaStatus = isReady ? "Ready (llama3.2:3b)" : "Not available - run 'ollama serve'"
+            }
+        }
+    }
+
+    private func checkCorrectionOllamaStatus() {
+        correctionOllamaStatus = "Checking..."
+        Task {
+            let isReady = await LLMCorrectionService.shared.healthCheck()
+            await MainActor.run {
+                correctionOllamaStatus = isReady ? "Ready (llama3.1:8b)" : "Not available - run 'ollama serve'"
             }
         }
     }

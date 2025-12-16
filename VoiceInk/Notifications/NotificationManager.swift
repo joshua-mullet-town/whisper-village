@@ -99,12 +99,12 @@ class NotificationManager {
     @MainActor
     func dismissNotification() {
         guard let window = notificationWindow else { return }
-        
+
         notificationWindow = nil
-        
+
         dismissTimer?.invalidate()
         dismissTimer = nil
-        
+
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.2
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
@@ -112,6 +112,91 @@ class NotificationManager {
         }, completionHandler: {
             window.close()
 
+        })
+    }
+
+    // MARK: - Peek Toast (for transcription previews)
+
+    private var peekWindow: NSPanel?
+
+    @MainActor
+    func showPeekToast(
+        text: String,
+        duration: TimeInterval = 8.0
+    ) {
+        // Close any existing peek toast
+        if let existingWindow = peekWindow {
+            existingWindow.close()
+            peekWindow = nil
+        }
+
+        let peekView = PeekToastView(
+            text: text,
+            duration: duration,
+            onClose: { [weak self] in
+                Task { @MainActor in
+                    self?.dismissPeekToast()
+                }
+            }
+        )
+        let hostingController = NSHostingController(rootView: peekView)
+        let size = hostingController.view.fittingSize
+
+        let panel = NSPanel(
+            contentRect: NSRect(origin: .zero, size: size),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+
+        panel.contentView = hostingController.view
+        panel.isFloatingPanel = true
+        panel.level = NSWindow.Level.mainMenu
+        panel.backgroundColor = NSColor.clear
+        panel.hasShadow = true
+        panel.isMovableByWindowBackground = false
+
+        // Position above the mini recorder (centered, near bottom)
+        positionPeekWindow(panel)
+        panel.alphaValue = 0
+        panel.makeKeyAndOrderFront(nil as Any?)
+
+        self.peekWindow = panel
+
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.25
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().alphaValue = 1
+        })
+    }
+
+    @MainActor
+    private func positionPeekWindow(_ window: NSWindow) {
+        let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
+        let screenRect = activeScreen.visibleFrame
+        let windowRect = window.frame
+
+        // Center horizontally
+        let x = screenRect.midX - (windowRect.width / 2)
+
+        // Position above the mini recorder area (about 120px from bottom)
+        let y = screenRect.minY + 120
+
+        window.setFrameOrigin(NSPoint(x: x, y: y))
+    }
+
+    @MainActor
+    func dismissPeekToast() {
+        guard let window = peekWindow else { return }
+
+        peekWindow = nil
+
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            window.animator().alphaValue = 0
+        }, completionHandler: {
+            window.close()
         })
     }
 } 

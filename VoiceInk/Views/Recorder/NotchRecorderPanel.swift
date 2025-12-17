@@ -27,11 +27,10 @@ class NotchRecorderPanel: KeyablePanel {
             // Get actual notch width from safe area insets
             let baseNotchWidth: CGFloat = safeAreaInsets.left > 0 ? safeAreaInsets.left * 2 : 200
             
-            // Calculate total width including controls and padding
-            // 16pt padding on each side + space for controls
-            let controlsWidth: CGFloat = 64 // Space for buttons on each side (increased width)
-            let paddingWidth: CGFloat = 32 // 16pt on each side
-            let totalWidth = baseNotchWidth + controlsWidth * 2 + paddingWidth
+            // Calculate total width including side sections
+            // Must match sectionWidth (100px) in NotchRecorderView for each side
+            let sectionWidth: CGFloat = 100
+            let totalWidth = baseNotchWidth + sectionWidth * 2
             
             return (totalWidth, notchHeight)
         }
@@ -80,13 +79,16 @@ class NotchRecorderPanel: KeyablePanel {
         )
     }
     
+    /// Height of the ticker area below the notch
+    static let tickerHeight: CGFloat = 32
+
     static func calculateWindowMetrics() -> (frame: NSRect, notchWidth: CGFloat, notchHeight: CGFloat) {
         guard let screen = NSScreen.main else {
-            return (NSRect(x: 0, y: 0, width: 280, height: 24), 280, 24)
+            return (NSRect(x: 0, y: 0, width: 280, height: 24 + tickerHeight), 280, 24)
         }
-        
+
         let safeAreaInsets = screen.safeAreaInsets
-        
+
         // Simplified height calculation
         let notchHeight: CGFloat
         if safeAreaInsets.top > 0 {
@@ -96,26 +98,29 @@ class NotchRecorderPanel: KeyablePanel {
             // For external displays or non-notched MacBooks, use system menu bar height
             notchHeight = NSStatusBar.system.thickness
         }
-        
+
         // Calculate exact notch width
         let baseNotchWidth: CGFloat = safeAreaInsets.left > 0 ? safeAreaInsets.left * 2 : 200
-        
-        // Calculate total width including controls and padding
-        let controlsWidth: CGFloat = 64 // Space for buttons on each side (increased width)
-        let paddingWidth: CGFloat = 32 // 16pt on each side
-        let totalWidth = baseNotchWidth + controlsWidth * 2 + paddingWidth
-        
-        // Position exactly at the center
+
+        // Calculate total width including side sections
+        // Must match sectionWidth (100px) in NotchRecorderView for each side
+        let sectionWidth: CGFloat = 100
+        let totalWidth = baseNotchWidth + sectionWidth * 2
+
+        // Total height includes notch + ticker area below
+        let totalHeight = notchHeight + tickerHeight
+
+        // Position exactly at the center, accounting for extra height below
         let xPosition = screen.frame.midX - (totalWidth / 2)
-        let yPosition = screen.frame.maxY - notchHeight
-        
+        let yPosition = screen.frame.maxY - totalHeight
+
         let frame = NSRect(
             x: xPosition,
             y: yPosition,
             width: totalWidth,
-            height: notchHeight
+            height: totalHeight
         )
-        
+
         return (frame, baseNotchWidth, notchHeight)
     }
     

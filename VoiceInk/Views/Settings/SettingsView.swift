@@ -15,6 +15,7 @@ struct SettingsView: View {
     @ObservedObject private var playbackController = PlaybackController.shared
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = true
     @AppStorage("autoUpdateCheck") private var autoUpdateCheck = true
+    @AppStorage("NotchAlwaysVisible") private var notchAlwaysVisible = false
     @State private var showResetOnboardingAlert = false
     @State private var currentShortcut = KeyboardShortcuts.getShortcut(for: .toggleMiniRecorder)
     @State private var isCustomCancelEnabled = false
@@ -240,6 +241,10 @@ struct SettingsView: View {
                         }
                         .toggleStyle(.switch)
 
+                        if SoundManager.shared.isEnabled {
+                            SoundThemePicker()
+                        }
+
                         Toggle(isOn: $mediaController.isSystemMuteEnabled) {
                             Text("Mute system audio during recording")
                         }
@@ -275,6 +280,22 @@ struct SettingsView: View {
                         }
                         .pickerStyle(.radioGroup)
                         .padding(.vertical, 4)
+
+                        // Always visible toggle - only for notch recorder
+                        if whisperState.recorderType == "notch" {
+                            Divider()
+                                .padding(.vertical, 4)
+
+                            Toggle(isOn: $notchAlwaysVisible) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Always Visible")
+                                    Text("Keep the notch recorder visible at all times")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .toggleStyle(.switch)
+                        }
                     }
                 }
 
@@ -522,6 +543,108 @@ struct SettingsSection<Content: View>: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(showWarning ? Color.red.opacity(0.5) : Color.clear, lineWidth: 1)
         )
+    }
+}
+
+// MARK: - Sound Pickers
+
+struct SoundThemePicker: View {
+    @ObservedObject private var soundManager = SoundManager.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Start sound picker
+            SoundEventPicker(
+                label: "Start recording",
+                icon: "record.circle",
+                options: SoundOption.forStart,
+                selection: Binding(
+                    get: { soundManager.startSoundOption },
+                    set: { soundManager.startSoundOption = $0 }
+                )
+            )
+
+            // Stop sound picker
+            SoundEventPicker(
+                label: "Stop recording",
+                icon: "stop.circle",
+                options: SoundOption.forStop,
+                selection: Binding(
+                    get: { soundManager.stopSoundOption },
+                    set: { soundManager.stopSoundOption = $0 }
+                )
+            )
+
+            // Cancel sound picker
+            SoundEventPicker(
+                label: "Cancel / Escape",
+                icon: "xmark.circle",
+                options: SoundOption.forCancel,
+                selection: Binding(
+                    get: { soundManager.cancelSoundOption },
+                    set: { soundManager.cancelSoundOption = $0 }
+                )
+            )
+
+            // Send sound picker
+            SoundEventPicker(
+                label: "Send (paste + enter)",
+                icon: "paperplane.circle",
+                options: SoundOption.forSend,
+                selection: Binding(
+                    get: { soundManager.sendSoundOption },
+                    set: { soundManager.sendSoundOption = $0 }
+                )
+            )
+        }
+        .padding(.top, 4)
+    }
+}
+
+struct SoundEventPicker: View {
+    let label: String
+    let icon: String
+    let options: [SoundOption]
+    @Binding var selection: SoundOption
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Label with icon
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                Text(label)
+                    .font(.system(size: 12))
+                    .foregroundColor(.primary)
+            }
+            .frame(width: 120, alignment: .leading)
+
+            // Dropdown picker
+            Picker("", selection: $selection) {
+                ForEach(options) { option in
+                    Text(option.displayName).tag(option)
+                }
+            }
+            .pickerStyle(.menu)
+            .frame(width: 130)
+            .onChange(of: selection) { _, newValue in
+                SoundManager.shared.preview(newValue)
+            }
+
+            // Preview button
+            Button(action: {
+                SoundManager.shared.preview(selection)
+            }) {
+                Image(systemName: "speaker.wave.2")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .disabled(selection == .none)
+            .opacity(selection == .none ? 0.3 : 1)
+            .help("Preview sound")
+        }
     }
 }
 

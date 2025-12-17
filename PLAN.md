@@ -4,27 +4,59 @@
 
 ---
 
-## 🔥 ACTIVE: (none - ready for new work)
+## 🔥 ACTIVE: Notch Mode Live Transcription Display
 
----
+**Goal:** Show live transcription below the notch recorder in a sleek, space-efficient way.
 
-## BACKLOG: Persistent Recorder UI (Always-On Widget)
+### Problem
+- Mini recorder has a floating preview box (works fine)
+- Notch recorder has NO live preview - can't see what you're dictating
+- Need something sleeker than a big black box for the top-of-screen location
 
-**Goal:** Make the mini recorder always visible on screen, changing state visually instead of appearing/disappearing.
+### UX Concept: Scrolling Ticker
 
-**States:**
-- **Idle** - Subtle, minimal presence (just an icon or small pill)
-- **Recording** - Obvious visual indication (pulsing, color change)
-- **Transcribing** - Processing indicator
-- **Done** - Brief success state, return to idle
+A single-line transcription display below the notch that scrolls like a news ticker:
 
-**Benefits:**
-- No jarring pop-up/dismiss
-- Always know where the recorder is
-- Can show last transcription in idle state
-- Foundation for more advanced features (always-on voice activation)
+```
+                    ┌─────────────────────────┐
+                    │        [NOTCH]          │  ← Recording indicator
+                    └─────────────────────────┘
+    ← older words fade out    │ **newest words** │   new words appear →
+```
 
-**Effort:** Medium-High (~4-6 hours)
+**Behavior:**
+- New words appear on the right
+- As more words come, existing text slides left
+- Only ~10-12 words visible at a time
+- Newest/current words are bold/prominent in center-right
+- Older words fade as they approach left edge
+- Smooth animation, not jarring
+
+**Alternative:** Instead of continuous scroll, words "settle" after appearing, only scroll when space runs out. Gives a moment of readability.
+
+### Implementation Ideas
+
+1. **Single-line Text view** with horizontal scroll and auto-scroll to end
+2. **Custom view** with word-by-word animation (fade in from right)
+3. **Marquee-style** continuous scroll at fixed speed
+4. **Hybrid:** Appear on right, settle, then scroll left as group when full
+
+### Visual Design
+- Transparent/semi-transparent background
+- Match notch aesthetic (rounded corners, subtle)
+- Don't obstruct too much screen space
+- Height: ~24-30px (single line + padding)
+- Width: Match notch wings or slightly wider
+
+### Files to Modify
+- `NotchRecorderView.swift` - Add preview component below notch
+- Possibly new `NotchTranscriptionTicker.swift` for the custom view
+- `WhisperState.swift` - May need to expose current transcription differently
+
+### Questions to Resolve
+- Should it auto-hide when not speaking for a few seconds?
+- Should the ticker be clickable (expand to full preview)?
+- Should it respect the existing preview visibility toggle?
 
 ---
 
@@ -64,6 +96,37 @@ Added `audioEngine = nil` and `inputNode = nil` in `StreamingRecorder.stopRecord
 ## FUTURE: Claude Code Meta Assistant
 
 **Goal:** A "copilot for the copilot" - local LLM that watches Claude Code sessions and provides guidance.
+
+---
+
+## FUTURE: Automated Transcription Testing Framework
+
+**Goal:** Automated accuracy testing with TTS-generated audio to identify weaknesses and track improvements.
+
+**Concept:**
+1. **TTS Generation:** Use text-to-speech to generate audio from known ground truth text
+2. **Transcription:** Run audio through the transcription pipeline
+3. **Comparison:** Compare output to ground truth, calculate WER/CER
+4. **Error Analysis:** Categorize errors (substitutions, insertions, deletions), identify patterns
+5. **Feedback Loop:** Generate word replacement rules for consistent errors, track improvement over time
+
+**Architecture Options:**
+- Direct audio injection into pipeline (clean, fast, isolated testing)
+- Live playback through speakers (realistic end-to-end, includes room acoustics)
+- Pre-recorded human samples (most realistic, less flexible)
+
+**Metrics:**
+- Word Error Rate (WER)
+- Character Error Rate (CER)
+- Error categorization (substitutions vs insertions vs deletions)
+- Per-word/phrase error frequency tracking
+
+**Potential Uses:**
+- Regression testing after changes
+- Provider comparison (Whisper vs Deepgram vs Groq)
+- Model comparison (tiny vs base vs small)
+- Identify candidates for word replacement dictionary
+- Generate training data for fine-tuning
 
 ---
 

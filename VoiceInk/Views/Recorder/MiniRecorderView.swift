@@ -362,57 +362,78 @@ struct MiniRecorderView: View {
         )
     }
     
+    /// Whether the recorder is in an active state (recording or processing)
+    private var isActive: Bool {
+        whisperState.recordingState != .idle
+    }
+
     private var contentLayout: some View {
-        HStack(spacing: 8) {
-            // Cancel button
-            Button(action: {
-                Task { @MainActor in
-                    await whisperState.dismissMiniRecorder()
+        HStack(spacing: 6) {
+            // LEFT SECTION: Cancel button + Timer (matches notch layout)
+            HStack(spacing: 8) {
+                // Cancel button - only show when active
+                if isActive {
+                    Button(action: {
+                        Task { @MainActor in
+                            await whisperState.dismissMiniRecorder()
+                        }
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(.white.opacity(0.9))
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
-            }) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 14))
-                    .foregroundColor(.white.opacity(0.9))
+
+                // Timer display - only show when recording
+                if whisperState.recordingState == .recording {
+                    Text(formatTime(recordingDuration))
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundColor(.white)
+                        .frame(width: 35)
+                }
             }
-            .buttonStyle(PlainButtonStyle())
-            .padding(.leading, 16)
+            .padding(.leading, 12)
 
             Spacer()
+
+            // CENTER: Waveform status
             statusView
                 .frame(width: 80)
+
             Spacer()
 
-            // Eyeball button - different behavior based on mode
-            // Live Preview: toggle preview box visibility
-            // Simple Mode: trigger peek (on-demand transcription)
-            if isStreamingModeEnabled {
-                Button(action: {
-                    if isLivePreviewEnabled {
-                        // Live Preview mode: toggle preview visibility
-                        isPreviewVisible.toggle()
-                    } else {
-                        // Simple Mode: trigger peek transcription
+            // RIGHT SECTION: Peek button + Eyeball button (matches notch layout)
+            HStack(spacing: 6) {
+                // Peek button - show full transcription toast (only when recording)
+                if isStreamingModeEnabled && whisperState.recordingState == .recording {
+                    Button(action: {
                         Task { @MainActor in
                             await whisperState.peekTranscription()
                         }
+                    }) {
+                        Image(systemName: "doc.text.magnifyingglass")
+                            .font(.system(size: 11))
+                            .foregroundColor(.white.opacity(0.8))
                     }
-                }) {
-                    Image(systemName: isLivePreviewEnabled
-                        ? (isPreviewVisible ? "eye.fill" : "eye.slash.fill")
-                        : "eye.fill")
-                        .font(.system(size: 12))
-                        .foregroundColor(.white.opacity(0.8))
+                    .buttonStyle(PlainButtonStyle())
+                    .help("Show full transcription")
                 }
-                .buttonStyle(PlainButtonStyle())
-                .help(isLivePreviewEnabled ? "Toggle preview" : "Peek transcription")
-            }
 
-            // Timer display
-            Text(formatTime(recordingDuration))
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundColor(whisperState.recordingState == .recording ? .white : .white.opacity(0.6))
-                .frame(width: 35)
-                .padding(.trailing, 16)
+                // Eyeball button - toggle ticker visibility (only in Live Preview mode)
+                if isStreamingModeEnabled && isLivePreviewEnabled && isActive {
+                    Button(action: {
+                        isPreviewVisible.toggle()
+                    }) {
+                        Image(systemName: isPreviewVisible ? "eye.fill" : "eye.slash.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .help("Toggle ticker")
+                }
+            }
+            .padding(.trailing, 10)
         }
         .padding(.vertical, 6)
     }
@@ -428,6 +449,15 @@ struct MiniRecorderView: View {
             .overlay {
                 contentLayout
             }
+            .contentShape(Capsule()) // Make entire capsule tappable
+            .onTapGesture {
+                // Tap to start recording when idle
+                if !isActive {
+                    Task { @MainActor in
+                        await whisperState.handleToggleMiniRecorder()
+                    }
+                }
+            }
     }
     
     private func formatTime(_ timeInterval: TimeInterval) -> String {
@@ -436,15 +466,27 @@ struct MiniRecorderView: View {
         return String(format: "%d:%02d", minutes, seconds)
     }
     
+    /// Whether to show the ticker (streaming mode + live preview + recording + visible toggle)
+    private var shouldShowTicker: Bool {
+        isStreamingModeEnabled && isLivePreviewEnabled && whisperState.recordingState == .recording && isPreviewVisible
+    }
+
     var body: some View {
         Group {
             if windowManager.isVisible {
-                // Fixed layout: preview box space always allocated, capsule always at bottom
-                VStack(spacing: 16) {
+                // Compact layout: ticker above capsule
+                VStack(spacing: 8) {
                     Spacer(minLength: 0)
 
-                    // Preview box - always takes space, hidden via opacity when not active
-                    streamingBubblesView
+                    // Ticker above capsule (same component as notch mode)
+                    if isStreamingModeEnabled && isLivePreviewEnabled {
+                        NotchTranscriptionTicker(
+                            text: whisperState.interimTranscription,
+                            isRecording: whisperState.recordingState == .recording
+                        )
+                        .frame(width: 280)
+                        .opacity(shouldShowTicker ? 1 : 0)
+                    }
 
                     // Orange capsule - always at bottom
                     recorderCapsule

@@ -123,10 +123,18 @@ class MiniRecorderShortcutManager: ObservableObject {
         let now = Date()
         if let firstTime = escFirstPressTime,
            now.timeIntervalSince(firstTime) <= escSecondPressThreshold {
+            // Second press - actually cancel
             escFirstPressTime = nil
+            // Stop engines FIRST so sound can play (AVAudioEngine blocks NSSound)
+            whisperState.stopStreamingTranscription()
+            _ = await whisperState.streamingRecorder.stopRecording()
+            await whisperState.recorder.stopRecording()
+            // NOW play sound
             SoundManager.shared.playEscSound()
+            try? await Task.sleep(nanoseconds: 150_000_000) // 150ms for sound
             await whisperState.dismissMiniRecorder()
         } else {
+            // First press - just show warning (sound may not play due to engine, but notification will show)
             escFirstPressTime = now
             SoundManager.shared.playEscSound()
             NotificationManager.shared.showNotification(
@@ -147,14 +155,20 @@ class MiniRecorderShortcutManager: ObservableObject {
     private func setupCancelHandlerOnce() {
         guard !isCancelHandlerSetup else { return }
         isCancelHandlerSetup = true
-        
+
         KeyboardShortcuts.onKeyDown(for: .cancelRecorder) { [weak self] in
             Task { @MainActor in
                 guard let self = self,
                       await self.whisperState.isMiniRecorderVisible,
                       KeyboardShortcuts.getShortcut(for: .cancelRecorder) != nil else { return }
-                
+
+                // Stop engines FIRST so sound can play (AVAudioEngine blocks NSSound)
+                self.whisperState.stopStreamingTranscription()
+                _ = await self.whisperState.streamingRecorder.stopRecording()
+                await self.whisperState.recorder.stopRecording()
+                // NOW play sound
                 SoundManager.shared.playEscSound()
+                try? await Task.sleep(nanoseconds: 150_000_000) // 150ms for sound
                 await self.whisperState.dismissMiniRecorder()
             }
         }

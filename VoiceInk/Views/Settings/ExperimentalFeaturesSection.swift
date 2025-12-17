@@ -21,6 +21,9 @@ struct ExperimentalFeaturesSection: View {
     @AppStorage("MLCleanupFillerEnabled") private var isFillerEnabled = true
     @AppStorage("MLCleanupRepetitionEnabled") private var isRepetitionEnabled = true
 
+    // Inline placeholder setting
+    @AppStorage("InlinePlaceholderEnabled") private var isInlinePlaceholderEnabled = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
@@ -43,7 +46,10 @@ struct ExperimentalFeaturesSection: View {
                     .labelsHidden()
                     .toggleStyle(.switch)
                     .onChange(of: isExperimentalFeaturesEnabled) { _, newValue in
-                        if !newValue {
+                        if newValue {
+                            // Auto-enable streaming mode when experimental features is on
+                            isStreamingModeEnabled = true
+                        } else {
                             playbackController.isPauseMediaEnabled = false
                             isStreamingModeEnabled = false
                         }
@@ -55,265 +61,255 @@ struct ExperimentalFeaturesSection: View {
 
             if isExperimentalFeaturesEnabled {
                 VStack(alignment: .leading, spacing: 12) {
+                    // Basic toggles
                     Toggle(isOn: $playbackController.isPauseMediaEnabled) {
                         Text("Pause Media during recording")
                     }
                     .toggleStyle(.switch)
                     .help("Automatically pause active media playback during recordings and resume afterward.")
 
-                    Toggle(isOn: $isStreamingModeEnabled) {
+                    Toggle(isOn: $isLivePreviewEnabled) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Streaming Mode")
-                            Text("Use streaming audio recorder for real-time features")
+                            Text("Live Preview")
+                            Text(isLivePreviewEnabled
+                                ? "Show transcription as you speak"
+                                : "Transcribe only when recording stops")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
                     }
                     .toggleStyle(.switch)
-                    .help("Enables streaming audio capture. Required for live preview and Jarvis commands.")
+                    .help("When ON: continuous transcription preview. When OFF: transcribe only on stop/peek.")
 
-                    // Live Preview toggle (only when streaming enabled)
-                    if isStreamingModeEnabled {
-                        Toggle(isOn: $isLivePreviewEnabled) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                HStack {
-                                    Text("Live Preview")
-                                    if !isLivePreviewEnabled {
-                                        Text("(Simple Mode)")
-                                            .font(.caption)
-                                            .foregroundColor(.orange)
-                                    }
-                                }
-                                Text(isLivePreviewEnabled
-                                    ? "Show transcription as you speak (uses more CPU)"
-                                    : "Just record - transcribe once when you stop")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        .toggleStyle(.switch)
-                        .padding(.leading, 20)
-                        .help("When ON: continuous transcription preview. When OFF: Simple Mode - transcribe only on stop/peek.")
-
-                        // LLM Correction toggle
-                        Divider()
-                            .padding(.vertical, 4)
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text("LLM Correction")
-                                    .font(.headline)
-                                Spacer()
-                                Toggle("", isOn: $isLLMCorrectionEnabled)
-                                    .toggleStyle(.switch)
-                                    .labelsHidden()
-                            }
-                            Text("Use local LLM to clean up transcriptions before pasting")
+                    Toggle(isOn: $isInlinePlaceholderEnabled) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Inline Loading Placeholder")
+                            Text("Show '\u{23F3} Transcribing...' in text field while processing")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
+                        }
+                    }
+                    .toggleStyle(.switch)
+                    .help("Pastes a placeholder in the target text field during transcription for visual feedback.")
 
-                            if isLLMCorrectionEnabled {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Fixes:")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    Text("• Filler words (um, uh, like, you know)")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    Text("• Self-corrections (\"2pm, no wait, 4pm\" → \"4pm\")")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    Text("• Stuttering and word duplications")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                    // Jarvis Commands section
+                    Divider()
+                        .padding(.vertical, 4)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Jarvis Commands")
+                                .font(.headline)
+                            Spacer()
+                            Toggle("", isOn: $isJarvisEnabled)
+                                .toggleStyle(.switch)
+                                .labelsHidden()
+                        }
+                        Text("Say your wake word followed by a command (e.g., \"Jarvis send it\")")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        if isJarvisEnabled {
+                            // Wake word field
+                            HStack {
+                                Text("Wake Word:")
+                                    .frame(width: 80, alignment: .leading)
+                                TextField("jarvis", text: $jarvisWakeWord)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                                    .frame(maxWidth: 150)
+                                Spacer()
+                            }
+                            .padding(.top, 4)
+
+                            // Ollama status
+                            HStack {
+                                Text("LLM Status:")
+                                    .frame(width: 80, alignment: .leading)
+                                Text(ollamaStatus)
+                                    .font(.caption)
+                                    .foregroundColor(ollamaStatus.contains("Ready") ? .green : .orange)
+                                Button("Check") {
+                                    checkOllamaStatus()
                                 }
-                                .padding(.leading, 8)
+                                .buttonStyle(.borderless)
+                                .font(.caption)
+                                Spacer()
+                            }
+
+                            Divider()
+                                .padding(.vertical, 4)
+
+                            // Trailing words capture (linger) setting
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Trailing Words Capture")
+                                    .font(.subheadline)
+                                Text("Continue recording briefly after hotkey stop to capture final words")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
 
                                 HStack {
-                                    Text("LLM Status:")
+                                    Text("Delay:")
                                         .frame(width: 80, alignment: .leading)
-                                    Text(correctionOllamaStatus)
+                                    Slider(
+                                        value: Binding(
+                                            get: { Double(recordingLingerMs) },
+                                            set: { recordingLingerMs = Int($0) }
+                                        ),
+                                        in: 0...1500,
+                                        step: 50
+                                    )
+                                    .frame(maxWidth: 200)
+                                    Text("\(recordingLingerMs)ms")
                                         .font(.caption)
-                                        .foregroundColor(correctionOllamaStatus.contains("Ready") ? .green : .orange)
-                                    Button("Check") {
-                                        checkCorrectionOllamaStatus()
-                                    }
-                                    .buttonStyle(.borderless)
-                                    .font(.caption)
-                                    Spacer()
+                                        .foregroundColor(.secondary)
+                                        .frame(width: 60, alignment: .trailing)
                                 }
-                                .padding(.top, 4)
+                                if recordingLingerMs == 0 {
+                                    Text("Disabled - stops immediately on hotkey")
+                                        .font(.caption)
+                                        .foregroundColor(.orange)
+                                }
+                            }
+                            .padding(.vertical, 4)
 
-                                Text("Requires: ollama serve + llama3.1:8b-instruct-q4_0")
+                            Divider()
+                                .padding(.vertical, 4)
+
+                            // Built-in commands reference
+                            Text("Built-in Commands:")
+                                .font(.subheadline)
+                                .padding(.top, 8)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                jarvisCommandRow("send it", "Paste + Enter, enter command mode")
+                                jarvisCommandRow("stop", "Paste (no Enter), stop recording")
+                                jarvisCommandRow("cancel", "Discard, stop recording")
+                                jarvisCommandRow("pause", "Enter command mode, preserve buffer")
+                                jarvisCommandRow("listen", "Resume transcribing")
+                                jarvisCommandRow("go to [app]", "Focus app, enter command mode")
+                                jarvisCommandRow("[nth] terminal tab", "Focus iTerm tab")
+                            }
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.top, 4)
+
+                    // LLM Correction section
+                    Divider()
+                        .padding(.vertical, 4)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("LLM Correction")
+                                .font(.headline)
+                            Spacer()
+                            Toggle("", isOn: $isLLMCorrectionEnabled)
+                                .toggleStyle(.switch)
+                                .labelsHidden()
+                        }
+                        Text("Use local LLM to clean up transcriptions before pasting")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        if isLLMCorrectionEnabled {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Fixes:")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text("• Filler words (um, uh, like, you know)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text("• Self-corrections (\"2pm, no wait, 4pm\" → \"4pm\")")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text("• Stuttering and word duplications")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
-                        }
+                            .padding(.leading, 8)
 
-                        // ML Cleanup section (local Python server)
-                        Divider()
-                            .padding(.vertical, 4)
-
-                        VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Text("ML Cleanup (Beta)")
-                                    .font(.headline)
+                                Text("LLM Status:")
+                                    .frame(width: 80, alignment: .leading)
+                                Text(correctionOllamaStatus)
+                                    .font(.caption)
+                                    .foregroundColor(correctionOllamaStatus.contains("Ready") ? .green : .orange)
+                                Button("Check") {
+                                    checkCorrectionOllamaStatus()
+                                }
+                                .buttonStyle(.borderless)
+                                .font(.caption)
                                 Spacer()
-                                Toggle("", isOn: $isMLCleanupEnabled)
-                                    .toggleStyle(.switch)
-                                    .labelsHidden()
                             }
-                            Text("Use local ML models to clean up transcriptions")
+                            .padding(.top, 4)
+
+                            Text("Requires: ollama serve + llama3.1:8b-instruct-q4_0")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-
-                            if isMLCleanupEnabled {
-                                // Model toggles
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Toggle(isOn: $isFillerEnabled) {
-                                        VStack(alignment: .leading, spacing: 1) {
-                                            Text("Filler Removal")
-                                                .font(.subheadline)
-                                            Text("uh, um, er → removed")
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                        }
-                                    }
-                                    .toggleStyle(.switch)
-
-                                    Toggle(isOn: $isRepetitionEnabled) {
-                                        VStack(alignment: .leading, spacing: 1) {
-                                            Text("Repetition Removal")
-                                                .font(.subheadline)
-                                            Text("I I I think → I think")
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                        }
-                                    }
-                                    .toggleStyle(.switch)
-                                }
-                                .padding(.leading, 8)
-                                .padding(.top, 4)
-                            }
                         }
                     }
 
-                    // Jarvis Commands section (only when streaming enabled)
-                    if isStreamingModeEnabled {
-                        Divider()
-                            .padding(.vertical, 4)
+                    // ML Cleanup section
+                    Divider()
+                        .padding(.vertical, 4)
 
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text("Jarvis Commands")
-                                    .font(.headline)
-                                Spacer()
-                                Toggle("", isOn: $isJarvisEnabled)
-                                    .toggleStyle(.switch)
-                                    .labelsHidden()
-                            }
-                            Text("Say your wake word followed by a command (e.g., \"Jarvis send it\")")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("ML Cleanup (Beta)")
+                                .font(.headline)
+                            Spacer()
+                            Toggle("", isOn: $isMLCleanupEnabled)
+                                .toggleStyle(.switch)
+                                .labelsHidden()
+                        }
+                        Text("Use local ML models to clean up transcriptions")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
 
-                            if isJarvisEnabled {
-                                // Wake word field
-                                HStack {
-                                    Text("Wake Word:")
-                                        .frame(width: 80, alignment: .leading)
-                                    TextField("jarvis", text: $jarvisWakeWord)
-                                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                                        .frame(maxWidth: 150)
-                                    Spacer()
-                                }
-                                .padding(.top, 4)
-
-                                // Ollama status
-                                HStack {
-                                    Text("LLM Status:")
-                                        .frame(width: 80, alignment: .leading)
-                                    Text(ollamaStatus)
-                                        .font(.caption)
-                                        .foregroundColor(ollamaStatus.contains("Ready") ? .green : .orange)
-                                    Button("Check") {
-                                        checkOllamaStatus()
-                                    }
-                                    .buttonStyle(.borderless)
-                                    .font(.caption)
-                                    Spacer()
-                                }
-
-                                Divider()
-                                    .padding(.vertical, 4)
-
-                                // Trailing words capture (linger) setting
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Trailing Words Capture")
-                                        .font(.subheadline)
-                                    Text("Continue recording briefly after hotkey stop to capture final words")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-
-                                    HStack {
-                                        Text("Delay:")
-                                            .frame(width: 80, alignment: .leading)
-                                        Slider(
-                                            value: Binding(
-                                                get: { Double(recordingLingerMs) },
-                                                set: { recordingLingerMs = Int($0) }
-                                            ),
-                                            in: 0...1500,
-                                            step: 50
-                                        )
-                                        .frame(maxWidth: 200)
-                                        Text("\(recordingLingerMs)ms")
+                        if isMLCleanupEnabled {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Toggle(isOn: $isFillerEnabled) {
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text("Filler Removal")
+                                            .font(.subheadline)
+                                        Text("uh, um, er → removed")
                                             .font(.caption)
                                             .foregroundColor(.secondary)
-                                            .frame(width: 60, alignment: .trailing)
                                     }
-                                    if recordingLingerMs == 0 {
-                                        Text("Disabled - stops immediately on hotkey")
+                                }
+                                .toggleStyle(.switch)
+
+                                Toggle(isOn: $isRepetitionEnabled) {
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text("Repetition Removal")
+                                            .font(.subheadline)
+                                        Text("I I I think → I think")
                                             .font(.caption)
-                                            .foregroundColor(.orange)
+                                            .foregroundColor(.secondary)
                                     }
                                 }
-                                .padding(.vertical, 4)
-
-                                Divider()
-                                    .padding(.vertical, 4)
-
-                                // Built-in commands reference
-                                Text("Built-in Commands:")
-                                    .font(.subheadline)
-                                    .padding(.top, 8)
-
-                                VStack(alignment: .leading, spacing: 4) {
-                                    jarvisCommandRow("send it", "Paste + Enter, enter command mode")
-                                    jarvisCommandRow("stop", "Paste (no Enter), stop recording")
-                                    jarvisCommandRow("cancel", "Discard, stop recording")
-                                    jarvisCommandRow("pause", "Enter command mode, preserve buffer")
-                                    jarvisCommandRow("listen", "Resume transcribing")
-                                    jarvisCommandRow("go to [app]", "Focus app, enter command mode")
-                                    jarvisCommandRow("[nth] terminal tab", "Focus iTerm tab")
-                                }
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                                .toggleStyle(.switch)
                             }
+                            .padding(.leading, 8)
+                            .padding(.top, 4)
                         }
-                        .padding(.top, 4)
                     }
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .animation(.easeInOut(duration: 0.3), value: isExperimentalFeaturesEnabled)
-        .animation(.easeInOut(duration: 0.2), value: isStreamingModeEnabled)
         .animation(.easeInOut(duration: 0.2), value: isLivePreviewEnabled)
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(CardBackground(isSelected: false, useAccentGradientWhenSelected: true))
         .onAppear {
-            if isStreamingModeEnabled && isJarvisEnabled {
+            // Auto-enable streaming mode if experimental features is on
+            if isExperimentalFeaturesEnabled {
+                isStreamingModeEnabled = true
+            }
+            if isJarvisEnabled {
                 checkOllamaStatus()
             }
         }

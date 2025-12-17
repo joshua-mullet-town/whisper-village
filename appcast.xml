@@ -3,6 +3,24 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.8.0</title>
+            <pubDate>Wed, 17 Dec 2025 10:00:00 -0500</pubDate>
+            <sparkle:version>78</sparkle:version>
+            <sparkle:shortVersionString>1.8.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>What's New in Version 1.8.0 - Unified Recorder UI</h3>
+                <ul>
+                    <li><strong>Live transcription ticker</strong> - Compact, scrolling ticker replaces the large chat bubble preview</li>
+                    <li><strong>Unified button layout</strong> - Both notch and mini recorder now share the same controls</li>
+                    <li><strong>Peek transcription</strong> - New button to show full transcription as a toast</li>
+                    <li><strong>Simplified settings</strong> - Removed confusing "Streaming Mode" toggle, now auto-enabled</li>
+                    <li>Mini recorder window is now more compact</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.8.0/WhisperVillage-1.8.0.dmg" length="253984767" type="application/octet-stream"/>
+        </item>
+        <item>
             <title>1.7.0</title>
             <pubDate>Mon, 16 Dec 2025 10:30:00 -0500</pubDate>
             <sparkle:version>77</sparkle:version>

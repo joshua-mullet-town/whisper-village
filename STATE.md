@@ -4,6 +4,122 @@
 
 ---
 
+## [2025-12-17] Persistent Notch Recorder (Always-On Mode) Complete
+
+**Achievement:** Notch recorder can now stay visible at all times, with state-based visual feedback.
+
+### What Was Built
+
+| Feature | Description |
+|---------|-------------|
+| **Always Visible Mode** | Setting toggle keeps notch visible even when not recording |
+| **Idle State** | Very subtle gray (~15% opacity), brightens on hover |
+| **Recording State** | Full orange/red gradient with audio-reactive glow |
+| **Transcribing State** | Blue processing indicator |
+| **Click to Start** | Clicking idle notch starts recording |
+
+### Visual States
+
+- **Idle:** `Color.gray.opacity(0.15)` → hover brightens to `0.35`
+- **Hover:** Shows interactivity, cursor changes
+- **Recording:** Orange/red gradient with audio-reactive highlight extension and inner glow
+- **Transcribing:** Blue gradient indicating processing
+
+### Implementation Details
+
+- Added `@AppStorage("NotchAlwaysVisible")` setting
+- `isIdleState` computed property: `isAlwaysVisible && recordingState == .idle`
+- X button and eyeball hidden in idle state
+- Timer hidden in idle state
+- Tap gesture starts recording when idle
+- NotchWindowManager respects always-visible setting
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `NotchRecorderView.swift` | Idle/hover states, click-to-start, conditional UI elements |
+| `NotchWindowManager.swift` | Don't hide when always-visible enabled |
+| `AppearanceSettingsView.swift` | "Always visible" toggle under Notch recorder |
+
+### Also Completed
+
+- **Double-tap threshold increased:** 500ms → 1000ms for easier triggering
+- **VAD Audio Preprocessing:** Added `AudioPreprocessor.swift` that uses VAD to extract speech segments before transcription, removing silence to reduce Whisper hallucinations
+
+---
+
+## [2025-12-16] Double-Tap Send Feature - Quick Message Sending
+
+**Achievement:** Double-tap the hotkey within 500ms of stopping to auto-send (paste + Enter).
+
+### How It Works
+
+1. **Tap** → Start recording
+2. **Speak** → Transcription happens
+3. **Tap** → Stop recording, text pastes
+4. **Quick tap again** (within 500ms) → Plays send sound + presses Enter
+
+### The Problem (State Lag)
+
+Initial implementation checked `recordingState` to decide action. But `recordingState` doesn't update instantly after stop - it can lag for 500+ ms. So the double-tap was hitting the `.recording` case and trying to stop again.
+
+**Log evidence:**
+```
+[20:13:53] KEY DOWN | state=recording | lastStop=0ms      ← First tap (stop)
+[20:13:54] KEY DOWN | state=recording | lastStop=588ms    ← Second tap - state STILL recording!
+           → STOPPING recording                            ← Wrong! Should be double-tap send
+```
+
+### The Fix
+
+**Check double-tap window FIRST, before checking state:**
+
+```swift
+// In processKeyPress() - KEY DOWN handling:
+if isWithinDoubleTapWindow() {
+    // Double-tap send! Set flag for WhisperState to handle
+    whisperState.doubleTapSendPending = true
+    return  // Don't check state at all
+}
+// Only check recordingState if NOT within double-tap window
+```
+
+**Order of operations matters:**
+- Wrong: Check state → then check double-tap (state hasn't caught up)
+- Right: Check double-tap → then check state (timing is authoritative)
+
+### The Ordering Fix (Paste Before Enter)
+
+Initial fix triggered Enter immediately on double-tap, but transcription paste was async. Result: Enter fired before paste.
+
+**Solution:** Don't press Enter in HotkeyManager. Set a flag (`doubleTapSendPending`) and let WhisperState press Enter AFTER the paste completes:
+
+```swift
+// In WhisperState paste code:
+CursorPaster.pasteAtCursor(finalText)
+if shouldSend {
+    SoundManager.shared.playSendSound()
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        CursorPaster.pressEnter()
+    }
+}
+```
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `HotkeyManager.swift` | Double-tap detection with `lastStopTime` tracking, check window before state |
+| `WhisperState.swift` | `doubleTapSendPending` flag, Enter press after paste |
+| `SoundManager.swift` | Added send sound support |
+
+### Key Insight
+
+**When dealing with async state, use timing as the source of truth.** The `lastStopTime` timestamp is set synchronously when stop is triggered, so it's reliable. The `recordingState` enum is set asynchronously after transcription completes, so it lags.
+
+---
+
 ## [2025-12-16] v1.7.0 Released - Native ML Cleanup
 
 **Release:** https://github.com/joshua-mullet-town/whisper-village/releases/tag/v1.7.0

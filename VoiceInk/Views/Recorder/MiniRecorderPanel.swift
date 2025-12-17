@@ -10,9 +10,10 @@ class MiniRecorderPanel: NSPanel {
     private static let savedXKey = "MiniRecorderWindowX"
 
     // Layout constants
-    private static let windowWidth: CGFloat = 450
+    private static let windowWidth: CGFloat = 300  // Reduced from 450 - ticker is narrower
     private static let capsuleHeight: CGFloat = 36
-    private static let spacing: CGFloat = 16
+    private static let tickerHeight: CGFloat = 26
+    private static let spacing: CGFloat = 8
     private static let bottomPadding: CGFloat = 8
     private static let defaultCapsuleBottom: CGFloat = 32 // Default distance from screen bottom
 
@@ -29,14 +30,16 @@ class MiniRecorderPanel: NSPanel {
     /// Static method for initial window creation (MiniWindowManager uses this)
     static func calculateWindowMetrics() -> NSRect {
         guard let screen = NSScreen.main else {
-            return NSRect(x: 0, y: 0, width: windowWidth, height: 340)
+            return NSRect(x: 0, y: 0, width: windowWidth, height: 100)
         }
 
         let visibleFrame = screen.visibleFrame
         let xPosition = visibleFrame.midX - (windowWidth / 2)
         let yPosition = visibleFrame.minY + defaultCapsuleBottom - bottomPadding
+        // Compact height: ticker + spacing + capsule + padding + margin
+        let height = tickerHeight + spacing + capsuleHeight + bottomPadding + 20
 
-        return NSRect(x: xPosition, y: yPosition, width: windowWidth, height: 340)
+        return NSRect(x: xPosition, y: yPosition, width: windowWidth, height: height)
     }
 
     private func configurePanel() {
@@ -54,22 +57,17 @@ class MiniRecorderPanel: NSPanel {
         standardWindowButton(.closeButton)?.isHidden = true
     }
 
-    /// Get the current preview box height from UserDefaults
-    private func getPreviewHeight() -> CGFloat {
-        let height = UserDefaults.standard.double(forKey: "StreamingPreviewHeight")
-        return height > 0 ? CGFloat(height) : 210 // Default 210
-    }
-
-    /// Check if streaming mode is enabled
-    private func isStreamingEnabled() -> Bool {
-        return UserDefaults.standard.bool(forKey: "StreamingModeEnabled")
+    /// Check if streaming mode and live preview are enabled (for ticker)
+    private func isTickerEnabled() -> Bool {
+        return UserDefaults.standard.bool(forKey: "StreamingModeEnabled") &&
+               UserDefaults.standard.bool(forKey: "LivePreviewEnabled")
     }
 
     /// Calculate window height based on content
     private func calculateWindowHeight() -> CGFloat {
-        if isStreamingEnabled() {
-            // Preview box + spacing + capsule + bottom padding + some top margin
-            return getPreviewHeight() + MiniRecorderPanel.spacing + MiniRecorderPanel.capsuleHeight + MiniRecorderPanel.bottomPadding + 20
+        if isTickerEnabled() {
+            // Ticker + spacing + capsule + bottom padding + some top margin
+            return MiniRecorderPanel.tickerHeight + MiniRecorderPanel.spacing + MiniRecorderPanel.capsuleHeight + MiniRecorderPanel.bottomPadding + 20
         } else {
             // Just capsule + padding
             return MiniRecorderPanel.capsuleHeight + MiniRecorderPanel.bottomPadding + 20

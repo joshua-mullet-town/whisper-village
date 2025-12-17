@@ -71,6 +71,10 @@ class HotkeyManager: ObservableObject {
     private var shortcutCurrentKeyState = false
     private var lastShortcutTriggerTime: Date?
     private let shortcutCooldownInterval: TimeInterval = 0.5
+
+    // Double-tap to send detection
+    private var lastStopTime: Date? = nil
+    private let doubleTapSendThreshold: TimeInterval = 1.0 // 1000ms window for double-tap
     
     enum HotkeyOption: String, CaseIterable {
         case none = "none"
@@ -328,92 +332,215 @@ class HotkeyManager: ObservableObject {
         processKeyPress(isKeyPressed: isKeyPressed)
     }
     
+    // MARK: - Clean Hotkey Logic (with Debug Logging)
+    //
+    // States: .idle (can start), .recording (can stop), .transcribing (BUSY - ignore)
+    //
+    // KEY DOWN:
+    //   1. If BUSY (transcribing) → IGNORE
+    //   2. If recording → STOP, record stop time
+    //   3. If idle:
+    //      a. If within 500ms of last stop → DOUBLE-TAP SEND
+    //      b. Else → START recording
+    //
+    // KEY UP:
+    //   - If we started recording AND brief press → hands-free
+    //   - If we started recording AND long press → stop (push-to-talk)
+
+    private var startedRecordingThisPress = false
+    private var doubleTapHandled = false
+
+    private static let logFile = "/tmp/hotkey_debug.log"
+
+    private func logHotkey(_ message: String) {
+        let state = whisperState.recordingState
+        let timeSinceStop: String
+        if let stopTime = lastStopTime {
+            timeSinceStop = String(format: "%.0fms", Date().timeIntervalSince(stopTime) * 1000)
+        } else {
+            timeSinceStop = "never"
+        }
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let logLine = "[\(timestamp)] \(message) | state=\(state) | lastStop=\(timeSinceStop) | handsFree=\(isHandsFreeMode)\n"
+
+        // Write to file
+        if let data = logLine.data(using: .utf8) {
+            if FileManager.default.fileExists(atPath: Self.logFile) {
+                if let handle = FileHandle(forWritingAtPath: Self.logFile) {
+                    handle.seekToEndOfFile()
+                    handle.write(data)
+                    handle.closeFile()
+                }
+            } else {
+                FileManager.default.createFile(atPath: Self.logFile, contents: data)
+            }
+        }
+    }
+
     private func processKeyPress(isKeyPressed: Bool) {
         guard isKeyPressed != currentKeyState else { return }
         currentKeyState = isKeyPressed
-        
+
         if isKeyPressed {
+            logHotkey("KEY DOWN")
             keyPressStartTime = Date()
-            
-            if isHandsFreeMode {
+            startedRecordingThisPress = false
+            doubleTapHandled = false
+
+            // CHECK DOUBLE-TAP FIRST (before state) - state may lag behind
+            if isWithinDoubleTapWindow() {
+                logHotkey("→ DOUBLE-TAP SEND!")
+                doubleTapHandled = true
+                lastStopTime = nil
+                // Set flag - WhisperState will press Enter AFTER paste completes
+                whisperState.doubleTapSendPending = true
+                return
+            }
+
+            let state = whisperState.recordingState
+
+            switch state {
+            case .transcribing, .enhancing, .busy:
+                // BUSY - ignore keypress entirely
+                logHotkey("→ IGNORED (busy: \(state))")
+                return
+
+            case .recording:
+                // STOP recording
+                logHotkey("→ STOPPING recording")
                 isHandsFreeMode = false
                 Task { @MainActor in
                     guard canProcessHotkeyAction else { return }
                     await whisperState.handleToggleMiniRecorder()
+                    recordStopTime()
+                    logHotkey("→ STOPPED, recorded stop time")
                 }
-                return
-            }
-            
-            if !whisperState.isMiniRecorderVisible {
+
+            case .idle:
+                // Start new recording
+                logHotkey("→ STARTING recording")
+                startedRecordingThisPress = true
                 Task { @MainActor in
                     guard canProcessHotkeyAction else { return }
                     await whisperState.handleToggleMiniRecorder()
+                    logHotkey("→ STARTED")
                 }
             }
         } else {
-            let now = Date()
-            
-            if let startTime = keyPressStartTime {
-                let pressDuration = now.timeIntervalSince(startTime)
-                
+            // KEY UP
+            logHotkey("KEY UP")
+            defer { keyPressStartTime = nil }
+
+            if doubleTapHandled {
+                logHotkey("→ (double-tap handled, ignoring)")
+                return
+            }
+
+            if startedRecordingThisPress, let startTime = keyPressStartTime {
+                let pressDuration = Date().timeIntervalSince(startTime)
+                let durationMs = Int(pressDuration * 1000)
+
                 if pressDuration < briefPressThreshold {
+                    logHotkey("→ Brief press (\(durationMs)ms) → HANDS-FREE mode")
                     isHandsFreeMode = true
                 } else {
+                    logHotkey("→ Long press (\(durationMs)ms) → PUSH-TO-TALK stop")
+                    isHandsFreeMode = false
                     Task { @MainActor in
                         guard canProcessHotkeyAction else { return }
                         await whisperState.handleToggleMiniRecorder()
+                        recordStopTime()
                     }
                 }
+            } else {
+                logHotkey("→ (didn't start recording this press)")
             }
-            
-            keyPressStartTime = nil
         }
     }
+
+    private func isWithinDoubleTapWindow() -> Bool {
+        guard let stopTime = lastStopTime else { return false }
+        return Date().timeIntervalSince(stopTime) <= doubleTapSendThreshold
+    }
     
+    // Custom shortcut state tracking
+    private var shortcutStartedRecordingThisPress = false
+    private var shortcutDoubleTapHandled = false
+
     private func handleCustomShortcutKeyDown() async {
         if let lastTrigger = lastShortcutTriggerTime,
            Date().timeIntervalSince(lastTrigger) < shortcutCooldownInterval {
             return
         }
-        
+
         guard !shortcutCurrentKeyState else { return }
         shortcutCurrentKeyState = true
         lastShortcutTriggerTime = Date()
         shortcutKeyPressStartTime = Date()
-        
-        if isShortcutHandsFreeMode {
+        shortcutStartedRecordingThisPress = false
+        shortcutDoubleTapHandled = false
+
+        // CHECK DOUBLE-TAP FIRST (before state) - state may lag behind
+        if isWithinDoubleTapWindow() {
+            shortcutDoubleTapHandled = true
+            lastStopTime = nil
+            // Set flag - WhisperState will press Enter AFTER paste completes
+            whisperState.doubleTapSendPending = true
+            return
+        }
+
+        let state = whisperState.recordingState
+
+        switch state {
+        case .transcribing, .enhancing, .busy:
+            // BUSY - ignore
+            return
+
+        case .recording:
+            // STOP recording
             isShortcutHandsFreeMode = false
             guard canProcessHotkeyAction else { return }
             await whisperState.handleToggleMiniRecorder()
-            return
-        }
-        
-        if !whisperState.isMiniRecorderVisible {
+            recordStopTime()
+
+        case .idle:
+            // Start new recording
+            shortcutStartedRecordingThisPress = true
             guard canProcessHotkeyAction else { return }
             await whisperState.handleToggleMiniRecorder()
         }
     }
-    
+
     private func handleCustomShortcutKeyUp() async {
         guard shortcutCurrentKeyState else { return }
         shortcutCurrentKeyState = false
-        
-        let now = Date()
-        
-        if let startTime = shortcutKeyPressStartTime {
-            let pressDuration = now.timeIntervalSince(startTime)
-            
+        defer { shortcutKeyPressStartTime = nil }
+
+        // If double-tap was handled, nothing to do
+        if shortcutDoubleTapHandled { return }
+
+        // If we started recording this press, handle push-to-talk
+        if shortcutStartedRecordingThisPress, let startTime = shortcutKeyPressStartTime {
+            let pressDuration = Date().timeIntervalSince(startTime)
+
             if pressDuration < briefPressThreshold {
+                // Brief press → hands-free mode (keep recording)
                 isShortcutHandsFreeMode = true
             } else {
+                // Long press released → stop recording (push-to-talk)
+                isShortcutHandsFreeMode = false
                 guard canProcessHotkeyAction else { return }
                 await whisperState.handleToggleMiniRecorder()
+                recordStopTime()
             }
         }
-        
-        shortcutKeyPressStartTime = nil
     }
     
+    /// Record that recording just stopped (for double-tap detection)
+    private func recordStopTime() {
+        lastStopTime = Date()
+    }
+
     // Computed property for backward compatibility with UI
     var isShortcutConfigured: Bool {
         let isHotkey1Configured = (selectedHotkey1 == .custom) ? (KeyboardShortcuts.getShortcut(for: .toggleMiniRecorder) != nil) : true
@@ -429,8 +556,12 @@ class HotkeyManager: ObservableObject {
     }
     
     deinit {
-        Task { @MainActor in
-            removeAllMonitoring()
+        // Remove monitoring synchronously - these are just removing event monitors
+        if let monitor = globalEventMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        if let monitor = localEventMonitor {
+            NSEvent.removeMonitor(monitor)
         }
     }
 }

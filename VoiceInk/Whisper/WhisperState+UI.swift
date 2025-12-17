@@ -120,7 +120,17 @@ extension WhisperState {
     }
     
     func cancelRecording() async {
+        // FIRST: Stop audio engines to release audio resources
+        // This allows the cancel sound to play without being blocked by AVAudioEngine
+        stopStreamingTranscription()
+        _ = await streamingRecorder.stopRecording()
+        await recorder.stopRecording()
+
+        // NOW play cancel sound - audio resources are released
         SoundManager.shared.playEscSound()
+        // Give the sound time to play
+        try? await Task.sleep(nanoseconds: 150_000_000) // 150ms
+
         shouldCancelRecording = true
         await dismissMiniRecorder()
     }

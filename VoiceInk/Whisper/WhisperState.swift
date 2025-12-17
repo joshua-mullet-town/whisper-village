@@ -51,6 +51,9 @@ class WhisperState: NSObject, ObservableObject {
     @Published var miniRecorderError: String?
     @Published var shouldCancelRecording = false
 
+    /// When true, the next paste operation should also press Enter (for double-tap send)
+    var doubleTapSendPending = false
+
 
     @Published var recorderType: String = UserDefaults.standard.string(forKey: "RecorderType") ?? "mini" {
         didSet {
@@ -219,7 +222,19 @@ class WhisperState: NSObject, ObservableObject {
     
     func toggleRecord() async {
         if recordingState == .recording {
-            // If Jarvis streaming mode - handle final transcription BEFORE stopping recorder
+            // FIRST: Stop audio engines to release audio resources
+            // This allows sounds to play without being blocked by AVAudioEngine
+            // Samples are already buffered in memory so transcription will still work
+            stopStreamingTranscription()
+            let capturedSamples = await streamingRecorder.stopRecording()
+            await recorder.stopRecording()
+
+            // NOW play stop sound - audio resources are released
+            SoundManager.shared.playStopSound()
+            // Give the sound time to play
+            try? await Task.sleep(nanoseconds: 150_000_000) // 150ms
+
+            // If Jarvis streaming mode - handle transcription with captured samples
             if isStreamingModeEnabled && jarvisService.isEnabled {
                 StreamingLogger.shared.log("=== TOGGLE RECORD STOP (Jarvis mode) ===")
 
@@ -231,17 +246,8 @@ class WhisperState: NSObject, ObservableObject {
                 // Reset the flag for next session
                 voiceCommandSetFinalText = false
 
-                // If hotkey pressed (not voice command), apply linger delay to capture trailing words
-                // Audio keeps recording during this delay
-                let lingerMs = UserDefaults.standard.integer(forKey: "RecordingLingerMs")
-                if !voiceCommandProvidedText && lingerMs > 0 {
-                    StreamingLogger.shared.log("Hotkey stop: Lingering for \(lingerMs)ms to capture trailing words...")
-                    try? await Task.sleep(nanoseconds: UInt64(lingerMs) * 1_000_000)
-                    StreamingLogger.shared.log("Linger complete, proceeding with transcription")
-                }
-
-                // Stop streaming transcription timer
-                stopStreamingTranscription()
+                // NOTE: Linger delay disabled because we stop the engine before playing sound
+                // to avoid AVAudioEngine blocking sound playback
 
                 // If no voice command handled it, transcribe the FULL audio now
                 var textToPaste = ""
@@ -250,9 +256,9 @@ class WhisperState: NSObject, ObservableObject {
                     textToPaste = jarvisTranscriptionBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
                     StreamingLogger.shared.log("Using voice command buffer (flag was set): \"\(textToPaste)\"")
                 } else {
-                    // Option+Space pressed directly - transcribe full audio now
-                    StreamingLogger.shared.log("Option+Space: Transcribing full audio buffer...")
-                    if let transcribedText = await transcribeFullAudioBuffer(clearBufferAfter: false) {
+                    // Option+Space pressed directly - transcribe the captured samples
+                    StreamingLogger.shared.log("Option+Space: Transcribing \(capturedSamples.count) captured samples...")
+                    if let transcribedText = await transcribeCapturedSamples(capturedSamples) {
                         let currentChunkText = transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
                         // Concatenate with any saved chunks from pause boundaries
                         var allChunks = finalTranscribedChunks
@@ -264,14 +270,11 @@ class WhisperState: NSObject, ObservableObject {
                     }
                 }
 
-                // Now stop the streaming recorder
-                let samples = await streamingRecorder.stopRecording()
-                StreamingLogger.shared.log("Streaming stopped. Got \(samples.count) samples")
+                // Recorders already stopped above before playing sound
+                StreamingLogger.shared.log("Using \(capturedSamples.count) pre-captured samples")
 
                 // Clear finalTranscribedChunks for next session
                 finalTranscribedChunks = []
-
-                await recorder.stopRecording()
 
                 if shouldCancelRecording || textToPaste.isEmpty {
                     // Cancelled or nothing to paste
@@ -311,8 +314,18 @@ class WhisperState: NSObject, ObservableObject {
                         finalText += " "
                     }
 
+                    let shouldSend = self.doubleTapSendPending
+                    self.doubleTapSendPending = false
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                         CursorPaster.pasteAtCursor(finalText)
+
+                        // If double-tap send was pending, play sound and press Enter
+                        if shouldSend {
+                            SoundManager.shared.playSendSound()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                CursorPaster.pressEnter()
+                            }
+                        }
                     }
 
                     await dismissMiniRecorder()
@@ -324,9 +337,12 @@ class WhisperState: NSObject, ObservableObject {
             // SIMPLE STREAMING (Jarvis disabled) - Clean, simple path
             // No command detection, no chunks, no voice command flags
             // OPTIMIZED: Hides UI immediately for perceived responsiveness
+            // NOTE: Audio engines already stopped above (before sound playback)
+            //       We use capturedSamples instead of reading from the buffer
             // ============================================================
             if isStreamingModeEnabled {
                 StreamingLogger.shared.log("=== TOGGLE RECORD STOP (Streaming Mode) ===")
+                StreamingLogger.shared.log("Using \(capturedSamples.count) pre-captured samples")
 
                 // OPTIMIZATION: Hide UI immediately - user stopped recording, they're done
                 hideRecorderPanel()
@@ -335,44 +351,58 @@ class WhisperState: NSObject, ObservableObject {
                 }
                 StreamingLogger.shared.log("UI hidden immediately for responsiveness")
 
+                // Inline placeholder - shows loading indicator in target text field
+                let placeholderText = "⏳ Transcribing..."
+                let showPlaceholder = UserDefaults.standard.bool(forKey: "InlinePlaceholderEnabled")
+                var placeholderLength = 0
+
+                if showPlaceholder {
+                    placeholderLength = placeholderText.count
+                    DispatchQueue.main.async {
+                        CursorPaster.pasteAtCursor(placeholderText)
+                    }
+                    StreamingLogger.shared.log("Pasted inline placeholder (\(placeholderLength) chars)")
+                    // Small delay to ensure paste completes
+                    try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+                }
+
                 var textToPaste = ""
 
                 if isLivePreviewEnabled {
-                    // Live Preview ON: Use graceful stop
-                    StreamingLogger.shared.log("Live Preview Mode - graceful stop")
+                    // Live Preview ON: Use the last interim transcription (already computed)
+                    // Since engine is stopped, we can't do graceful stop - use what we have
+                    StreamingLogger.shared.log("Live Preview Mode - using last interim transcription")
+                    textToPaste = interimTranscription.trimmingCharacters(in: .whitespacesAndNewlines)
 
-                    // Optional linger delay
-                    let lingerMs = UserDefaults.standard.integer(forKey: "RecordingLingerMs")
-                    if lingerMs > 0 {
-                        StreamingLogger.shared.log("Lingering for \(lingerMs)ms to capture trailing words...")
-                        try? await Task.sleep(nanoseconds: UInt64(lingerMs) * 1_000_000)
+                    // If interim is empty but we have samples, transcribe them
+                    if textToPaste.isEmpty && capturedSamples.count > 16000 {
+                        StreamingLogger.shared.log("Interim empty, transcribing captured samples...")
+                        if let transcribedText = await transcribeCapturedSamples(capturedSamples) {
+                            textToPaste = transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        }
                     }
-
-                    textToPaste = await stopStreamingTranscriptionGracefully()
                     StreamingLogger.shared.log("Live preview final: \"\(textToPaste)\"")
                 } else {
-                    // Live Preview OFF: Simple Mode - transcribe full audio buffer once
-                    StreamingLogger.shared.log("Simple Mode - full audio transcription")
+                    // Live Preview OFF: Simple Mode - transcribe captured samples
+                    StreamingLogger.shared.log("Simple Mode - transcribing captured samples")
 
-                    // Optional linger delay
-                    let lingerMs = UserDefaults.standard.integer(forKey: "RecordingLingerMs")
-                    if lingerMs > 0 {
-                        StreamingLogger.shared.log("Lingering for \(lingerMs)ms to capture trailing words...")
-                        try? await Task.sleep(nanoseconds: UInt64(lingerMs) * 1_000_000)
-                    }
-
-                    // Transcribe the full audio buffer ONCE (UI already hidden)
-                    if let transcribedText = await transcribeFullAudioBuffer(clearBufferAfter: false) {
+                    // Transcribe the captured audio samples (engine already stopped)
+                    if let transcribedText = await transcribeCapturedSamples(capturedSamples) {
                         textToPaste = transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
                     }
                     StreamingLogger.shared.log("Simple mode final: \"\(textToPaste)\"")
                 }
 
-                // Stop recorders
-                _ = await streamingRecorder.stopRecording()
-                await recorder.stopRecording()
+                // Recorders already stopped above (before sound playback)
 
                 if shouldCancelRecording || textToPaste.isEmpty {
+                    // Delete placeholder if we pasted one (cancelled or empty result)
+                    if placeholderLength > 0 {
+                        DispatchQueue.main.async {
+                            CursorPaster.deleteCharacters(count: placeholderLength)
+                        }
+                        StreamingLogger.shared.log("Deleted placeholder (cancelled/empty)")
+                    }
                     await MainActor.run {
                         recordingState = .idle
                     }
@@ -411,10 +441,24 @@ class WhisperState: NSObject, ObservableObject {
                         finalText += " "
                     }
 
-                    // Reduced delay for snappier feel
+                    // Delete placeholder if we pasted one, then paste real text
+                    let shouldSend = self.doubleTapSendPending
+                    self.doubleTapSendPending = false // Reset flag
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
+                        if placeholderLength > 0 {
+                            CursorPaster.deleteCharacters(count: placeholderLength)
+                        }
                         CursorPaster.pasteAtCursor(finalText)
+
+                        // If double-tap send was pending, play sound and press Enter
+                        if shouldSend {
+                            SoundManager.shared.playSendSound()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                CursorPaster.pressEnter()
+                            }
+                        }
                     }
+                    StreamingLogger.shared.log("Replaced placeholder with final text (\(finalText.count) chars), send=\(shouldSend)")
 
                     await cleanupAfterSend()
                 }
@@ -558,41 +602,51 @@ class WhisperState: NSObject, ObservableObject {
         if isStreamingModeEnabled {
             StreamingLogger.shared.log("=== STOP RECORDING AND SEND ===")
 
-            // OPTIMIZATION 1: Hide UI immediately - user pressed send, they're done
-            // The transcription continues in the background
+            // FIRST: Stop audio engines to release audio resources
+            // This allows the send sound to play without being blocked by AVAudioEngine
+            stopStreamingTranscription()
+            let capturedSamples = await streamingRecorder.stopRecording()
+            await recorder.stopRecording()
+
+            // NOW play send sound - audio resources are released
+            SoundManager.shared.playSendSound()
+            try? await Task.sleep(nanoseconds: 150_000_000) // 150ms for sound
+
+            // Hide UI
             hideRecorderPanel()
             await MainActor.run {
                 isMiniRecorderVisible = false
             }
-            StreamingLogger.shared.log("UI hidden immediately for responsiveness")
+            StreamingLogger.shared.log("UI hidden, using \(capturedSamples.count) captured samples")
 
             var textToPaste = ""
 
-            // Optional linger delay
-            let lingerMs = UserDefaults.standard.integer(forKey: "RecordingLingerMs")
-            if lingerMs > 0 {
-                StreamingLogger.shared.log("Lingering for \(lingerMs)ms to capture trailing words...")
-                try? await Task.sleep(nanoseconds: UInt64(lingerMs) * 1_000_000)
-            }
-
             if isLivePreviewEnabled {
-                // Live Preview ON: Use graceful stop
-                textToPaste = await stopStreamingTranscriptionGracefully()
+                // Live Preview ON: Use the last interim transcription
+                StreamingLogger.shared.log("Send mode - using last interim transcription")
+                textToPaste = interimTranscription.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                // If interim is empty but we have samples, transcribe them
+                if textToPaste.isEmpty && capturedSamples.count > 16000 {
+                    StreamingLogger.shared.log("Interim empty, transcribing captured samples...")
+                    if let transcribedText = await transcribeCapturedSamples(capturedSamples) {
+                        textToPaste = transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    }
+                }
                 StreamingLogger.shared.log("Send final (live preview): \"\(textToPaste)\"")
             } else {
-                // Simple Mode: Transcribe full audio buffer once
+                // Simple Mode: Transcribe captured samples
+                StreamingLogger.shared.log("Send mode - transcribing captured samples")
                 await MainActor.run {
                     recordingState = .transcribing
                 }
-                if let transcribedText = await transcribeFullAudioBuffer(clearBufferAfter: false) {
+                if let transcribedText = await transcribeCapturedSamples(capturedSamples) {
                     textToPaste = transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
                 }
                 StreamingLogger.shared.log("Send final (simple mode): \"\(textToPaste)\"")
             }
 
-            // Stop recorders
-            _ = await streamingRecorder.stopRecording()
-            await recorder.stopRecording()
+            // Recorders already stopped above
 
             if shouldCancelRecording || textToPaste.isEmpty {
                 await MainActor.run {
@@ -719,17 +773,6 @@ class WhisperState: NSObject, ObservableObject {
         
         await MainActor.run {
             recordingState = .transcribing
-        }
-        
-        // Play stop sound when transcription starts with a small delay
-        Task {
-            let isSystemMuteEnabled = UserDefaults.standard.bool(forKey: "isSystemMuteEnabled")
-            if isSystemMuteEnabled {
-                try? await Task.sleep(nanoseconds: 200_000_000) // 200 milliseconds delay
-            }
-            await MainActor.run {
-                SoundManager.shared.playStopSound()
-            }
         }
         
         defer {
@@ -1038,15 +1081,24 @@ class WhisperState: NSObject, ObservableObject {
         }
 
         // Get ALL samples from the buffer (not chunks - full buffer mode)
-        let samples = await streamingRecorder.getCurrentSamples()
+        let rawSamples = await streamingRecorder.getCurrentSamples()
 
-        guard samples.count >= 16000 else {  // Need at least 1 second
+        guard rawSamples.count >= 16000 else {  // Need at least 1 second
             // Don't log this - it's normal at the start of recording
             return
         }
 
+        // Apply VAD preprocessing to extract speech and remove silence
+        let samples = AudioPreprocessor.shared.extractSpeech(from: rawSamples)
+
+        guard samples.count >= 8000 else {  // Need at least 0.5s of speech
+            StreamingLogger.shared.log("Skipping transcription - not enough speech detected")
+            return
+        }
+
         let sampleDuration = Double(samples.count) / 16000.0
-        StreamingLogger.shared.log("Transcribing full buffer: \(samples.count) samples (\(String(format: "%.2f", sampleDuration))s) [provider: \(model.provider.rawValue)]")
+        let rawDuration = Double(rawSamples.count) / 16000.0
+        StreamingLogger.shared.log("Transcribing: \(samples.count) samples (\(String(format: "%.2f", sampleDuration))s speech from \(String(format: "%.2f", rawDuration))s) [provider: \(model.provider.rawValue)]")
 
         isStreamingTranscriptionInProgress = true
         let startTime = Date()
@@ -1196,6 +1248,67 @@ class WhisperState: NSObject, ObservableObject {
     /// Transcribe the FULL audio buffer (not just a chunk) - used for actual output
     /// This is called on user pause/send boundaries to get the real transcription
     /// Returns the transcribed text, or nil if transcription failed
+    /// Transcribe pre-captured audio samples (used when recorder was stopped before sound playback)
+    private func transcribeCapturedSamples(_ rawSamples: [Float]) async -> String? {
+        guard let model = currentTranscriptionModel else {
+            StreamingLogger.shared.log("Final transcription: No model selected")
+            return nil
+        }
+
+        guard rawSamples.count > 0 else {
+            StreamingLogger.shared.log("Final transcription: No samples provided")
+            return nil
+        }
+
+        // Apply VAD preprocessing to extract speech and remove silence
+        let samples = AudioPreprocessor.shared.extractSpeech(from: rawSamples)
+
+        guard samples.count >= 8000 else {  // Need at least 0.5s of speech
+            StreamingLogger.shared.log("Final transcription: Not enough speech detected after VAD")
+            return nil
+        }
+
+        let sampleDuration = Double(samples.count) / 16000.0
+        let rawDuration = Double(rawSamples.count) / 16000.0
+        StreamingLogger.shared.log("Final transcription (captured): Transcribing \(samples.count) samples (\(String(format: "%.2f", sampleDuration))s speech from \(String(format: "%.2f", rawDuration))s)")
+
+        let startTime = Date()
+        var transcribedText = ""
+
+        // Run transcription based on provider
+        if model.provider == .parakeet {
+            do {
+                let text = try await parakeetTranscriptionService.transcribeSamples(samples)
+                transcribedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            } catch {
+                StreamingLogger.shared.log("Final transcription: Parakeet failed - \(error)")
+                return nil
+            }
+        } else if model.provider == .local, let context = whisperContext {
+            let success = await context.fullTranscribe(samples: samples)
+            if success {
+                let text = await context.getTranscription()
+                transcribedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            } else {
+                StreamingLogger.shared.log("Final transcription: Whisper failed")
+                return nil
+            }
+        } else {
+            StreamingLogger.shared.log("Final transcription: Unsupported model provider")
+            return nil
+        }
+
+        let elapsed = Date().timeIntervalSince(startTime)
+        StreamingLogger.shared.log("Final transcription (captured): Got \"\(transcribedText)\" in \(String(format: "%.2f", elapsed))s")
+
+        // Apply built-in fixes (e.g., I' -> I'm)
+        if !transcribedText.isEmpty {
+            transcribedText = WordReplacementService.shared.applyBuiltInFixes(to: transcribedText)
+        }
+
+        return transcribedText
+    }
+
     private func transcribeFullAudioBuffer(clearBufferAfter: Bool = false) async -> String? {
         guard let model = currentTranscriptionModel else {
             StreamingLogger.shared.log("Final transcription: No model selected")
@@ -1203,15 +1316,24 @@ class WhisperState: NSObject, ObservableObject {
         }
 
         // Get ALL samples from the streaming recorder
-        let samples = await streamingRecorder.getCurrentSamples()
+        let rawSamples = await streamingRecorder.getCurrentSamples()
 
-        guard samples.count > 0 else {
+        guard rawSamples.count > 0 else {
             StreamingLogger.shared.log("Final transcription: No samples in buffer")
             return nil
         }
 
+        // Apply VAD preprocessing to extract speech and remove silence
+        let samples = AudioPreprocessor.shared.extractSpeech(from: rawSamples)
+
+        guard samples.count >= 8000 else {  // Need at least 0.5s of speech
+            StreamingLogger.shared.log("Final transcription: Not enough speech detected after VAD")
+            return nil
+        }
+
         let sampleDuration = Double(samples.count) / 16000.0
-        StreamingLogger.shared.log("Final transcription: Transcribing \(samples.count) samples (\(String(format: "%.2f", sampleDuration))s)")
+        let rawDuration = Double(rawSamples.count) / 16000.0
+        StreamingLogger.shared.log("Final transcription: Transcribing \(samples.count) samples (\(String(format: "%.2f", sampleDuration))s speech from \(String(format: "%.2f", rawDuration))s)")
 
         let startTime = Date()
         var transcribedText = ""

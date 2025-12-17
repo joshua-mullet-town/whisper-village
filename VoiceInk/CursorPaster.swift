@@ -94,4 +94,20 @@ class CursorPaster {
         enterDown?.post(tap: .cghidEventTap)
         enterUp?.post(tap: .cghidEventTap)
     }
+
+    // Delete a specific number of characters (backspace N times)
+    static func deleteCharacters(count: Int) {
+        guard AXIsProcessTrusted() else { return }
+        guard count > 0 else { return }
+
+        let source = CGEventSource(stateID: .hidSystemState)
+
+        for _ in 0..<count {
+            // Virtual key 0x33 = Delete/Backspace
+            let backspaceDown = CGEvent(keyboardEventSource: source, virtualKey: 0x33, keyDown: true)
+            let backspaceUp = CGEvent(keyboardEventSource: source, virtualKey: 0x33, keyDown: false)
+            backspaceDown?.post(tap: .cghidEventTap)
+            backspaceUp?.post(tap: .cghidEventTap)
+        }
+    }
 }

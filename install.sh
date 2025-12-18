@@ -110,9 +110,17 @@ echo -e "  • Remove Whisper Village from the list"
 echo -e "  • Restart the app and re-grant permissions"
 echo ""
 
-# Ask to launch
-read -p "Launch Whisper Village now? [Y/n] " -n 1 -r
-echo
+# Ask to launch (read from /dev/tty to handle curl|bash case)
+if [ -t 0 ]; then
+    # Running interactively
+    read -p "Launch Whisper Village now? [Y/n] " -n 1 -r
+    echo
+else
+    # Running via pipe (curl | bash) - read from terminal directly
+    read -p "Launch Whisper Village now? [Y/n] " -n 1 -r < /dev/tty
+    echo
+fi
+
 if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
     echo -e "${YELLOW}→ Launching Whisper Village...${NC}"
     open "/Applications/Whisper Village.app"

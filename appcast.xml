@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.8.10</title>
+            <pubDate>Thu, 18 Dec 2025 14:43:32 -0500</pubDate>
+            <sparkle:version>88</sparkle:version>
+            <sparkle:shortVersionString>1.8.10</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.8.10</h3>
+                <ul>
+                    <li>Add instance ID to debug multiple HotkeyManager instances</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.8.10/WhisperVillage-1.8.10.dmg" length="254040709" type="application/octet-stream" sparkle:edSignature="89f95EL1Wan4+lArlmi1DQRh0lLCkXF4bwyzZBzuBUMuVnPrKntLPll+30O9RuA9XcDK3ldLzolE61h/A1tXDw=="/>
+        </item>
+        <item>
             <title>1.8.9</title>
             <pubDate>Thu, 18 Dec 2025 14:36:10 -0500</pubDate>
             <sparkle:version>87</sparkle:version>

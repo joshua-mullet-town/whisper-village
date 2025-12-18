@@ -75,6 +75,9 @@ class HotkeyManager: ObservableObject {
     // Double-tap to send detection
     private var lastStopTime: Date? = nil
     private let doubleTapSendThreshold: TimeInterval = 1.0 // 1000ms window for double-tap
+
+    // Instance ID for debugging multiple instances
+    private let instanceId = UUID().uuidString.prefix(6)
     
     enum HotkeyOption: String, CaseIterable {
         case none = "none"
@@ -362,7 +365,7 @@ class HotkeyManager: ObservableObject {
         }
         let timestamp = ISO8601DateFormatter().string(from: Date())
         let appName = Bundle.main.bundleIdentifier?.contains("debug") == true ? "DEV" : "PROD"
-        let logLine = "[\(timestamp)] [\(appName)] \(message) | state=\(state) | lastStop=\(timeSinceStop) | handsFree=\(isHandsFreeMode)\n"
+        let logLine = "[\(timestamp)] [\(appName):\(instanceId)] \(message) | state=\(state) | lastStop=\(timeSinceStop) | handsFree=\(isHandsFreeMode)\n"
 
         // Write to file
         if let data = logLine.data(using: .utf8) {

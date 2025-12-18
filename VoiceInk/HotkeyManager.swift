@@ -361,7 +361,8 @@ class HotkeyManager: ObservableObject {
             timeSinceStop = "never"
         }
         let timestamp = ISO8601DateFormatter().string(from: Date())
-        let logLine = "[\(timestamp)] \(message) | state=\(state) | lastStop=\(timeSinceStop) | handsFree=\(isHandsFreeMode)\n"
+        let appName = Bundle.main.bundleIdentifier?.contains("debug") == true ? "DEV" : "PROD"
+        let logLine = "[\(timestamp)] [\(appName)] \(message) | state=\(state) | lastStop=\(timeSinceStop) | handsFree=\(isHandsFreeMode)\n"
 
         // Write to file
         if let data = logLine.data(using: .utf8) {

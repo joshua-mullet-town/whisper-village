@@ -14,7 +14,7 @@
                     <li><strong>Fixed crash with Jarvis mode enabled</strong> - Race condition in streaming transcription resolved</li>
                 </ul>
             ]]></description>
-            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.8.2/WhisperVillage-1.8.2.dmg" length="253980615" type="application/octet-stream"/>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.8.2/WhisperVillage-1.8.2.dmg" length="254027929" type="application/octet-stream"/>
         </item>
         <item>
             <title>1.8.1</title>

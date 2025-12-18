@@ -3,6 +3,22 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.8.5</title>
+            <pubDate>Wed, 18 Dec 2025 17:30:00 -0500</pubDate>
+            <sparkle:version>83</sparkle:version>
+            <sparkle:shortVersionString>1.8.5</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.8.5 - Debug Logging for Recorder Selection</h3>
+                <ul>
+                    <li><strong>Diagnostic logging added</strong> - Tracks recorder type selection and live preview display</li>
+                    <li>Logs app launch state, window manager lifecycle, and view visibility</li>
+                    <li>Log file: ~/Library/Logs/WhisperVillage/streaming.log</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.8.5/WhisperVillage-1.8.5.dmg" length="253993917" type="application/octet-stream"/>
+        </item>
+        <item>
             <title>1.8.4</title>
             <pubDate>Wed, 18 Dec 2025 16:35:00 -0500</pubDate>
             <sparkle:version>82</sparkle:version>

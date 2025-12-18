@@ -4,25 +4,43 @@
 
 ---
 
-## ✅ READY TO TEST: Self-Signed Certificate + One-Script Update
+## NEXT: Smart Capitalization (Context-Aware)
 
-**Status:** Certificate created, `install.sh` script ready. Need to ship a release to test end-to-end.
+**User Request:** Don't capitalize first word when pasting into mid-sentence context.
 
-### What's Done
-- ✅ Self-signed certificate "Whisper Village Signing" created and trusted
-- ✅ CLAUDE.md updated with new signing workflow
-- ✅ `install.sh` script already handles download, mount, copy, xattr
+**Problem:** Currently Whisper always capitalizes the first word. But if user is mid-sentence ("I was just thinking ") and then uses Whisper, the output becomes "I was just thinking Hello there" instead of "I was just thinking hello there".
 
-### To Test
-1. Ship a new release using the self-signed certificate (v1.8.1 or v1.9.0)
-2. User installs via `install.sh` or manual DMG
-3. Grant permissions (Mic, Accessibility)
-4. Ship another release (v1.8.2 or v1.9.1)
-5. User updates via `install.sh`
-6. **Verify:** Permissions should persist without re-granting
+### Implementation Plan
 
-### Trade-off
-Gatekeeper still warns (not Apple-trusted), but `xattr -cr` handles that on first install.
+**Approach:** Use Accessibility API to read focused text field before pasting.
+
+1. **Create `TextContextService.swift`**
+   - `getTextBeforeCursor() -> String?` using `AXUIElement`
+   - Read `kAXValueAttribute` (full text) and `kAXSelectedTextRangeAttribute` (cursor pos)
+   - Extract text before cursor position
+
+2. **Add mid-sentence detection logic**
+   ```swift
+   func shouldLowercaseFirstChar(contextBefore: String) -> Bool {
+       guard let lastChar = contextBefore.last else { return false }
+       if ".!?".contains(lastChar) { return false }  // sentence end → capitalize
+       if lastChar.isLetter || lastChar.isWhitespace { return true }  // mid-sentence
+       if ":;,".contains(lastChar) { return true }  // continuation
+       return false
+   }
+   ```
+
+3. **Hook into `CursorPaster.pasteAtCursor()`**
+   - Before pasting, check context
+   - If mid-sentence, lowercase first character
+   - Add toggle in Settings: "Smart capitalization" (default ON)
+
+### Edge Cases
+- Empty field → capitalize
+- After `.!?` → capitalize
+- After newline → capitalize (new paragraph)
+- After `,;:` → lowercase
+- After letter/space → lowercase
 
 ---
 

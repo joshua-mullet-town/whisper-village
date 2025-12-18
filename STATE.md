@@ -4,6 +4,28 @@
 
 ---
 
+## [2025-12-18 14:10] Permissions Persistence VERIFIED
+
+**Achievement:** Self-signed certificate workflow fully tested and working.
+
+### Test Results
+- v1.8.2 → v1.8.3 update completed via `install.sh`
+- **Permissions persisted** - no re-granting required for Mic or Accessibility
+- App continued to function normally after update
+
+### The Working Pipeline
+1. Build with ad-hoc signing: `CODE_SIGN_IDENTITY="-"`
+2. Re-sign with self-signed cert: `codesign --force --deep --sign "Whisper Village Signing"`
+3. Create DMG with `create-dmg`
+4. Upload to GitHub release
+5. Update `appcast.xml` with new version and file size
+6. Users update via Sparkle or `install.sh`
+
+### Key Lesson
+The initial v1.8.2 build failed to persist permissions because we forgot the codesign step after building. Must ALWAYS re-sign with "Whisper Village Signing" after ad-hoc build.
+
+---
+
 ## [2025-12-18 12:45] Self-Signed Certificate Setup Complete
 
 **Achievement:** Created self-signed code signing certificate to ensure permissions persist across updates.

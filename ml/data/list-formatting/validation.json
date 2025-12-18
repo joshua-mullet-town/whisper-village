@@ -1,0 +1,902 @@
+[
+  {
+    "input": "to do list one get tickets two confirm the batteries three schedule the invoice four clean the house",
+    "output": "to do list\n- Get tickets\n- Confirm the batteries\n- Schedule the invoice\n- Clean the house",
+    "num_items": 4,
+    "style": "number"
+  },
+  {
+    "input": "first email the dentist second review schedule third pick up paperwork fourth text the doctor fifth call mom",
+    "output": "- Email the dentist\n- Review schedule\n- Pick up paperwork\n- Text the doctor\n- Call mom",
+    "num_items": 5,
+    "style": "ordinal"
+  },
+  {
+    "input": "to do list one fix the email two fix the keys three cancel the review four talk to the doctor five return yard",
+    "output": "to do list\n- Fix the email\n- Fix the keys\n- Cancel the review\n- Talk to the doctor\n- Return yard",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "one complete the mail two review the package three email the bank four call the doctor five pick up plan",
+    "output": "- Complete the mail\n- Review the package\n- Email the bank\n- Call the doctor\n- Pick up plan",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "things to pack first confirm the email second clean the spreadsheet third organize the lunch fourth buy wallet um fifth call my boss",
+    "output": "things to pack\n- Confirm the email\n- Clean the spreadsheet\n- Organize the lunch\n- Buy wallet\n- Call my boss",
+    "num_items": 5,
+    "style": "ordinal"
+  },
+  {
+    "input": "packing list first cancel the yard like second return invoice you know third finish the passport fourth review the invoice fifth approve review",
+    "output": "packing list\n- Cancel the yard\n- Return invoice\n- Finish the passport\n- Review the invoice\n- Approve review",
+    "num_items": 5,
+    "style": "ordinal"
+  },
+  {
+    "input": "packing list first submit the bread second update garbage third send the report",
+    "output": "packing list\n- Submit the bread\n- Update garbage\n- Send the report",
+    "num_items": 3,
+    "style": "ordinal"
+  },
+  {
+    "input": "one get analysis two send the prescription three submit the laptop four email dad five ask the team about the email",
+    "output": "- Get analysis\n- Send the prescription\n- Submit the laptop\n- Email dad\n- Ask the team about the email",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "let me know when the paperwork is ready",
+    "output": "let me know when the paperwork is ready",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "I want to one approve deadline two pick up dishes",
+    "output": "I want to\n- Approve deadline\n- Pick up dishes",
+    "num_items": 2,
+    "style": "number"
+  },
+  {
+    "input": "first proofread the batteries second send the charger like third update the bread fourth approve tickets fifth fix the analysis",
+    "output": "- Proofread the batteries\n- Send the charger\n- Update the bread\n- Approve tickets\n- Fix the analysis",
+    "num_items": 5,
+    "style": "ordinal"
+  },
+  {
+    "input": "I'm working on the reservation right now",
+    "output": "I'm working on the reservation right now",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "don't forget to first email customer service second confirm the contract",
+    "output": "don't forget to\n- Email customer service\n- Confirm the contract",
+    "num_items": 2,
+    "style": "ordinal"
+  },
+  {
+    "input": "one check dry cleaning two send the keys three email customer service four update the mail",
+    "output": "- Check dry cleaning\n- Send the keys\n- Email customer service\n- Update the mail",
+    "num_items": 4,
+    "style": "number"
+  },
+  {
+    "input": "let me know when the eggs is ready",
+    "output": "let me know when the eggs is ready",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "one cancel the appointment two prepare the proposal",
+    "output": "- Cancel the appointment\n- Prepare the proposal",
+    "num_items": 2,
+    "style": "number"
+  },
+  {
+    "input": "reminder to one follow up with the dentist two finish the keys",
+    "output": "reminder to\n- Follow up with the dentist\n- Finish the keys",
+    "num_items": 2,
+    "style": "number"
+  },
+  {
+    "input": "notes first get appointment second confirm the tickets third confirm the budget",
+    "output": "notes\n- Get appointment\n- Confirm the tickets\n- Confirm the budget",
+    "num_items": 3,
+    "style": "ordinal"
+  },
+  {
+    "input": "I should one schedule the document two submit the passport three confirm the groceries",
+    "output": "I should\n- Schedule the document\n- Submit the passport\n- Confirm the groceries",
+    "num_items": 3,
+    "style": "number"
+  },
+  {
+    "input": "first complete the agreement second edit batteries",
+    "output": "- Complete the agreement\n- Edit batteries",
+    "num_items": 2,
+    "style": "ordinal"
+  },
+  {
+    "input": "next steps one organize the wallet two cancel the lunch three follow up with the bank four schedule the mail",
+    "output": "next steps\n- Organize the wallet\n- Cancel the lunch\n- Follow up with the bank\n- Schedule the mail",
+    "num_items": 4,
+    "style": "number"
+  },
+  {
+    "input": "one email the doctor two text hr three update the agreement uh four email the client you know five follow up with john",
+    "output": "- Email the doctor\n- Text hr\n- Update the agreement\n- Email the client\n- Follow up with john",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "I spoke with the dentist about the keys",
+    "output": "I spoke with the dentist about the keys",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "my tasks are one email the landlord two organize the coffee three review the mail four meet with the doctor",
+    "output": "my tasks are\n- Email the landlord\n- Organize the coffee\n- Review the mail\n- Meet with the doctor",
+    "num_items": 4,
+    "style": "number"
+  },
+  {
+    "input": "one review the milk two pick up headphones",
+    "output": "- Review the milk\n- Pick up headphones",
+    "num_items": 2,
+    "style": "number"
+  },
+  {
+    "input": "one schedule the charger two talk to customer service three buy draft four call the team five confirm the schedule",
+    "output": "- Schedule the charger\n- Talk to customer service\n- Buy draft\n- Call the team\n- Confirm the schedule",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "one organize the review two finish the budget three pick up dry cleaning four clean the house like five review the project",
+    "output": "- Organize the review\n- Finish the budget\n- Pick up dry cleaning\n- Clean the house\n- Review the project",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "the agenda is like one clean the presentation two organize the wallet you know three get eggs um four call hr five submit the batteries",
+    "output": "the agenda is\n- Clean the presentation\n- Organize the wallet\n- Get eggs\n- Call hr\n- Submit the batteries",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "to do list first prepare the prescription second buy headphones third organize the schedule fourth get budget",
+    "output": "to do list\n- Prepare the prescription\n- Buy headphones\n- Organize the schedule\n- Get budget",
+    "num_items": 4,
+    "style": "ordinal"
+  },
+  {
+    "input": "first clean the budget second talk to the client third cancel the headphones fourth schedule the house fifth proofread the proposal",
+    "output": "- Clean the budget\n- Talk to the client\n- Cancel the headphones\n- Schedule the house\n- Proofread the proposal",
+    "num_items": 5,
+    "style": "ordinal"
+  },
+  {
+    "input": "my goals are one follow up with mike two write the deadline three ask tech support about the document four talk to sarah",
+    "output": "my goals are\n- Follow up with mike\n- Write the deadline\n- Ask tech support about the document\n- Talk to sarah",
+    "num_items": 4,
+    "style": "number"
+  },
+  {
+    "input": "I spoke with customer service about the lunch",
+    "output": "I spoke with customer service about the lunch",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "I spoke with the client about the charger",
+    "output": "I spoke with the client about the charger",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "I need to one call mike two fix the document three ask dad about the appointment four pick up passport five buy reservation",
+    "output": "I need to\n- Call mike\n- Fix the document\n- Ask dad about the appointment\n- Pick up passport\n- Buy reservation",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "things to pack first fix the dishes second clean the wallet um third finish the agreement fourth prepare the paperwork fifth call dad",
+    "output": "things to pack\n- Fix the dishes\n- Clean the wallet\n- Finish the agreement\n- Prepare the paperwork\n- Call dad",
+    "num_items": 5,
+    "style": "ordinal"
+  },
+  {
+    "input": "my tasks are one buy bread two ask the doctor about the paperwork three get groceries",
+    "output": "my tasks are\n- Buy bread\n- Ask the doctor about the paperwork\n- Get groceries",
+    "num_items": 3,
+    "style": "number"
+  },
+  {
+    "input": "I spoke with mike about the passport",
+    "output": "I spoke with mike about the passport",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "one confirm the bread two check the agreement three clean the email four fix the dishes five return draft",
+    "output": "- Confirm the bread\n- Check the agreement\n- Clean the email\n- Fix the dishes\n- Return draft",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "one clean the plan two ask my boss about the prescription three write groceries four cancel the budget five pick up dishes",
+    "output": "- Clean the plan\n- Ask my boss about the prescription\n- Write groceries\n- Cancel the budget\n- Pick up dishes",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "one check the email two pick up review",
+    "output": "- Check the email\n- Pick up review",
+    "num_items": 2,
+    "style": "number"
+  },
+  {
+    "input": "one ask the client about the tickets um two send the schedule three return lunch four organize the keys",
+    "output": "- Ask the client about the tickets\n- Send the schedule\n- Return lunch\n- Organize the keys",
+    "num_items": 4,
+    "style": "number"
+  },
+  {
+    "input": "first talk to the bank second schedule a call with mom third reschedule spreadsheet fourth schedule a call with dad",
+    "output": "- Talk to the bank\n- Schedule a call with mom\n- Reschedule spreadsheet\n- Schedule a call with dad",
+    "num_items": 4,
+    "style": "ordinal"
+  },
+  {
+    "input": "I should one call mike two get schedule",
+    "output": "I should\n- Call mike\n- Get schedule",
+    "num_items": 2,
+    "style": "number"
+  },
+  {
+    "input": "I spoke with sarah about the laundry",
+    "output": "I spoke with sarah about the laundry",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "next steps one schedule a call with the client two complete the review three call the landlord",
+    "output": "next steps\n- Schedule a call with the client\n- Complete the review\n- Call the landlord",
+    "num_items": 3,
+    "style": "number"
+  },
+  {
+    "input": "things to pack um one clean the mail like two schedule the plan you know three cancel the keys",
+    "output": "things to pack\n- Clean the mail\n- Schedule the plan\n- Cancel the keys",
+    "num_items": 3,
+    "style": "number"
+  },
+  {
+    "input": "one update the plan two fix the coffee three clean the milk four review presentation five ask mom about the plan",
+    "output": "- Update the plan\n- Fix the coffee\n- Clean the milk\n- Review presentation\n- Ask mom about the plan",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "don't forget to first organize the house second fix the analysis third check the package fourth update the review",
+    "output": "don't forget to\n- Organize the house\n- Fix the analysis\n- Check the package\n- Update the review",
+    "num_items": 4,
+    "style": "ordinal"
+  },
+  {
+    "input": "priorities are first update paperwork second approve appointment third fix the presentation",
+    "output": "priorities are\n- Update paperwork\n- Approve appointment\n- Fix the presentation",
+    "num_items": 3,
+    "style": "ordinal"
+  },
+  {
+    "input": "packing list like one buy charger two confirm the bread three ask the client about the deadline four submit the lunch five reschedule package",
+    "output": "packing list\n- Buy charger\n- Confirm the bread\n- Ask the client about the deadline\n- Submit the lunch\n- Reschedule package",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "first organize the reservation second schedule the agreement third confirm the groceries fourth confirm the draft fifth return presentation",
+    "output": "- Organize the reservation\n- Schedule the agreement\n- Confirm the groceries\n- Confirm the draft\n- Return presentation",
+    "num_items": 5,
+    "style": "ordinal"
+  },
+  {
+    "input": "I'm working on the garbage right now",
+    "output": "I'm working on the garbage right now",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "one ask the bank about the milk two schedule the invoice three review the reservation",
+    "output": "- Ask the bank about the milk\n- Schedule the invoice\n- Review the reservation",
+    "num_items": 3,
+    "style": "number"
+  },
+  {
+    "input": "make sure to first meet with customer service second email accounting third ask mike about the batteries fourth call john",
+    "output": "make sure to\n- Meet with customer service\n- Email accounting\n- Ask mike about the batteries\n- Call john",
+    "num_items": 4,
+    "style": "ordinal"
+  },
+  {
+    "input": "first prepare the wallet second submit the tickets third schedule a call with customer service",
+    "output": "- Prepare the wallet\n- Submit the tickets\n- Schedule a call with customer service",
+    "num_items": 3,
+    "style": "ordinal"
+  },
+  {
+    "input": "priorities are one get contract two follow up with hr three start dry cleaning",
+    "output": "priorities are\n- Get contract\n- Follow up with hr\n- Start dry cleaning",
+    "num_items": 3,
+    "style": "number"
+  },
+  {
+    "input": "the plan is one submit the contract two return garbage",
+    "output": "the plan is\n- Submit the contract\n- Return garbage",
+    "num_items": 2,
+    "style": "number"
+  },
+  {
+    "input": "things to do one talk to the bank two call dad three prepare the spreadsheet four clean the slides five clean the dishes",
+    "output": "things to do\n- Talk to the bank\n- Call dad\n- Prepare the spreadsheet\n- Clean the slides\n- Clean the dishes",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "I want to you know one fix the keys two update the email three text mike four talk to mike five text tech support",
+    "output": "I want to\n- Fix the keys\n- Update the email\n- Text mike\n- Talk to mike\n- Text tech support",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "first cancel the budget second review the eggs third clean the contract fourth fix the garbage fifth follow up with my boss",
+    "output": "- Cancel the budget\n- Review the eggs\n- Clean the contract\n- Fix the garbage\n- Follow up with my boss",
+    "num_items": 5,
+    "style": "ordinal"
+  },
+  {
+    "input": "one schedule the plan two schedule a call with sarah",
+    "output": "- Schedule the plan\n- Schedule a call with sarah",
+    "num_items": 2,
+    "style": "number"
+  },
+  {
+    "input": "first complete the bread second send the package third prepare the agreement",
+    "output": "- Complete the bread\n- Send the package\n- Prepare the agreement",
+    "num_items": 3,
+    "style": "ordinal"
+  },
+  {
+    "input": "don't forget to one email tech support two organize the keys",
+    "output": "don't forget to\n- Email tech support\n- Organize the keys",
+    "num_items": 2,
+    "style": "number"
+  },
+  {
+    "input": "first talk to sarah second review the coffee third call mom fourth call customer service fifth follow up with customer service",
+    "output": "- Talk to sarah\n- Review the coffee\n- Call mom\n- Call customer service\n- Follow up with customer service",
+    "num_items": 5,
+    "style": "ordinal"
+  },
+  {
+    "input": "don't forget to one confirm the meeting two schedule a call with sarah three verify eggs four ask the team about the invoice five confirm the laundry",
+    "output": "don't forget to\n- Confirm the meeting\n- Schedule a call with sarah\n- Verify eggs\n- Ask the team about the invoice\n- Confirm the laundry",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "action items one get yard two follow up with mike",
+    "output": "action items\n- Get yard\n- Follow up with mike",
+    "num_items": 2,
+    "style": "number"
+  },
+  {
+    "input": "things to do first talk to mom second buy schedule third schedule a call with tech support",
+    "output": "things to do\n- Talk to mom\n- Buy schedule\n- Schedule a call with tech support",
+    "num_items": 3,
+    "style": "ordinal"
+  },
+  {
+    "input": "topics to discuss first confirm the slides second finish the dry cleaning third email mom fourth meet with customer service",
+    "output": "topics to discuss\n- Confirm the slides\n- Finish the dry cleaning\n- Email mom\n- Meet with customer service",
+    "num_items": 4,
+    "style": "ordinal"
+  },
+  {
+    "input": "uh first cancel the meeting you know second get laptop you know third update the contract fourth get invoice",
+    "output": "- Cancel the meeting\n- Get laptop\n- Update the contract\n- Get invoice",
+    "num_items": 4,
+    "style": "ordinal"
+  },
+  {
+    "input": "notes first book the schedule second return spreadsheet",
+    "output": "notes\n- Book the schedule\n- Return spreadsheet",
+    "num_items": 2,
+    "style": "ordinal"
+  },
+  {
+    "input": "I want to first email the landlord second call dad",
+    "output": "I want to\n- Email the landlord\n- Call dad",
+    "num_items": 2,
+    "style": "ordinal"
+  },
+  {
+    "input": "one prepare the spreadsheet two fix the laptop three meet with the dentist four review the bread",
+    "output": "- Prepare the spreadsheet\n- Fix the laptop\n- Meet with the dentist\n- Review the bread",
+    "num_items": 4,
+    "style": "number"
+  },
+  {
+    "input": "uh one cancel the presentation two check the eggs",
+    "output": "- Cancel the presentation\n- Check the eggs",
+    "num_items": 2,
+    "style": "number"
+  },
+  {
+    "input": "things to do first prepare the house second complete the car third review project fourth review the report",
+    "output": "things to do\n- Prepare the house\n- Complete the car\n- Review project\n- Review the report",
+    "num_items": 4,
+    "style": "ordinal"
+  },
+  {
+    "input": "don't forget to first complete the slides second email the doctor third update the document fourth ask sarah about the presentation fifth update the project",
+    "output": "don't forget to\n- Complete the slides\n- Email the doctor\n- Update the document\n- Ask sarah about the presentation\n- Update the project",
+    "num_items": 5,
+    "style": "ordinal"
+  },
+  {
+    "input": "I have to first buy report uh second email the team",
+    "output": "I have to\n- Buy report\n- Email the team",
+    "num_items": 2,
+    "style": "ordinal"
+  },
+  {
+    "input": "I need to one finish the groceries two fix the laptop three send the draft four schedule the laptop five finish the passport",
+    "output": "I need to\n- Finish the groceries\n- Fix the laptop\n- Send the draft\n- Schedule the laptop\n- Finish the passport",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "one talk to hr two cancel the invoice three clean the dishes four send the batteries five review the groceries",
+    "output": "- Talk to hr\n- Cancel the invoice\n- Clean the dishes\n- Send the batteries\n- Review the groceries",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "I think we should verify the charger tomorrow",
+    "output": "I think we should verify the charger tomorrow",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "first clean the mail second get dry cleaning third schedule reservation fourth pick up plan fifth follow up with the landlord",
+    "output": "- Clean the mail\n- Get dry cleaning\n- Schedule reservation\n- Pick up plan\n- Follow up with the landlord",
+    "num_items": 5,
+    "style": "ordinal"
+  },
+  {
+    "input": "packing list one organize the milk two buy wallet",
+    "output": "packing list\n- Organize the milk\n- Buy wallet",
+    "num_items": 2,
+    "style": "number"
+  },
+  {
+    "input": "I have to first ask hr about the car second cancel the prescription third email john fourth cancel the coffee fifth buy document",
+    "output": "I have to\n- Ask hr about the car\n- Cancel the prescription\n- Email john\n- Cancel the coffee\n- Buy document",
+    "num_items": 5,
+    "style": "ordinal"
+  },
+  {
+    "input": "follow ups one pick up passport two follow up with tech support three return wallet four confirm the presentation",
+    "output": "follow ups\n- Pick up passport\n- Follow up with tech support\n- Return wallet\n- Confirm the presentation",
+    "num_items": 4,
+    "style": "number"
+  },
+  {
+    "input": "shopping list one meet with the dentist two email the doctor three update the draft four finish the reservation",
+    "output": "shopping list\n- Meet with the dentist\n- Email the doctor\n- Update the draft\n- Finish the reservation",
+    "num_items": 4,
+    "style": "number"
+  },
+  {
+    "input": "first email the team second review the slides third book the headphones",
+    "output": "- Email the team\n- Review the slides\n- Book the headphones",
+    "num_items": 3,
+    "style": "ordinal"
+  },
+  {
+    "input": "reminder to first update the groceries second confirm the reservation third email accounting",
+    "output": "reminder to\n- Update the groceries\n- Confirm the reservation\n- Email accounting",
+    "num_items": 3,
+    "style": "ordinal"
+  },
+  {
+    "input": "the meeting with mom went well",
+    "output": "the meeting with mom went well",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "items to cover you know one return spreadsheet two send the contract",
+    "output": "items to cover\n- Return spreadsheet\n- Send the contract",
+    "num_items": 2,
+    "style": "number"
+  },
+  {
+    "input": "the meeting with customer service went well",
+    "output": "the meeting with customer service went well",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "one text the client uh two schedule a call with customer service three cancel the bread um four talk to tech support",
+    "output": "- Text the client\n- Schedule a call with customer service\n- Cancel the bread\n- Talk to tech support",
+    "num_items": 4,
+    "style": "number"
+  },
+  {
+    "input": "first meet with tech support second proofread garbage third fix the eggs",
+    "output": "- Meet with tech support\n- Proofread garbage\n- Fix the eggs",
+    "num_items": 3,
+    "style": "ordinal"
+  },
+  {
+    "input": "for today uh first call the team like second buy meeting",
+    "output": "for today\n- Call the team\n- Buy meeting",
+    "num_items": 2,
+    "style": "ordinal"
+  },
+  {
+    "input": "steps to take one ask the client about the draft two cancel the tickets three read the contract",
+    "output": "steps to take\n- Ask the client about the draft\n- Cancel the tickets\n- Read the contract",
+    "num_items": 3,
+    "style": "number"
+  },
+  {
+    "input": "first get bread second email my boss third confirm the coffee fourth schedule a call with tech support fifth ask the team about the proposal",
+    "output": "- Get bread\n- Email my boss\n- Confirm the coffee\n- Schedule a call with tech support\n- Ask the team about the proposal",
+    "num_items": 5,
+    "style": "ordinal"
+  },
+  {
+    "input": "questions to ask first send the yard second organize the bread third schedule a call with accounting fourth schedule the review",
+    "output": "questions to ask\n- Send the yard\n- Organize the bread\n- Schedule a call with accounting\n- Schedule the review",
+    "num_items": 4,
+    "style": "ordinal"
+  },
+  {
+    "input": "on my list first pick up meeting second return paperwork third organize the draft",
+    "output": "on my list\n- Pick up meeting\n- Return paperwork\n- Organize the draft",
+    "num_items": 3,
+    "style": "ordinal"
+  },
+  {
+    "input": "follow ups uh first buy meeting um second talk to customer service like third meet with customer service fourth review the meeting fifth organize the milk",
+    "output": "follow ups\n- Buy meeting\n- Talk to customer service\n- Meet with customer service\n- Review the meeting\n- Organize the milk",
+    "num_items": 5,
+    "style": "ordinal"
+  },
+  {
+    "input": "things to buy first send the eggs second schedule a call with the landlord",
+    "output": "things to buy\n- Send the eggs\n- Schedule a call with the landlord",
+    "num_items": 2,
+    "style": "ordinal"
+  },
+  {
+    "input": "I want to one email tech support two return invoice three reschedule the spreadsheet four buy groceries five pick up headphones",
+    "output": "I want to\n- Email tech support\n- Return invoice\n- Reschedule the spreadsheet\n- Buy groceries\n- Pick up headphones",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "items to cover first review the laptop second email the bank",
+    "output": "items to cover\n- Review the laptop\n- Email the bank",
+    "num_items": 2,
+    "style": "ordinal"
+  },
+  {
+    "input": "things to pack first meet with mike second text accounting third fix the passport fourth call the client fifth ask my boss about the lunch",
+    "output": "things to pack\n- Meet with mike\n- Text accounting\n- Fix the passport\n- Call the client\n- Ask my boss about the lunch",
+    "num_items": 5,
+    "style": "ordinal"
+  },
+  {
+    "input": "let me know when the package is ready",
+    "output": "let me know when the package is ready",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "first cancel the dry cleaning second reject prescription third email mom fourth send the report fifth confirm the dry cleaning",
+    "output": "- Cancel the dry cleaning\n- Reject prescription\n- Email mom\n- Send the report\n- Confirm the dry cleaning",
+    "num_items": 5,
+    "style": "ordinal"
+  },
+  {
+    "input": "first buy proposal second submit the email",
+    "output": "- Buy proposal\n- Submit the email",
+    "num_items": 2,
+    "style": "ordinal"
+  },
+  {
+    "input": "action items one confirm the analysis two schedule the bread",
+    "output": "action items\n- Confirm the analysis\n- Schedule the bread",
+    "num_items": 2,
+    "style": "number"
+  },
+  {
+    "input": "notes one schedule a call with my boss um two prepare the laptop three pick up coffee",
+    "output": "notes\n- Schedule a call with my boss\n- Prepare the laptop\n- Pick up coffee",
+    "num_items": 3,
+    "style": "number"
+  },
+  {
+    "input": "I want to one fix the eggs two meet with the bank three call customer service",
+    "output": "I want to\n- Fix the eggs\n- Meet with the bank\n- Call customer service",
+    "num_items": 3,
+    "style": "number"
+  },
+  {
+    "input": "I should one call the dentist two finish the paperwork uh three schedule a call with hr",
+    "output": "I should\n- Call the dentist\n- Finish the paperwork\n- Schedule a call with hr",
+    "num_items": 3,
+    "style": "number"
+  },
+  {
+    "input": "I think we should cancel the report tomorrow",
+    "output": "I think we should cancel the report tomorrow",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "to do list first confirm the reservation second submit the laptop",
+    "output": "to do list\n- Confirm the reservation\n- Submit the laptop",
+    "num_items": 2,
+    "style": "ordinal"
+  },
+  {
+    "input": "my goals are one prepare the dry cleaning two send the car three review the spreadsheet",
+    "output": "my goals are\n- Prepare the dry cleaning\n- Send the car\n- Review the spreadsheet",
+    "num_items": 3,
+    "style": "number"
+  },
+  {
+    "input": "packing list one finish the invoice two meet with john",
+    "output": "packing list\n- Finish the invoice\n- Meet with john",
+    "num_items": 2,
+    "style": "number"
+  },
+  {
+    "input": "for today first ask the client about the presentation second cancel the charger third check garbage",
+    "output": "for today\n- Ask the client about the presentation\n- Cancel the charger\n- Check garbage",
+    "num_items": 3,
+    "style": "ordinal"
+  },
+  {
+    "input": "I spoke with john about the eggs",
+    "output": "I spoke with john about the eggs",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "the mail looks good to me",
+    "output": "the mail looks good to me",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "I spoke with mom about the package",
+    "output": "I spoke with mom about the package",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "I spoke with my boss about the mail",
+    "output": "I spoke with my boss about the mail",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "groceries one ask the bank about the analysis two clean the laundry",
+    "output": "groceries\n- Ask the bank about the analysis\n- Clean the laundry",
+    "num_items": 2,
+    "style": "number"
+  },
+  {
+    "input": "I'm working on the groceries right now",
+    "output": "I'm working on the groceries right now",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "can you reschedule the tickets when you get a chance",
+    "output": "can you reschedule the tickets when you get a chance",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "don't forget to first organize the groceries second return plan",
+    "output": "don't forget to\n- Organize the groceries\n- Return plan",
+    "num_items": 2,
+    "style": "ordinal"
+  },
+  {
+    "input": "first complete the batteries second call john",
+    "output": "- Complete the batteries\n- Call john",
+    "num_items": 2,
+    "style": "ordinal"
+  },
+  {
+    "input": "this week I need to one update the mail two call mike three complete the spreadsheet four approve review five pick up tickets",
+    "output": "this week I need to\n- Update the mail\n- Call mike\n- Complete the spreadsheet\n- Approve review\n- Pick up tickets",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "groceries first confirm the paperwork second email the doctor third cancel the report",
+    "output": "groceries\n- Confirm the paperwork\n- Email the doctor\n- Cancel the report",
+    "num_items": 3,
+    "style": "ordinal"
+  },
+  {
+    "input": "my goals are one text the doctor two get laundry three confirm the bread four check the wallet um five return dry cleaning",
+    "output": "my goals are\n- Text the doctor\n- Get laundry\n- Confirm the bread\n- Check the wallet\n- Return dry cleaning",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "first email the bank second schedule a call with hr third cancel the email uh fourth check the review fifth finish the email",
+    "output": "- Email the bank\n- Schedule a call with hr\n- Cancel the email\n- Check the review\n- Finish the email",
+    "num_items": 5,
+    "style": "ordinal"
+  },
+  {
+    "input": "groceries one ask mike about the eggs two confirm the prescription three schedule a call with accounting four prepare the eggs five submit the paperwork",
+    "output": "groceries\n- Ask mike about the eggs\n- Confirm the prescription\n- Schedule a call with accounting\n- Prepare the eggs\n- Submit the paperwork",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "I'm working on the invoice right now",
+    "output": "I'm working on the invoice right now",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "this week I need to first send the draft second cancel the contract",
+    "output": "this week I need to\n- Send the draft\n- Cancel the contract",
+    "num_items": 2,
+    "style": "ordinal"
+  },
+  {
+    "input": "first organize the prescription second talk to hr third clean the meeting",
+    "output": "- Organize the prescription\n- Talk to hr\n- Clean the meeting",
+    "num_items": 3,
+    "style": "ordinal"
+  },
+  {
+    "input": "I should one update the package um two prepare the prescription",
+    "output": "I should\n- Update the package\n- Prepare the prescription",
+    "num_items": 2,
+    "style": "number"
+  },
+  {
+    "input": "can you proofread the appointment when you get a chance",
+    "output": "can you proofread the appointment when you get a chance",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "uh first call the bank you know second schedule the eggs",
+    "output": "- Call the bank\n- Schedule the eggs",
+    "num_items": 2,
+    "style": "ordinal"
+  },
+  {
+    "input": "things to do one organize the yard two follow up with customer service three check the laptop four buy deadline five buy plan",
+    "output": "things to do\n- Organize the yard\n- Follow up with customer service\n- Check the laptop\n- Buy deadline\n- Buy plan",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "on my list one meet with the doctor two schedule the meeting uh three text mike four prepare the wallet uh five return lunch",
+    "output": "on my list\n- Meet with the doctor\n- Schedule the meeting\n- Text mike\n- Prepare the wallet\n- Return lunch",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "first finish the review second email the team third update the paperwork fourth review the package",
+    "output": "- Finish the review\n- Email the team\n- Update the paperwork\n- Review the package",
+    "num_items": 4,
+    "style": "ordinal"
+  },
+  {
+    "input": "first update the appointment second prepare the deadline third review the wallet fourth confirm the project",
+    "output": "- Update the appointment\n- Prepare the deadline\n- Review the wallet\n- Confirm the project",
+    "num_items": 4,
+    "style": "ordinal"
+  },
+  {
+    "input": "I have to one pick up plan two email sarah three cancel the proposal",
+    "output": "I have to\n- Pick up plan\n- Email sarah\n- Cancel the proposal",
+    "num_items": 3,
+    "style": "number"
+  },
+  {
+    "input": "the agenda is one read the wallet two write draft three write appointment",
+    "output": "the agenda is\n- Read the wallet\n- Write draft\n- Write appointment",
+    "num_items": 3,
+    "style": "number"
+  },
+  {
+    "input": "reminder to one cancel the project two email john you know three send the laptop you know four check the headphones",
+    "output": "reminder to\n- Cancel the project\n- Email john\n- Send the laptop\n- Check the headphones",
+    "num_items": 4,
+    "style": "number"
+  },
+  {
+    "input": "can you schedule the garbage when you get a chance",
+    "output": "can you schedule the garbage when you get a chance",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "to do list first send the spreadsheet second return review third fix the analysis fourth talk to the landlord fifth schedule the mail",
+    "output": "to do list\n- Send the spreadsheet\n- Return review\n- Fix the analysis\n- Talk to the landlord\n- Schedule the mail",
+    "num_items": 5,
+    "style": "ordinal"
+  },
+  {
+    "input": "first email the client uh second confirm the analysis third cancel the dry cleaning fourth confirm the charger",
+    "output": "- Email the client\n- Confirm the analysis\n- Cancel the dry cleaning\n- Confirm the charger",
+    "num_items": 4,
+    "style": "ordinal"
+  },
+  {
+    "input": "things to pack first prepare the laptop second get project third buy analysis fourth call the team you know fifth finish the milk",
+    "output": "things to pack\n- Prepare the laptop\n- Get project\n- Buy analysis\n- Call the team\n- Finish the milk",
+    "num_items": 5,
+    "style": "ordinal"
+  },
+  {
+    "input": "action items first send the passport second meet with tech support third buy email fourth schedule the prescription",
+    "output": "action items\n- Send the passport\n- Meet with tech support\n- Buy email\n- Schedule the prescription",
+    "num_items": 4,
+    "style": "ordinal"
+  },
+  {
+    "input": "the meeting with dad went well",
+    "output": "the meeting with dad went well",
+    "num_items": 0,
+    "style": "none"
+  },
+  {
+    "input": "notes one return email two return coffee three finish the contract four confirm the house five schedule a call with sarah",
+    "output": "notes\n- Return email\n- Return coffee\n- Finish the contract\n- Confirm the house\n- Schedule a call with sarah",
+    "num_items": 5,
+    "style": "number"
+  },
+  {
+    "input": "first clean the schedule second ask dad about the coffee third fix the draft fourth email the landlord",
+    "output": "- Clean the schedule\n- Ask dad about the coffee\n- Fix the draft\n- Email the landlord",
+    "num_items": 4,
+    "style": "ordinal"
+  },
+  {
+    "input": "my goals are first follow up with the client second update the prescription",
+    "output": "my goals are\n- Follow up with the client\n- Update the prescription",
+    "num_items": 2,
+    "style": "ordinal"
+  },
+  {
+    "input": "the passport looks good to me",
+    "output": "the passport looks good to me",
+    "num_items": 0,
+    "style": "none"
+  }
+]

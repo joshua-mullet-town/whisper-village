@@ -1,0 +1,13 @@
+# Trained models (too large for git, ~265MB each)
+models/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Training artifacts
+*.log
+checkpoints/
+runs/

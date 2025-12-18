@@ -58,6 +58,9 @@ class WhisperState: NSObject, ObservableObject {
     @Published var recorderType: String = UserDefaults.standard.string(forKey: "RecorderType") ?? "mini" {
         didSet {
             UserDefaults.standard.set(recorderType, forKey: "RecorderType")
+            StreamingLogger.shared.log("🎛️ RECORDER_TYPE CHANGED: '\(oldValue)' → '\(recorderType)'")
+            StreamingLogger.shared.log("    notchWindowManager exists: \(notchWindowManager != nil)")
+            StreamingLogger.shared.log("    miniWindowManager exists: \(miniWindowManager != nil)")
         }
     }
     
@@ -210,6 +213,14 @@ class WhisperState: NSObject, ObservableObject {
         loadAvailableModels()
         loadCurrentTranscriptionModel()
         refreshAllAvailableModels()
+
+        // Log startup state for debugging recorder selection bug
+        StreamingLogger.shared.log("=== APP LAUNCH - USER DEFAULTS STATE ===")
+        StreamingLogger.shared.log("  RecorderType: '\(UserDefaults.standard.string(forKey: "RecorderType") ?? "nil")'")
+        StreamingLogger.shared.log("  StreamingModeEnabled: \(UserDefaults.standard.bool(forKey: "StreamingModeEnabled"))")
+        StreamingLogger.shared.log("  LivePreviewEnabled: \(UserDefaults.standard.bool(forKey: "LivePreviewEnabled"))")
+        StreamingLogger.shared.log("  NotchAlwaysVisible: \(UserDefaults.standard.bool(forKey: "NotchAlwaysVisible"))")
+        StreamingLogger.shared.log("  Bundle ID: \(Bundle.main.bundleIdentifier ?? "nil")")
     }
     
     private func createRecordingsDirectoryIfNeeded() {

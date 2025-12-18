@@ -31,13 +31,19 @@ class MiniWindowManager: ObservableObject {
         hide()
     }
     func show() {
-        if isVisible { return }
-        
+        StreamingLogger.shared.log("📱 MiniWindowManager.show() called")
+        StreamingLogger.shared.log("  isVisible BEFORE: \(isVisible)")
+        if isVisible {
+            StreamingLogger.shared.log("  EARLY RETURN: already visible")
+            return
+        }
+
         let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
-        
+
         initializeWindow(screen: activeScreen)
         self.isVisible = true
         miniPanel?.show()
+        StreamingLogger.shared.log("  isVisible AFTER: \(isVisible)")
     }
     
     func hide() {

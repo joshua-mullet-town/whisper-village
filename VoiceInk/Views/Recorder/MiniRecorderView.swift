@@ -510,6 +510,17 @@ struct MiniRecorderView: View {
                         recordingDuration = 0
                     }
                 }
+                .onAppear {
+                    StreamingLogger.shared.log("🖼️ MiniRecorderView APPEARED")
+                    StreamingLogger.shared.log("  windowManager.isVisible: \(windowManager.isVisible)")
+                    StreamingLogger.shared.log("  shouldShowTicker: \(shouldShowTicker)")
+                    StreamingLogger.shared.log("  isStreamingModeEnabled: \(isStreamingModeEnabled)")
+                    StreamingLogger.shared.log("  isLivePreviewEnabled: \(isLivePreviewEnabled)")
+                    StreamingLogger.shared.log("  isPreviewVisible: \(isPreviewVisible)")
+                }
+                .onDisappear {
+                    StreamingLogger.shared.log("🖼️ MiniRecorderView DISAPPEARED")
+                }
             }
         }
     }

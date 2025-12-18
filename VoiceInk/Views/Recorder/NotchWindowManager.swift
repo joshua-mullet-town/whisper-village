@@ -17,6 +17,10 @@ class NotchWindowManager: ObservableObject {
         self.whisperState = whisperState
         self.recorder = recorder
 
+        StreamingLogger.shared.log("🔧 NotchWindowManager INIT")
+        StreamingLogger.shared.log("  NotchAlwaysVisible: \(UserDefaults.standard.bool(forKey: "NotchAlwaysVisible"))")
+        StreamingLogger.shared.log("  RecorderType: '\(UserDefaults.standard.string(forKey: "RecorderType") ?? "nil")'")
+
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleHideNotification),
@@ -26,6 +30,7 @@ class NotchWindowManager: ObservableObject {
 
         // Show immediately if always visible is enabled
         if UserDefaults.standard.bool(forKey: "NotchAlwaysVisible") {
+            StreamingLogger.shared.log("  ⚠️ NotchAlwaysVisible=true, WILL CALL showAlwaysVisible() in async")
             DispatchQueue.main.async { [weak self] in
                 self?.showAlwaysVisible()
             }
@@ -52,7 +57,12 @@ class NotchWindowManager: ObservableObject {
     }
 
     func show() {
-        if isVisible { return }
+        StreamingLogger.shared.log("📱 NotchWindowManager.show() called")
+        StreamingLogger.shared.log("  isVisible BEFORE: \(isVisible)")
+        if isVisible {
+            StreamingLogger.shared.log("  EARLY RETURN: already visible")
+            return
+        }
 
         // Get the active screen from the key window or fallback to main screen
         let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
@@ -60,6 +70,7 @@ class NotchWindowManager: ObservableObject {
         initializeWindow(screen: activeScreen)
         self.isVisible = true
         notchPanel?.show()
+        StreamingLogger.shared.log("  isVisible AFTER: \(isVisible)")
     }
 
     func hide() {

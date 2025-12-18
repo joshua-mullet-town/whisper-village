@@ -1,0 +1,8 @@
+# ML Pipeline Dependencies
+torch>=2.0.0
+transformers>=4.30.0
+pytest>=7.0.0
+
+# Training only (optional)
+datasets>=2.14.0
+accelerate>=0.20.0

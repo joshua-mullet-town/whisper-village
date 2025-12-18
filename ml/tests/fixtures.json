@@ -1,0 +1,67 @@
+{
+  "filler_tests": [
+    {"input": "i uh think we should go", "expected": "i think we should go"},
+    {"input": "um hello there", "expected": "hello there"},
+    {"input": "this is uh really um good", "expected": "this is really good"},
+    {"input": "no fillers here", "expected": "no fillers here"},
+    {"input": "", "expected": ""}
+  ],
+  "repetition_tests": [
+    {"input": "i i think we should go", "expected": "i think we should go", "description": "Simple word repetition"},
+    {"input": "the the thing is", "expected": "the thing is", "description": "Article repetition"},
+    {"input": "i was i was thinking", "expected": "i was thinking", "description": "Phrase repetition"},
+    {"input": "to to go there", "expected": "to go there", "description": "Preposition repetition"},
+    {"input": "no repetitions here", "expected": "no repetitions here", "description": "Clean text unchanged"},
+    {"input": "because we had homes built in in detroit also", "expected": "because we had homes built in detroit also", "description": "Preposition repetition mid-sentence"},
+    {"input": "these people you know they bring their their johns home", "expected": "these people you know they bring their johns home", "description": "Possessive repetition"},
+    {"input": "it 's a it 's a tough question", "expected": "it 's a tough question", "description": "Multi-word phrase repetition"},
+    {"input": "you are really you really", "expected": "you really", "description": "Restart with modification"},
+    {"input": "you do n't you do n't sound like it to me", "expected": "you do n't sound like it to me", "description": "Negative phrase repetition"},
+    {"input": "and some some of them did quit the company", "expected": "and some of them did quit the company", "description": "Quantifier repetition"},
+    {"input": "and and they stink", "expected": "and they stink", "description": "Conjunction repetition"},
+    {"input": "and and their government is not allowing it", "expected": "and their government is not allowing it", "description": "Conjunction repetition at start"},
+    {"input": "oh i i did n't really know that", "expected": "oh i did n't really know that", "description": "Pronoun repetition after interjection"},
+    {"input": "the first first couple of times it 's pretty scary", "expected": "first couple of times it 's pretty scary", "description": "Adjective repetition (model removes 'the first' as unit)"},
+    {"input": "and it it was a real good movie", "expected": "and it was a real good movie", "description": "Pronoun repetition"},
+    {"input": "because i i listen to uh public radio a lot", "expected": "because i listen to uh public radio a lot", "description": "Pronoun repetition after conjunction"},
+    {"input": "but uh you know i i think of", "expected": "but uh you know i think of", "description": "Pronoun repetition with fillers"}
+  ],
+  "repair_tests": [
+    {"input": "we were i was fortunate", "expected": "i was fortunate", "description": "Subject correction (we->I)"},
+    {"input": "they and well they had seen it", "expected": "well they had seen it", "description": "Restart with conjunction (model keeps 'well' as discourse marker)"},
+    {"input": "no repairs here", "expected": "no repairs here", "description": "Clean text unchanged"},
+    {"input": "", "expected": "", "description": "Empty string"},
+    {"input": "exac- exactly", "expected": "exactly", "description": "Word fragment correction"},
+    {"input": "well act- actually i 'm looking for another car", "expected": "well actually i 'm looking for another car", "description": "Fragment to full word"},
+    {"input": "di- do they have a kitchen in them", "expected": "do they have a kitchen in them", "description": "False start correction"},
+    {"input": "but you it wo n't go down", "expected": "but it wo n't go down", "description": "Subject swap"},
+    {"input": "and uh we i love that", "expected": "and uh i love that", "description": "Pronoun correction"},
+    {"input": "so do you your privacy being invaded at any time", "expected": "so do your privacy being invaded at any time", "description": "You to your correction"},
+    {"input": "and but i you know i do n't practice a lot anymore", "expected": "but you know i do n't practice a lot anymore", "description": "Conjunction restart"},
+    {"input": "we do have uh like most companies we have medical insurance", "expected": "uh like most companies we have medical insurance", "description": "Restart with different structure"},
+    {"input": "and you know and then it kind of just went out of vogue", "expected": "you know and then it kind of just went out of vogue", "description": "Redundant conjunction removal"},
+    {"input": "but uh you know that 's it 's a matter of exposure really", "expected": "but uh you know it 's a matter of exposure really", "description": "That to it correction"},
+    {"input": "and he you know he does n't really enjoy doing it", "expected": "and you know he does n't really enjoy doing it", "description": "Pronoun with insertion"}
+  ],
+  "pipeline_tests": [
+    {"input": "i uh think um we should go", "expected": "i think we should go", "description": "Fillers only"},
+    {"input": "so um i i really want to to go", "expected": "so i really want to go", "description": "Fillers and repetitions"},
+    {"input": "the the thing is uh i didn't know", "expected": "the thing is i didn't know", "description": "Mixed fillers and repetitions"},
+    {"input": "um well you know i was i was thinking", "expected": "well you know i was thinking", "description": "Keeps discourse markers"},
+    {"input": "it's uh it's really uh interesting", "expected": "it's really interesting", "description": "Repeated phrase with fillers"}
+  ],
+  "discourse_preservation_tests": [
+    {"input": "well i think so", "expected": "well i think so"},
+    {"input": "you know that's right", "expected": "you know that's right"},
+    {"input": "so we should go", "expected": "so we should go"}
+  ],
+  "list_tests": [
+    {"input": "my goals are one finish report two send email", "expected": "my goals are\n- Finish report\n- Send email", "description": "Cardinal with context"},
+    {"input": "one buy groceries two clean house three exercise", "expected": "- Buy groceries\n- Clean house\n- Exercise", "description": "Three cardinal items"},
+    {"input": "first get coffee second check email third review calendar", "expected": "- Get coffee\n- Check email\n- Review calendar", "description": "Three ordinal items"},
+    {"input": "the steps are first log in second click submit", "expected": "the steps are\n- Log in\n- Click submit", "description": "Ordinal with context"},
+    {"input": "today i need to one call mom two finish project", "expected": "today i need to\n- Call mom\n- Finish project", "description": "Cardinal with longer context"},
+    {"input": "hello this is a normal sentence", "expected": "hello this is a normal sentence", "description": "No list unchanged"},
+    {"input": "", "expected": "", "description": "Empty string"}
+  ]
+}

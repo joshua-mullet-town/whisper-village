@@ -86,7 +86,10 @@ echo "   DMG created: $DMG_PATH ($DMG_SIZE bytes)"
 # Step 5.5: Sign DMG with EdDSA for Sparkle
 echo ""
 echo "🔑 Step 5.5: Signing DMG with EdDSA for Sparkle..."
-EDDSA_SIG=$("$SPARKLE_BIN/sign_update" "$DMG_PATH" 2>&1)
+# sign_update returns: sparkle:edSignature="..." length="..."
+# We need to extract just the base64 signature value
+SIGN_OUTPUT=$("$SPARKLE_BIN/sign_update" "$DMG_PATH" 2>&1)
+EDDSA_SIG=$(echo "$SIGN_OUTPUT" | grep -o 'sparkle:edSignature="[^"]*"' | sed 's/sparkle:edSignature="//;s/"$//')
 echo "   EdDSA signature: $EDDSA_SIG"
 
 # Step 6: Create/Update GitHub Release

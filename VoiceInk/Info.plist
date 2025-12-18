@@ -36,5 +36,7 @@
 	<false/>
 	<key>SUEnableInstallerLauncherService</key>
 	<false/>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/joshua-mullet-town/whisper-village/main/appcast.xml</string>
 </dict>
 </plist>

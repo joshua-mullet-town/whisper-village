@@ -87,77 +87,29 @@ xcodebuild -scheme VoiceInk -project /Users/joshuamullet/code/whisper-village/Vo
 
 ---
 
-## 🚀 Ship It Pipeline (FOLLOW THIS EXACTLY)
+## 🚀 Ship It Pipeline
 
-**This is the tested, working release process. Do not deviate.**
+**Use the automated script - it handles everything correctly.**
 
-### Step 1: Bump Version
-Edit `VoiceInk.xcodeproj/project.pbxproj`:
-- Increment `CURRENT_PROJECT_VERSION` (build number)
-- Update `MARKETING_VERSION` (e.g., 1.2.0 → 1.3.0)
-
-### Step 2: Build and Sign with Self-Signed Certificate
 ```bash
-# Build without code signing (Xcode's auto-signing gets confused)
-xcodebuild -scheme VoiceInk \
-  -project /Users/joshuamullet/code/whisper-village/VoiceInk.xcodeproj \
-  -configuration Release \
-  -derivedDataPath /Users/joshuamullet/code/whisper-village/build/DerivedData \
-  clean build \
-  CODE_SIGN_IDENTITY="-" \
-  CODE_SIGNING_REQUIRED=NO \
-  CODE_SIGNING_ALLOWED=NO
-
-# Re-sign with our self-signed certificate (same signature = permissions persist across updates!)
-codesign -s "Whisper Village Signing" -f --deep \
-  "/Users/joshuamullet/code/whisper-village/build/DerivedData/Build/Products/Release/Whisper Village.app"
+./scripts/ship-it.sh <version> "<release notes>"
 ```
 
-**Why self-signed?** Same certificate = same signature = **permissions persist across updates**. Users don't need to re-grant Mic/Accessibility after each update.
-
-### Step 3: Create DMG
+**Example:**
 ```bash
-create-dmg \
-  --volname "Whisper Village" \
-  --window-pos 200 120 \
-  --window-size 600 400 \
-  --icon-size 100 \
-  --icon "Whisper Village.app" 150 185 \
-  --app-drop-link 450 185 \
-  /Users/joshuamullet/code/whisper-village/WhisperVillage-X.X.X.dmg \
-  "/Users/joshuamullet/code/whisper-village/build/DerivedData/Build/Products/Release/Whisper Village.app"
+./scripts/ship-it.sh 1.8.7 "Fixed crash on startup"
 ```
 
-### Step 4: Create/Update GitHub Release
-```bash
-# Check if release exists
-gh release view vX.X.X
+**What the script does:**
+1. Bumps version numbers in project.pbxproj
+2. Builds Release with ad-hoc signing
+3. Re-signs with "Whisper Village Signing" certificate
+4. Creates DMG
+5. Creates/updates GitHub release
+6. Updates appcast.xml
+7. Commits and pushes
 
-# Create new release (if doesn't exist)
-gh release create vX.X.X \
-  --title "Whisper Village vX.X.X" \
-  --notes "Release notes here" \
-  /Users/joshuamullet/code/whisper-village/WhisperVillage-X.X.X.dmg
-
-# Or update existing release
-gh release delete-asset vX.X.X WhisperVillage-X.X.X.dmg --yes
-gh release upload vX.X.X /Users/joshuamullet/code/whisper-village/WhisperVillage-X.X.X.dmg
-```
-
-### Step 5: Update appcast.xml
-Update `/Users/joshuamullet/code/whisper-village/appcast.xml`:
-- Add new `<item>` entry at top
-- Set correct `sparkle:version` (build number)
-- Set correct `sparkle:shortVersionString` (marketing version)
-- Set correct `length` (file size in bytes from DMG)
-- Set correct download URL
-
-### Step 6: Commit and Push
-```bash
-git add -A
-git commit -m "Release vX.X.X: [description]"
-git push
-```
+**Why scripted?** The re-signing step was getting forgotten, breaking Sparkle updates. Script ensures correct signing every time.
 
 ---
 

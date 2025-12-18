@@ -72,13 +72,10 @@ class HotkeyManager: ObservableObject {
     private var lastShortcutTriggerTime: Date?
     private let shortcutCooldownInterval: TimeInterval = 0.5
 
-    // Double-tap to send detection
-    private var lastStopTime: Date? = nil
+    // Double-tap to send detection - STATIC so shared across all instances
+    private static var lastStopTime: Date? = nil
     private let doubleTapSendThreshold: TimeInterval = 1.0 // 1000ms window for double-tap
 
-    // Instance ID for debugging multiple instances
-    private let instanceId = UUID().uuidString.prefix(6)
-    
     enum HotkeyOption: String, CaseIterable {
         case none = "none"
         case rightOption = "rightOption"
@@ -353,49 +350,19 @@ class HotkeyManager: ObservableObject {
     private var startedRecordingThisPress = false
     private var doubleTapHandled = false
 
-    private static let logFile = "/tmp/hotkey_debug.log"
-
-    private func logHotkey(_ message: String) {
-        let state = whisperState.recordingState
-        let timeSinceStop: String
-        if let stopTime = lastStopTime {
-            timeSinceStop = String(format: "%.0fms", Date().timeIntervalSince(stopTime) * 1000)
-        } else {
-            timeSinceStop = "never"
-        }
-        let timestamp = ISO8601DateFormatter().string(from: Date())
-        let appName = Bundle.main.bundleIdentifier?.contains("debug") == true ? "DEV" : "PROD"
-        let logLine = "[\(timestamp)] [\(appName):\(instanceId)] \(message) | state=\(state) | lastStop=\(timeSinceStop) | handsFree=\(isHandsFreeMode)\n"
-
-        // Write to file
-        if let data = logLine.data(using: .utf8) {
-            if FileManager.default.fileExists(atPath: Self.logFile) {
-                if let handle = FileHandle(forWritingAtPath: Self.logFile) {
-                    handle.seekToEndOfFile()
-                    handle.write(data)
-                    handle.closeFile()
-                }
-            } else {
-                FileManager.default.createFile(atPath: Self.logFile, contents: data)
-            }
-        }
-    }
-
     private func processKeyPress(isKeyPressed: Bool) {
         guard isKeyPressed != currentKeyState else { return }
         currentKeyState = isKeyPressed
 
         if isKeyPressed {
-            logHotkey("KEY DOWN")
             keyPressStartTime = Date()
             startedRecordingThisPress = false
             doubleTapHandled = false
 
             // CHECK DOUBLE-TAP FIRST (before state) - state may lag behind
             if isWithinDoubleTapWindow() {
-                logHotkey("→ DOUBLE-TAP SEND!")
                 doubleTapHandled = true
-                lastStopTime = nil
+                Self.lastStopTime = nil
                 // Set flag - WhisperState will press Enter AFTER paste completes
                 whisperState.doubleTapSendPending = true
                 return
@@ -406,64 +373,52 @@ class HotkeyManager: ObservableObject {
             switch state {
             case .transcribing, .enhancing, .busy:
                 // BUSY - ignore keypress entirely
-                logHotkey("→ IGNORED (busy: \(state))")
                 return
 
             case .recording:
                 // STOP recording
-                logHotkey("→ STOPPING recording")
                 isHandsFreeMode = false
+                recordStopTime()  // Record IMMEDIATELY, before async work
                 Task { @MainActor in
                     guard canProcessHotkeyAction else { return }
                     await whisperState.handleToggleMiniRecorder()
-                    recordStopTime()
-                    logHotkey("→ STOPPED, recorded stop time")
                 }
 
             case .idle:
                 // Start new recording
-                logHotkey("→ STARTING recording")
                 startedRecordingThisPress = true
                 Task { @MainActor in
                     guard canProcessHotkeyAction else { return }
                     await whisperState.handleToggleMiniRecorder()
-                    logHotkey("→ STARTED")
                 }
             }
         } else {
             // KEY UP
-            logHotkey("KEY UP")
             defer { keyPressStartTime = nil }
 
             if doubleTapHandled {
-                logHotkey("→ (double-tap handled, ignoring)")
                 return
             }
 
             if startedRecordingThisPress, let startTime = keyPressStartTime {
                 let pressDuration = Date().timeIntervalSince(startTime)
-                let durationMs = Int(pressDuration * 1000)
 
                 if pressDuration < briefPressThreshold {
-                    logHotkey("→ Brief press (\(durationMs)ms) → HANDS-FREE mode")
                     isHandsFreeMode = true
                 } else {
-                    logHotkey("→ Long press (\(durationMs)ms) → PUSH-TO-TALK stop")
                     isHandsFreeMode = false
+                    recordStopTime()  // Record IMMEDIATELY, before async work
                     Task { @MainActor in
                         guard canProcessHotkeyAction else { return }
                         await whisperState.handleToggleMiniRecorder()
-                        recordStopTime()
                     }
                 }
-            } else {
-                logHotkey("→ (didn't start recording this press)")
             }
         }
     }
 
     private func isWithinDoubleTapWindow() -> Bool {
-        guard let stopTime = lastStopTime else { return false }
+        guard let stopTime = Self.lastStopTime else { return false }
         return Date().timeIntervalSince(stopTime) <= doubleTapSendThreshold
     }
     
@@ -487,7 +442,7 @@ class HotkeyManager: ObservableObject {
         // CHECK DOUBLE-TAP FIRST (before state) - state may lag behind
         if isWithinDoubleTapWindow() {
             shortcutDoubleTapHandled = true
-            lastStopTime = nil
+            Self.lastStopTime = nil
             // Set flag - WhisperState will press Enter AFTER paste completes
             whisperState.doubleTapSendPending = true
             return
@@ -542,7 +497,7 @@ class HotkeyManager: ObservableObject {
     
     /// Record that recording just stopped (for double-tap detection)
     private func recordStopTime() {
-        lastStopTime = Date()
+        Self.lastStopTime = Date()
     }
 
     // Computed property for backward compatibility with UI

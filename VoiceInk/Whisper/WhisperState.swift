@@ -242,8 +242,6 @@ class WhisperState: NSObject, ObservableObject {
 
             // NOW play stop sound - audio resources are released
             SoundManager.shared.playStopSound()
-            // Give the sound time to play
-            try? await Task.sleep(nanoseconds: 150_000_000) // 150ms
 
             // If Jarvis streaming mode - handle transcription with captured samples
             if isStreamingModeEnabled && jarvisService.isEnabled {
@@ -267,17 +265,28 @@ class WhisperState: NSObject, ObservableObject {
                     textToPaste = jarvisTranscriptionBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
                     StreamingLogger.shared.log("Using voice command buffer (flag was set): \"\(textToPaste)\"")
                 } else {
-                    // Option+Space pressed directly - transcribe the captured samples
-                    StreamingLogger.shared.log("Option+Space: Transcribing \(capturedSamples.count) captured samples...")
-                    if let transcribedText = await transcribeCapturedSamples(capturedSamples) {
-                        let currentChunkText = transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
-                        // Concatenate with any saved chunks from pause boundaries
+                    // OPTIMIZATION: Use interim transcription instead of re-transcribing
+                    // Streaming already transcribed the full buffer, stored in interimTranscription
+                    let interimText = interimTranscription.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                    if !interimText.isEmpty {
+                        // Use the interim transcription (skip re-transcription - saves 500ms-1s!)
                         var allChunks = finalTranscribedChunks
-                        if !currentChunkText.isEmpty {
-                            allChunks.append(currentChunkText)
-                        }
+                        allChunks.append(interimText)
                         textToPaste = allChunks.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
-                        StreamingLogger.shared.log("Option+Space: Final text: \"\(textToPaste)\" (chunks: \(allChunks.count))")
+                        StreamingLogger.shared.log("FAST PATH: Using interim transcription: \"\(textToPaste.prefix(100))...\"")
+                    } else {
+                        // Fallback: interim was empty, do full transcription
+                        StreamingLogger.shared.log("Fallback: Interim empty, transcribing \(capturedSamples.count) samples...")
+                        if let transcribedText = await transcribeCapturedSamples(capturedSamples) {
+                            let currentChunkText = transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                            var allChunks = finalTranscribedChunks
+                            if !currentChunkText.isEmpty {
+                                allChunks.append(currentChunkText)
+                            }
+                            textToPaste = allChunks.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+                            StreamingLogger.shared.log("Fallback: Final text: \"\(textToPaste)\" (chunks: \(allChunks.count))")
+                        }
                     }
                 }
 
@@ -527,6 +536,12 @@ class WhisperState: NSObject, ObservableObject {
                                 }
                             }
 
+                            // Cache text context in background for smart capitalization
+                            // Don't block MainActor - just fire and forget
+                            Task.detached { @MainActor in
+                                TextContextService.shared.cacheCurrentContext()
+                            }
+
                             await MainActor.run {
                                 StreamingLogger.shared.log("=== RECORDING START - CLEARING STATE ===")
                                 StreamingLogger.shared.log("  debugLog.count BEFORE: \(self.debugLog.count)")
@@ -621,7 +636,6 @@ class WhisperState: NSObject, ObservableObject {
 
             // NOW play send sound - audio resources are released
             SoundManager.shared.playSendSound()
-            try? await Task.sleep(nanoseconds: 150_000_000) // 150ms for sound
 
             // Hide UI
             hideRecorderPanel()

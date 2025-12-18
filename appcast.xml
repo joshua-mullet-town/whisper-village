@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.0</title>
+            <pubDate>Thu, 18 Dec 2025 17:30:28 -0500</pubDate>
+            <sparkle:version>91</sparkle:version>
+            <sparkle:shortVersionString>1.9.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.0</h3>
+                <ul>
+                    <li>Smart Capitalization: auto-lowercase when pasting mid-sentence. Auto End Punctuation: adds period if no ending punctuation. Performance improvements.</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.0/WhisperVillage-1.9.0.dmg" length="254038940" type="application/octet-stream" sparkle:edSignature="kom5ys5yUENs8Fldpb1Pni4UJC/hRSXQHhNjHZm4wdJnACHxkY9N3tD83xcjbiV8mxZvXnqIfKhaHH3z299WAw=="/>
+        </item>
+        <item>
             <title>1.8.10</title>
             <pubDate>Thu, 18 Dec 2025 14:43:32 -0500</pubDate>
             <sparkle:version>88</sparkle:version>

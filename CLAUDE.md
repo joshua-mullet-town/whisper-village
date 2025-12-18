@@ -89,6 +89,25 @@ xcodebuild -scheme VoiceInk -project /Users/joshuamullet/code/whisper-village/Vo
 
 ## 🚀 Ship It Pipeline
 
+## 🛑🛑🛑 CRITICAL - READ THIS FIRST 🛑🛑🛑
+
+**NEVER MANUALLY RUN XCODEBUILD FOR RELEASES. ALWAYS USE THE SCRIPT.**
+
+❌ **FORBIDDEN - Will break user permissions:**
+```bash
+# NEVER DO THIS FOR RELEASES:
+xcodebuild ... CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO ...
+```
+
+✅ **ALWAYS USE THIS:**
+```bash
+./scripts/ship-it.sh <version> "<release notes>"
+```
+
+**Why?** Ad-hoc signing alone breaks Sparkle updates and forces users to re-grant permissions. The script builds ad-hoc THEN re-signs with our self-signed certificate. This two-step process is CRITICAL.
+
+---
+
 **Use the automated script - it handles everything correctly.**
 
 ```bash

@@ -24,6 +24,12 @@ struct ExperimentalFeaturesSection: View {
     // Inline placeholder setting
     @AppStorage("InlinePlaceholderEnabled") private var isInlinePlaceholderEnabled = false
 
+    // Smart capitalization setting
+    @AppStorage("SmartCapitalizationEnabled") private var isSmartCapitalizationEnabled = true
+
+    // Auto end punctuation setting
+    @AppStorage("AutoEndPunctuationEnabled") private var isAutoEndPunctuationEnabled = true
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
@@ -91,6 +97,28 @@ struct ExperimentalFeaturesSection: View {
                     }
                     .toggleStyle(.switch)
                     .help("Pastes a placeholder in the target text field during transcription for visual feedback.")
+
+                    Toggle(isOn: $isSmartCapitalizationEnabled) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Smart Capitalization")
+                            Text("Lowercase first word when pasting mid-sentence")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .toggleStyle(.switch)
+                    .help("Uses Accessibility API to detect cursor context. If mid-sentence, first character will be lowercased.")
+
+                    Toggle(isOn: $isAutoEndPunctuationEnabled) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Auto End Punctuation")
+                            Text("Add period at end if no punctuation present")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .toggleStyle(.switch)
+                    .help("Automatically adds a period at the end of transcriptions that don't end with punctuation.")
 
                     // Jarvis Commands section
                     Divider()

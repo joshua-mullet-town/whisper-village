@@ -4,7 +4,7 @@
 
 ---
 
-## NEXT: Smart Capitalization (Context-Aware)
+## CURRENT: Smart Capitalization (Context-Aware)
 
 **User Request:** Don't capitalize first word when pasting into mid-sentence context.
 

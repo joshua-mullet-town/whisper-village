@@ -4,6 +4,83 @@
 
 ---
 
+## [2025-12-18 23:15] Smart Capitalization (Context-Aware) - WORKING
+
+**Achievement:** Transcriptions now respect cursor context - lowercases first character when pasting mid-sentence.
+
+### The Problem (Solved)
+Whisper always capitalizes the first word. But if user types "I was thinking " then dictates "hello there", it would paste as "I was thinking Hello there" instead of "I was thinking hello there".
+
+### The Solution
+Use Accessibility API to read focused text field and determine if we're mid-sentence.
+
+### How It Works
+1. On paste, get `kAXFocusedUIElementAttribute` (focused element)
+2. Read `kAXValueAttribute` (full text) and `kAXSelectedTextRangeAttribute` (cursor position)
+3. Extract text before cursor
+4. Check last non-whitespace character:
+   - `.!?` or newline → CAPITALIZE (sentence/paragraph start)
+   - `:;,` or letter/digit or whitespace → lowercase (mid-sentence)
+
+### Files Created
+| File | Purpose |
+|------|---------|
+| `VoiceInk/Services/TextContextService.swift` | Accessibility API wrapper + capitalization logic |
+
+### Files Modified
+| File | Changes |
+|------|---------|
+| `VoiceInk/CursorPaster.swift` | Calls `TextContextService.applySmartCapitalization()` before paste |
+| `VoiceInk/Views/Settings/ExperimentalFeaturesSection.swift` | Added toggle (default ON) |
+
+### Key Fix
+`UserDefaults.standard.bool()` returns `false` for non-existent keys, but `@AppStorage` defaults to `true`. Fixed by using `UserDefaults.standard.object() as? Bool ?? true` in CursorPaster.
+
+### Sample Log Output
+```
+[SmartCap] Text before cursor: "Can you see me, Claude? Test me "
+[SmartCap] Last non-ws char: 'e' (unicode: 101)
+[SmartCap] Decision: lowercase (letter/digit)
+[SmartCap] Result: lowercased first char → "here is a test..."
+```
+
+---
+
+## [2025-12-18 21:15] Live Transcribe Speed Optimization - SUCCESS
+
+**Achievement:** Stop→paste with live transcribe ON is now instant instead of 1-2s delay.
+
+### The Problem (Solved)
+When live transcribe was enabled, stopping would take 1-2 seconds because we transcribed TWICE:
+1. Wait for in-flight streaming transcription to finish (500ms-1s)
+2. Do ANOTHER full transcription of the same audio (500ms-1s)
+
+### The Fix
+Use `interimTranscription` as the final result instead of re-transcribing. The streaming loop already transcribes the FULL audio buffer each pass - no need to do it again.
+
+### Code Change
+In `WhisperState.swift`, Jarvis mode path (~line 267-291):
+```swift
+// OPTIMIZATION: Use interim transcription instead of re-transcribing
+let interimText = interimTranscription.trimmingCharacters(in: .whitespacesAndNewlines)
+if !interimText.isEmpty {
+    // Use the interim transcription (skip re-transcription - saves 500ms-1s!)
+    var allChunks = finalTranscribedChunks
+    allChunks.append(interimText)
+    textToPaste = allChunks.joined(separator: " ")
+} else {
+    // Fallback: interim was empty, do full transcription
+    // ... original code path ...
+}
+```
+
+### Other Fixes Applied in Same Session
+- **Double-tap fix**: `recordStopTime()` moved BEFORE async Task (was being called after await)
+- **Debug logging removed**: File I/O on every keypress was causing lag
+- **Sound delays removed**: Two 150ms sleeps after sounds were unnecessary
+
+---
+
 ## [2025-12-18 13:50] Sparkle Auto-Updates WORKING
 
 **Achievement:** Sparkle auto-updates now work with EdDSA signatures. No Developer ID required.

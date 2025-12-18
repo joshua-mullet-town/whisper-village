@@ -2,10 +2,20 @@ import Foundation
 import AppKit
 
 class CursorPaster {
-    
+
     static func pasteAtCursor(_ text: String) {
         let pasteboard = NSPasteboard.general
         let preserveTranscript = UserDefaults.standard.bool(forKey: "preserveTranscriptInClipboard")
+
+        // Apply smart capitalization if enabled (defaults to true when not set)
+        let smartCapEnabled = UserDefaults.standard.object(forKey: "SmartCapitalizationEnabled") as? Bool ?? true
+        var textToPaste = smartCapEnabled ? TextContextService.shared.applySmartCapitalization(to: text) : text
+
+        // Apply auto end punctuation if enabled (defaults to true when not set)
+        let autoEndPunctEnabled = UserDefaults.standard.object(forKey: "AutoEndPunctuationEnabled") as? Bool ?? true
+        if autoEndPunctEnabled {
+            textToPaste = applyAutoEndPunctuation(to: textToPaste)
+        }
         
         var savedContents: [(NSPasteboard.PasteboardType, Data)] = []
         
@@ -23,7 +33,7 @@ class CursorPaster {
         }
         
         pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
+        pasteboard.setString(textToPaste, forType: .string)
         
         if UserDefaults.standard.bool(forKey: "UseAppleScriptPaste") {
             _ = pasteUsingAppleScript()
@@ -109,5 +119,20 @@ class CursorPaster {
             backspaceDown?.post(tap: .cghidEventTap)
             backspaceUp?.post(tap: .cghidEventTap)
         }
+    }
+
+    // Add a period at the end if no ending punctuation present
+    private static func applyAutoEndPunctuation(to text: String) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return text }
+
+        // Check if already ends with sentence-ending punctuation
+        if let lastChar = trimmed.last, ".!?".contains(lastChar) {
+            return text
+        }
+
+        // Add period at the end (preserve trailing whitespace if any)
+        let trailingWhitespace = text.hasSuffix(" ") ? " " : ""
+        return trimmed + "." + trailingWhitespace
     }
 }

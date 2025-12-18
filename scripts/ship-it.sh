@@ -20,6 +20,9 @@ APP_PATH="$BUILD_DIR/Build/Products/Release/Whisper Village.app"
 DMG_PATH="$PROJECT_DIR/WhisperVillage-$VERSION.dmg"
 SIGNING_IDENTITY="Whisper Village Signing"
 
+# Sparkle tools location
+SPARKLE_BIN="/Users/joshuamullet/Library/Developer/Xcode/DerivedData/VoiceInk-gqtdhjqfugpinvguwravwbwwibyw/SourcePackages/artifacts/sparkle/Sparkle/bin"
+
 echo "🚀 Ship It Pipeline for v$VERSION"
 echo "=================================="
 
@@ -80,6 +83,12 @@ create-dmg \
 DMG_SIZE=$(stat -f%z "$DMG_PATH")
 echo "   DMG created: $DMG_PATH ($DMG_SIZE bytes)"
 
+# Step 5.5: Sign DMG with EdDSA for Sparkle
+echo ""
+echo "🔑 Step 5.5: Signing DMG with EdDSA for Sparkle..."
+EDDSA_SIG=$("$SPARKLE_BIN/sign_update" "$DMG_PATH" 2>&1)
+echo "   EdDSA signature: $EDDSA_SIG"
+
 # Step 6: Create/Update GitHub Release
 echo ""
 echo "🐙 Step 6: Creating GitHub release v$VERSION..."
@@ -97,9 +106,9 @@ else
 fi
 echo "   ✅ GitHub release ready"
 
-# Step 7: Update appcast.xml
+# Step 7: Update appcast.xml with EdDSA signature
 echo ""
-echo "📡 Step 7: Updating appcast.xml..."
+echo "📡 Step 7: Updating appcast.xml with EdDSA signature..."
 PUBDATE=$(date -R)
 APPCAST_ENTRY="        <item>
             <title>$VERSION</title>
@@ -113,13 +122,13 @@ APPCAST_ENTRY="        <item>
                     <li>$NOTES</li>
                 </ul>
             ]]></description>
-            <enclosure url=\"https://github.com/joshua-mullet-town/whisper-village/releases/download/v$VERSION/WhisperVillage-$VERSION.dmg\" length=\"$DMG_SIZE\" type=\"application/octet-stream\"/>
+            <enclosure url=\"https://github.com/joshua-mullet-town/whisper-village/releases/download/v$VERSION/WhisperVillage-$VERSION.dmg\" length=\"$DMG_SIZE\" type=\"application/octet-stream\" sparkle:edSignature=\"$EDDSA_SIG\"/>
         </item>"
 
 # Insert new item after <channel> tag (before first existing <item>)
 # Using perl for reliable multi-line replacement
 perl -i -0pe "s|(<channel>\s*<title>Whisper Village Releases</title>)|\\1\n$APPCAST_ENTRY|" "$PROJECT_DIR/appcast.xml"
-echo "   ✅ appcast.xml updated"
+echo "   ✅ appcast.xml updated with EdDSA signature"
 
 # Step 8: Commit and push
 echo ""

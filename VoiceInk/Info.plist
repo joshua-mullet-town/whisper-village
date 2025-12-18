@@ -38,5 +38,7 @@
 	<false/>
 	<key>SUFeedURL</key>
 	<string>https://raw.githubusercontent.com/joshua-mullet-town/whisper-village/main/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>dRMep/v3XE3XMuKRBM6xYjefAOs3XxcjtZj1JRKLg0k=</string>
 </dict>
 </plist>

@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.8.7</title>
+            <pubDate>Thu, 18 Dec 2025 13:29:10 -0500</pubDate>
+            <sparkle:version>85</sparkle:version>
+            <sparkle:shortVersionString>1.8.7</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.8.7</h3>
+                <ul>
+                    <li>EdDSA signing for Sparkle auto-updates</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.8.7/WhisperVillage-1.8.7.dmg" length="254042449" type="application/octet-stream" sparkle:edSignature="sparkle:edSignature="i7sx9q8RqXUm/7BXXf6pgoknfZlPv5JS9LntD55FmOrB4QfiCNd0zq9kQew8FPdcbyX5lwxGpW3NXu30KxbkDA==" length="254042449""/>
+        </item>
+        <item>
             <title>1.8.6</title>
             <pubDate>Thu, 18 Dec 2025 12:58:57 -0500</pubDate>
             <sparkle:version>84</sparkle:version>

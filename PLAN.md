@@ -44,6 +44,18 @@
 
 ---
 
+## BACKLOG: Sparkle Auto-Update Signing Issue
+
+**Problem:** Sparkle rejects updates because we use ad-hoc signing. Error: "The update is improperly signed and could not be validated."
+
+**Fix Options:**
+1. Get Developer ID certificate ($99/year Apple Developer Program) - proper solution
+2. Disable Sparkle signature validation (not recommended for security)
+
+For now, users must manually download DMG from GitHub releases.
+
+---
+
 ## BACKLOG: Bug - Mic Permanently Stolen from Other Apps
 
 **Problem:** When Whisper Village activates, it permanently kills audio input for other apps (e.g., Teams). When Teams tries to re-enable mic, it also unmutes you - causing accidental unmutes in meetings.

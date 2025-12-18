@@ -4,33 +4,6 @@
 
 ---
 
-## CURRENT: Fix Sparkle Auto-Update Signing
-
-**Problem:** Sparkle rejects updates with error: "The update is improperly signed and could not be validated."
-
-**Status:** Update downloads successfully, but fails at install step.
-
-**Root Cause Analysis:**
-- Our self-signed certificate ("Whisper Village Signing") handles macOS code signing (permissions persistence)
-- But Sparkle has its OWN signature validation system separate from Apple code signing
-- For non-Developer-ID apps, Sparkle requires **EdDSA signatures** (ed25519) in the appcast.xml
-
-**Fix Required:**
-1. Generate EdDSA key pair using Sparkle's `generate_keys` tool
-2. Sign each release DMG/ZIP with the private key
-3. Add `sparkle:edSignature` attribute to each `<enclosure>` in appcast.xml
-4. Embed the public key in Info.plist (`SUPublicEDKey`)
-
-**Steps:**
-1. [ ] Find/install Sparkle's `generate_keys` tool
-2. [ ] Generate EdDSA key pair, store securely
-3. [ ] Add public key to Info.plist as `SUPublicEDKey`
-4. [ ] Update ship-it.sh script to sign DMG and add signature to appcast
-5. [ ] Ship v1.8.7 with proper EdDSA signing
-6. [ ] Test update from v1.8.6 → v1.8.7
-
----
-
 ## NEXT: Smart Capitalization (Context-Aware)
 
 **User Request:** Don't capitalize first word when pasting into mid-sentence context.

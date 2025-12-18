@@ -4,6 +4,36 @@
 
 ---
 
+## [2025-12-18 13:50] Sparkle Auto-Updates WORKING
+
+**Achievement:** Sparkle auto-updates now work with EdDSA signatures. No Developer ID required.
+
+### The Problem (Solved)
+Sparkle rejected updates with "The update is improperly signed and could not be validated." Our self-signed codesign certificate handled macOS permissions, but Sparkle has its own signature validation system requiring EdDSA.
+
+### The Solution
+1. Generated EdDSA key pair using Sparkle's `generate_keys` tool (stored in Keychain)
+2. Added `SUPublicEDKey` to Info.plist: `dRMep/v3XE3XMuKRBM6xYjefAOs3XxcjtZj1JRKLg0k=`
+3. Updated `ship-it.sh` to sign DMGs with EdDSA and add `sparkle:edSignature` to appcast.xml
+
+### Key Files
+| File | What it does |
+|------|--------------|
+| `scripts/ship-it.sh` | Automated release script with EdDSA signing |
+| `VoiceInk/Info.plist` | Contains `SUPublicEDKey` |
+| `appcast.xml` | Each `<enclosure>` now has `sparkle:edSignature` attribute |
+
+### The Ship-It Pipeline (Final)
+```bash
+./scripts/ship-it.sh 1.8.9 "Release notes here"
+```
+Handles: version bump → build → codesign → DMG → EdDSA sign → GitHub release → appcast.xml → commit/push
+
+### One-Time Bootstrap
+First EdDSA-signed release (v1.8.7) required manual install. After that, Sparkle auto-updates work (v1.8.7 → v1.8.8 confirmed working).
+
+---
+
 ## [2025-12-18 14:10] Permissions Persistence VERIFIED
 
 **Achievement:** Self-signed certificate workflow fully tested and working.

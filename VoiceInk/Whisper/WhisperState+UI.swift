@@ -68,7 +68,7 @@ extension WhisperState {
 
         // CRITICAL: Stop streaming transcription timer FIRST to prevent race conditions
         StreamingLogger.shared.log("  Stopping streaming transcription timer...")
-        stopStreamingTranscription()
+        await stopStreamingTranscription()
 
         // Clear the streaming recorder buffer to prevent old audio from being transcribed
         StreamingLogger.shared.log("  Clearing streaming recorder buffer...")
@@ -122,7 +122,7 @@ extension WhisperState {
     func cancelRecording() async {
         // FIRST: Stop audio engines to release audio resources
         // This allows the cancel sound to play without being blocked by AVAudioEngine
-        stopStreamingTranscription()
+        await stopStreamingTranscription()
         _ = await streamingRecorder.stopRecording()
         await recorder.stopRecording()
 

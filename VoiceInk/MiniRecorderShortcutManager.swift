@@ -126,7 +126,7 @@ class MiniRecorderShortcutManager: ObservableObject {
             // Second press - actually cancel
             escFirstPressTime = nil
             // Stop engines FIRST so sound can play (AVAudioEngine blocks NSSound)
-            whisperState.stopStreamingTranscription()
+            await whisperState.stopStreamingTranscription()
             _ = await whisperState.streamingRecorder.stopRecording()
             await whisperState.recorder.stopRecording()
             // NOW play sound
@@ -163,7 +163,7 @@ class MiniRecorderShortcutManager: ObservableObject {
                       KeyboardShortcuts.getShortcut(for: .cancelRecorder) != nil else { return }
 
                 // Stop engines FIRST so sound can play (AVAudioEngine blocks NSSound)
-                self.whisperState.stopStreamingTranscription()
+                await self.whisperState.stopStreamingTranscription()
                 _ = await self.whisperState.streamingRecorder.stopRecording()
                 await self.whisperState.recorder.stopRecording()
                 // NOW play sound

@@ -225,7 +225,7 @@ class WhisperState: NSObject, ObservableObject {
             // FIRST: Stop audio engines to release audio resources
             // This allows sounds to play without being blocked by AVAudioEngine
             // Samples are already buffered in memory so transcription will still work
-            stopStreamingTranscription()
+            await stopStreamingTranscription()
             let capturedSamples = await streamingRecorder.stopRecording()
             await recorder.stopRecording()
 
@@ -604,7 +604,7 @@ class WhisperState: NSObject, ObservableObject {
 
             // FIRST: Stop audio engines to release audio resources
             // This allows the send sound to play without being blocked by AVAudioEngine
-            stopStreamingTranscription()
+            await stopStreamingTranscription()
             let capturedSamples = await streamingRecorder.stopRecording()
             await recorder.stopRecording()
 
@@ -695,7 +695,7 @@ class WhisperState: NSObject, ObservableObject {
     /// Cleanup state after send - called when UI is already hidden
     private func cleanupAfterSend() async {
         StreamingLogger.shared.log("=== CLEANUP AFTER SEND ===")
-        stopStreamingTranscription()
+        await stopStreamingTranscription()
         await streamingRecorder.clearBuffer()
         await cleanupModelResources()
         await MainActor.run {
@@ -1013,10 +1013,18 @@ class WhisperState: NSObject, ObservableObject {
         }
     }
 
-    /// Stop the streaming transcription loop (immediate, may interrupt)
-    func stopStreamingTranscription() {
+    /// Stop the streaming transcription loop and wait for any in-flight transcription to complete
+    /// This prevents race conditions when starting final transcription immediately after
+    func stopStreamingTranscription() async {
         StreamingLogger.shared.log("Stopping streaming transcription loop")
         streamingTranscriptionTask?.cancel()
+        // CRITICAL: Wait for the task to actually finish to prevent race conditions
+        // The task might be mid-CoreML-inference, which can't be interrupted
+        if let task = streamingTranscriptionTask {
+            StreamingLogger.shared.log("Waiting for in-flight transcription to complete...")
+            _ = await task.value
+            StreamingLogger.shared.log("In-flight transcription completed")
+        }
         streamingTranscriptionTask = nil
         isStreamingTranscriptionInProgress = false
         // Note: We don't clear interimTranscription here - it contains the full transcription

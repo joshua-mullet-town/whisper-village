@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.8.2</title>
+            <pubDate>Wed, 18 Dec 2025 12:00:00 -0500</pubDate>
+            <sparkle:version>80</sparkle:version>
+            <sparkle:shortVersionString>1.8.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>What's Fixed in Version 1.8.2 - Jarvis Mode Crash Fix</h3>
+                <ul>
+                    <li><strong>Fixed crash with Jarvis mode enabled</strong> - Race condition in streaming transcription resolved</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.8.2/WhisperVillage-1.8.2.dmg" length="253980615" type="application/octet-stream"/>
+        </item>
+        <item>
             <title>1.8.1</title>
             <pubDate>Wed, 18 Dec 2025 08:00:00 -0500</pubDate>
             <sparkle:version>79</sparkle:version>

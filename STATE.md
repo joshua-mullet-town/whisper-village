@@ -4,6 +4,57 @@
 
 ---
 
+## [2025-12-18] v1.8.0 Released - Unified Recorder UI & Live Transcription Ticker
+
+**Release:** https://github.com/joshua-mullet-town/whisper-village/releases/tag/v1.8.0
+
+### What Shipped
+
+| Feature | Description |
+|---------|-------------|
+| **Live Transcription Ticker** | Compact scrolling ticker replaces bulky chat bubble preview |
+| **Unified Button Layout** | Both notch and mini recorder share same controls: cancel+timer | waveform | peek+eyeball |
+| **Peek Transcription** | New button shows full transcription as toast |
+| **Simplified Settings** | Removed confusing "Streaming Mode" toggle, now auto-enabled |
+| **Shared Ticker Component** | `NotchTranscriptionTicker.swift` used by both recorder modes |
+
+### Live Transcription Ticker Design
+
+```
+┌─────────────────────────────────────────────────┐
+│  ← older text slides out   |   **newest text** │
+└─────────────────────────────────────────────────┘
+```
+
+- Single-line, scrolling display (~10-12 words visible)
+- New words appear from right, slide left as more come
+- Semi-transparent background matching recorder aesthetic
+- Shared between notch and mini recorder modes
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `NotchTranscriptionTicker.swift` | Shared ticker component for both recorder modes |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `MiniRecorderView.swift` | Replaced chat bubble with ticker, unified button layout |
+| `MiniRecorderPanel.swift` | Reduced window size (450→300 width) |
+| `NotchRecorderView.swift` | Added peek button, uses shared ticker |
+| `ExperimentalFeaturesSection.swift` | Removed streaming toggle, auto-enables, flattened hierarchy |
+
+### Settings Simplification
+
+**Before:** Streaming Mode was a toggle with child features nested under it
+**After:** Streaming mode auto-enables when experimental features is on, no user decision needed
+
+The "Inline Loading Placeholder" was moved to top level since it's not actually dependent on streaming mode.
+
+---
+
 ## [2025-12-17] Persistent Notch Recorder (Always-On Mode) Complete
 
 **Achievement:** Notch recorder can now stay visible at all times, with state-based visual feedback.
@@ -1051,9 +1102,9 @@ The regex `\bI'\b` fails because `\b` (word boundary) doesn't work after apostro
 ## Project Facts
 
 **App Name:** Whisper Village (rebranded from VoiceInk)
-**Current Version:** v1.7.0
+**Current Version:** v1.8.0
 **Platform:** macOS
 **Distribution:** GitHub Releases + Sparkle auto-updates
-**DMG Size:** 242MB (includes ~252MB CoreML models)
+**DMG Size:** ~254MB (includes ~126MB CoreML models per model)
 
 ---

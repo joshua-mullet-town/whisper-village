@@ -4,63 +4,7 @@
 
 ---
 
-## 🔥 ACTIVE: Notch Mode Live Transcription Display
-
-**Goal:** Show live transcription below the notch recorder in a sleek, space-efficient way.
-
-### Problem
-- Mini recorder has a floating preview box (works fine)
-- Notch recorder has NO live preview - can't see what you're dictating
-- Need something sleeker than a big black box for the top-of-screen location
-
-### UX Concept: Scrolling Ticker
-
-A single-line transcription display below the notch that scrolls like a news ticker:
-
-```
-                    ┌─────────────────────────┐
-                    │        [NOTCH]          │  ← Recording indicator
-                    └─────────────────────────┘
-    ← older words fade out    │ **newest words** │   new words appear →
-```
-
-**Behavior:**
-- New words appear on the right
-- As more words come, existing text slides left
-- Only ~10-12 words visible at a time
-- Newest/current words are bold/prominent in center-right
-- Older words fade as they approach left edge
-- Smooth animation, not jarring
-
-**Alternative:** Instead of continuous scroll, words "settle" after appearing, only scroll when space runs out. Gives a moment of readability.
-
-### Implementation Ideas
-
-1. **Single-line Text view** with horizontal scroll and auto-scroll to end
-2. **Custom view** with word-by-word animation (fade in from right)
-3. **Marquee-style** continuous scroll at fixed speed
-4. **Hybrid:** Appear on right, settle, then scroll left as group when full
-
-### Visual Design
-- Transparent/semi-transparent background
-- Match notch aesthetic (rounded corners, subtle)
-- Don't obstruct too much screen space
-- Height: ~24-30px (single line + padding)
-- Width: Match notch wings or slightly wider
-
-### Files to Modify
-- `NotchRecorderView.swift` - Add preview component below notch
-- Possibly new `NotchTranscriptionTicker.swift` for the custom view
-- `WhisperState.swift` - May need to expose current transcription differently
-
-### Questions to Resolve
-- Should it auto-hide when not speaking for a few seconds?
-- Should the ticker be clickable (expand to full preview)?
-- Should it respect the existing preview visibility toggle?
-
----
-
-## BACKLOG: Self-Signed Certificate for Permission Persistence
+## 🔥 ACTIVE: Self-Signed Certificate + One-Script Update
 
 **Problem:** With ad-hoc signing, each build has unique signature, so macOS requires re-granting permissions (Mic, Accessibility) after every update.
 
@@ -68,13 +12,15 @@ A single-line transcription display below the notch that scrolls like a news tic
 
 **Trade-off:** Gatekeeper still warns (not Apple-trusted), but `xattr -cr` handles that.
 
----
+### Goal: One-Script Update
 
-## BACKLOG: QoL - Streaming Preview Box Resizing is Janky
+Create a script that:
+1. Downloads latest DMG from GitHub releases
+2. Mounts DMG, copies app to /Applications
+3. Runs `xattr -cr` to remove quarantine
+4. Preserves all permissions (Mic, Accessibility)
 
-**Problem:** The text box that shows live transcription can technically be resized, but the interaction is terrible. You have to whip it around - it's not intuitive or smooth.
-
-**Desired:** Standard, predictable resize handle behavior. Drag edge = resize. No fighting with it.
+The self-signed certificate is the key - same signature = same permissions.
 
 ---
 

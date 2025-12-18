@@ -4,23 +4,25 @@
 
 ---
 
-## 🔥 ACTIVE: Self-Signed Certificate + One-Script Update
+## ✅ READY TO TEST: Self-Signed Certificate + One-Script Update
 
-**Problem:** With ad-hoc signing, each build has unique signature, so macOS requires re-granting permissions (Mic, Accessibility) after every update.
+**Status:** Certificate created, `install.sh` script ready. Need to ship a release to test end-to-end.
 
-**Solution:** Create self-signed certificate in Keychain Access, use it for all builds. Same signature = permissions persist.
+### What's Done
+- ✅ Self-signed certificate "Whisper Village Signing" created and trusted
+- ✅ CLAUDE.md updated with new signing workflow
+- ✅ `install.sh` script already handles download, mount, copy, xattr
 
-**Trade-off:** Gatekeeper still warns (not Apple-trusted), but `xattr -cr` handles that.
+### To Test
+1. Ship a new release using the self-signed certificate (v1.8.1 or v1.9.0)
+2. User installs via `install.sh` or manual DMG
+3. Grant permissions (Mic, Accessibility)
+4. Ship another release (v1.8.2 or v1.9.1)
+5. User updates via `install.sh`
+6. **Verify:** Permissions should persist without re-granting
 
-### Goal: One-Script Update
-
-Create a script that:
-1. Downloads latest DMG from GitHub releases
-2. Mounts DMG, copies app to /Applications
-3. Runs `xattr -cr` to remove quarantine
-4. Preserves all permissions (Mic, Accessibility)
-
-The self-signed certificate is the key - same signature = same permissions.
+### Trade-off
+Gatekeeper still warns (not Apple-trusted), but `xattr -cr` handles that on first install.
 
 ---
 

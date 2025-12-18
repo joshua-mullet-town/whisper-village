@@ -96,8 +96,9 @@ Edit `VoiceInk.xcodeproj/project.pbxproj`:
 - Increment `CURRENT_PROJECT_VERSION` (build number)
 - Update `MARKETING_VERSION` (e.g., 1.2.0 → 1.3.0)
 
-### Step 2: Build with Ad-Hoc Signing
+### Step 2: Build and Sign with Self-Signed Certificate
 ```bash
+# Build without code signing (Xcode's auto-signing gets confused)
 xcodebuild -scheme VoiceInk \
   -project /Users/joshuamullet/code/whisper-village/VoiceInk.xcodeproj \
   -configuration Release \
@@ -106,9 +107,13 @@ xcodebuild -scheme VoiceInk \
   CODE_SIGN_IDENTITY="-" \
   CODE_SIGNING_REQUIRED=NO \
   CODE_SIGNING_ALLOWED=NO
+
+# Re-sign with our self-signed certificate (same signature = permissions persist across updates!)
+codesign -s "Whisper Village Signing" -f --deep \
+  "/Users/joshuamullet/code/whisper-village/build/DerivedData/Build/Products/Release/Whisper Village.app"
 ```
 
-**Why ad-hoc?** No Developer ID certificate exists. Ad-hoc removes provisioning profile requirements so the app can run on any Mac.
+**Why self-signed?** Same certificate = same signature = **permissions persist across updates**. Users don't need to re-grant Mic/Accessibility after each update.
 
 ### Step 3: Create DMG
 ```bash
@@ -170,12 +175,25 @@ Alternative: Right-click → Open → Click "Open" in the dialog (may need to do
 
 ---
 
-## 🔮 Future: Proper Signing (Optional)
+## 🔐 Self-Signed Certificate Setup (Already Done)
 
-To eliminate the `xattr` requirement, get a Developer ID certificate:
-1. Go to https://developer.apple.com/account/resources/certificates/list
-2. Create "Developer ID Application" certificate
-3. Then use proper signing + notarization instead of ad-hoc
+A self-signed certificate "Whisper Village Signing" is installed in the login keychain. This ensures:
+- **Same signature across builds** → permissions persist across updates
+- Users don't need to re-grant Mic/Accessibility after updates
+
+**Certificate files** (for backup/recreation):
+- `/Users/joshuamullet/code/whisper-village/certs/whisper-village.p12` - PKCS12 bundle
+- `/Users/joshuamullet/code/whisper-village/certs/whisper-village.crt` - Certificate
+- `/Users/joshuamullet/code/whisper-village/certs/whisper-village.key` - Private key
+
+**To reinstall on a new machine:**
+```bash
+cd /Users/joshuamullet/code/whisper-village/certs
+security import whisper-village.p12 -k ~/Library/Keychains/login.keychain-db -P "whisper" -T /usr/bin/codesign
+security add-trusted-cert -d -r trustRoot -p codeSign -k ~/Library/Keychains/login.keychain-db whisper-village.crt
+```
+
+**Note:** Users still need `xattr -cr` on first install (Gatekeeper). But updates preserve permissions.
 
 ---
 

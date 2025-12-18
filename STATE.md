@@ -4,6 +4,63 @@
 
 ---
 
+## [2025-12-18 12:45] Self-Signed Certificate Setup Complete
+
+**Achievement:** Created self-signed code signing certificate to ensure permissions persist across updates.
+
+### The Problem (Solved)
+With ad-hoc signing, each build had a unique signature. macOS treated each update as a "new app" requiring users to re-grant Mic and Accessibility permissions.
+
+### The Solution
+Self-signed certificate "Whisper Village Signing" - same certificate = same signature = **permissions persist**.
+
+### What Was Created
+
+| File | Purpose |
+|------|---------|
+| `certs/codesign.conf` | OpenSSL config for code signing extensions |
+| `certs/whisper-village.crt` | The certificate |
+| `certs/whisper-village.key` | Private key |
+| `certs/whisper-village.p12` | PKCS12 bundle (password: "whisper") |
+
+### Certificate Details
+- **CN:** Whisper Village Signing
+- **O:** Mullet Town
+- **C:** US
+- **Validity:** 10 years (expires 2035-12-16)
+- **Key Usage:** digitalSignature, codeSigning
+
+### Commands Used (CLI-only, no GUI)
+```bash
+# Generate certificate and key
+openssl req -x509 -newkey rsa:2048 -keyout whisper-village.key -out whisper-village.crt \
+  -days 3650 -nodes -config codesign.conf
+
+# Create PKCS12 bundle
+openssl pkcs12 -export -out whisper-village.p12 -inkey whisper-village.key \
+  -in whisper-village.crt -passout pass:whisper -legacy
+
+# Import to keychain
+security import whisper-village.p12 -k ~/Library/Keychains/login.keychain-db \
+  -P "whisper" -T /usr/bin/codesign
+
+# Add trust for code signing (REQUIRED - without this, cert doesn't show as valid identity)
+security add-trusted-cert -d -r trustRoot -p codeSign \
+  -k ~/Library/Keychains/login.keychain-db whisper-village.crt
+```
+
+### Key Insight
+After importing to keychain, the certificate didn't appear in `security find-identity -v -p codesigning`. The fix was adding explicit trust for code signing with `security add-trusted-cert -d -r trustRoot -p codeSign`.
+
+### Files Modified
+- `CLAUDE.md` - Updated Step 2 of Ship It Pipeline to use self-signed certificate
+- `.gitignore` - Added `certs/` to protect private key
+
+### What's Next
+Test the full workflow: build → sign → ship → update → verify permissions persist.
+
+---
+
 ## [2025-12-18] v1.8.0 Released - Unified Recorder UI & Live Transcription Ticker
 
 **Release:** https://github.com/joshua-mullet-town/whisper-village/releases/tag/v1.8.0

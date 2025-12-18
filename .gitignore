@@ -19,3 +19,6 @@ xcuserdata/
 
 # ML Models (too large for GitHub, distributed via DMG)
 VoiceInk/Resources/MLModels/
+
+# Self-signed certificate files (contains private key)
+certs/

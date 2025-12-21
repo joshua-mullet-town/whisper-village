@@ -4,8 +4,16 @@ import UniformTypeIdentifiers
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Initialize crash reporter FIRST (before anything else)
+        CrashReporter.shared.initialize()
+
         updateActivationPolicy()
         cleanupLegacyUserDefaults()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        // Mark clean shutdown so we don't report false crashes
+        CrashReporter.shared.markCleanShutdown()
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -49,6 +57,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let defaults = UserDefaults.standard
         defaults.removeObject(forKey: "defaultPowerModeConfigV2")
         defaults.removeObject(forKey: "isPowerModeEnabled")
+
+        // Force notch recorder for all users (deprecating mini recorder)
+        // This ensures users who had "mini" saved are migrated to "notch"
+        defaults.set("notch", forKey: "RecorderType")
     }
     
     // Stash URL when app cold-starts to avoid spawning a new window/tab

@@ -4,7 +4,6 @@ import AppKit
 import UniformTypeIdentifiers
 
 enum ModelFilter: String, CaseIterable, Identifiable {
-    case recommended = "Recommended"
     case local = "Local"
     case cloud = "Cloud"
     case custom = "Custom"
@@ -20,7 +19,7 @@ struct ModelManagementView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var whisperPrompt = WhisperPrompt()
 
-    @State private var selectedFilter: ModelFilter = .recommended
+    @State private var selectedFilter: ModelFilter = .local
     @State private var isShowingSettings = false
     
     // State for the unified alert
@@ -51,18 +50,90 @@ struct ModelManagementView: View {
     }
     
     private var defaultModelSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Default Model")
-                .font(.headline)
-                .foregroundColor(.secondary)
-            Text(whisperState.currentTranscriptionModel?.displayName ?? "No model selected")
-                .font(.title2)
-                .fontWeight(.bold)
+        VStack(alignment: .leading, spacing: 12) {
+            // Current model with recommendation badge
+            HStack(spacing: 12) {
+                // Icon
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.green, Color.teal],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 40, height: 40)
+
+                    Image(systemName: whisperState.currentTranscriptionModel?.provider == .parakeet ? "checkmark.circle.fill" : "waveform")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.white)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(whisperState.currentTranscriptionModel?.displayName ?? "No model selected")
+                            .font(.system(size: 16, weight: .bold))
+
+                        if whisperState.currentTranscriptionModel?.provider == .parakeet {
+                            Text("Recommended")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Color.green)
+                                .cornerRadius(10)
+                        }
+                    }
+
+                    if whisperState.currentTranscriptionModel?.provider == .parakeet {
+                        Text("You're all set! Parakeet V3 is the fastest local transcription.")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                    } else if whisperState.currentTranscriptionModel == nil {
+                        Text("Downloading Parakeet V3...")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text("For best results, we recommend Parakeet V3")
+                            .font(.system(size: 12))
+                            .foregroundColor(.orange)
+                    }
+                }
+
+                Spacer()
+            }
+
+            // AI Polish tip
+            if whisperState.currentTranscriptionModel?.provider == .parakeet {
+                HStack(spacing: 8) {
+                    Image(systemName: "lightbulb.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(.purple)
+                    Text("Tip: Enable AI Polish in Settings to translate, rewrite, or format your transcriptions.")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+                .padding(10)
+                .background(Color.purple.opacity(0.1))
+                .cornerRadius(8)
+            }
         }
-        .padding()
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(CardBackground(isSelected: false))
-        .cornerRadius(10)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(NSColor.controlBackgroundColor))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(
+                            whisperState.currentTranscriptionModel?.provider == .parakeet
+                                ? Color.green.opacity(0.3)
+                                : Color.clear,
+                            lineWidth: 1
+                        )
+                )
+        )
     }
     
     private var languageSelectionSection: some View {
@@ -205,18 +276,15 @@ struct ModelManagementView: View {
 
     private var filteredModels: [any TranscriptionModel] {
         switch selectedFilter {
-        case .recommended:
-            return whisperState.allAvailableModels.filter {
-                let recommendedNames = ["ggml-base.en", "ggml-large-v3-turbo-q5_0", "ggml-large-v3-turbo", "whisper-large-v3-turbo"]
-                return recommendedNames.contains($0.name)
-            }.sorted { model1, model2 in
-                let recommendedOrder = ["ggml-base.en", "ggml-large-v3-turbo-q5_0", "ggml-large-v3-turbo", "whisper-large-v3-turbo"]
-                let index1 = recommendedOrder.firstIndex(of: model1.name) ?? Int.max
-                let index2 = recommendedOrder.firstIndex(of: model2.name) ?? Int.max
-                return index1 < index2
-            }
         case .local:
-            return whisperState.allAvailableModels.filter { $0.provider == .local || $0.provider == .nativeApple || $0.provider == .parakeet }
+            // Put Parakeet first, then other local models
+            let localModels = whisperState.allAvailableModels.filter { $0.provider == .local || $0.provider == .nativeApple || $0.provider == .parakeet }
+            return localModels.sorted { model1, model2 in
+                // Parakeet always first
+                if model1.provider == .parakeet { return true }
+                if model2.provider == .parakeet { return false }
+                return model1.displayName < model2.displayName
+            }
         case .cloud:
             let cloudProviders: [ModelProvider] = [.groq, .elevenLabs, .deepgram, .mistral, .gemini]
             return whisperState.allAvailableModels.filter { cloudProviders.contains($0.provider) }

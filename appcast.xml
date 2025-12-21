@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.1</title>
+            <pubDate>Sun, 21 Dec 2025 02:26:38 -0500</pubDate>
+            <sparkle:version>93</sparkle:version>
+            <sparkle:shortVersionString>1.9.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.1</h3>
+                <ul>
+                    <li>Command Mode: Voice-activated system navigation - say a command and hit the shortcut to execute. AI Polish improvements: Better baseline cleanup prompt with industry best practices (grammar, punctuation, spelling, filler removal). Both features now work with Live Preview OFF (on-demand transcription). Fixed false crash reports during development.</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.1/WhisperVillage-1.9.1.dmg" length="254345166" type="application/octet-stream" sparkle:edSignature="/+J2lC6nNMDJdSTlRZUyEXCv2R8pXBAKK8cjXg9xzqQkDHQXbFd2GYp+IQi4BJapBDNB7tsMJXE/DAeeabLBDA=="/>
+        </item>
+        <item>
             <title>1.9.0</title>
             <pubDate>Thu, 18 Dec 2025 17:30:28 -0500</pubDate>
             <sparkle:version>91</sparkle:version>

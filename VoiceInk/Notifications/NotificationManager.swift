@@ -154,7 +154,7 @@ class NotificationManager {
         panel.level = NSWindow.Level.mainMenu
         panel.backgroundColor = NSColor.clear
         panel.hasShadow = true
-        panel.isMovableByWindowBackground = false
+        panel.isMovableByWindowBackground = true  // Enable dragging
 
         // Position above the mini recorder (centered, near bottom)
         positionPeekWindow(panel)
@@ -198,5 +198,290 @@ class NotificationManager {
         }, completionHandler: {
             window.close()
         })
+    }
+
+    // MARK: - Live Box (for live transcription preview during recording)
+
+    private var liveBoxWindow: LiveBoxPanel?
+    private var liveBoxHostingController: ClickThroughHostingController<LiveBoxView>?
+    private var liveBoxModel: LiveBoxModel?
+
+    // Keys for persisting LiveBox position
+    private let liveBoxPositionXKey = "LiveBoxPositionX"
+    private let liveBoxPositionYKey = "LiveBoxPositionY"
+
+    @MainActor
+    func showLiveBox() {
+        // Close any existing live box
+        if let existingWindow = liveBoxWindow {
+            existingWindow.close()
+            liveBoxWindow = nil
+            liveBoxHostingController = nil
+            liveBoxModel = nil
+        }
+
+        // Create the model that will be updated without recreating the view
+        let model = LiveBoxModel()
+        self.liveBoxModel = model
+
+        let liveBoxView = LiveBoxView(
+            model: model,
+            onClose: { [weak self] in
+                Task { @MainActor in
+                    self?.dismissLiveBox()
+                }
+            },
+            onHeightChange: { [weak self] newHeight in
+                Task { @MainActor in
+                    self?.adjustLiveBoxWindowHeight(newHeight)
+                }
+            }
+        )
+
+        let hostingController = ClickThroughHostingController(rootView: liveBoxView)
+        let size = hostingController.view.fittingSize
+
+        // Use our custom LiveBoxPanel that properly handles mouse events
+        let panel = LiveBoxPanel()
+        panel.setContentSize(size)
+        panel.contentView = hostingController.view
+
+        // Position centered, near bottom of screen
+        positionLiveBoxWindow(panel)
+        panel.alphaValue = 0
+        panel.orderFrontRegardless()
+
+        self.liveBoxWindow = panel
+        self.liveBoxHostingController = hostingController
+
+        // Get saved opacity (default 0.95)
+        let savedOpacity = UserDefaults.standard.double(forKey: "LiveBoxOpacity")
+        let targetOpacity = savedOpacity > 0 ? savedOpacity : 0.95
+
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.25
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().alphaValue = CGFloat(targetOpacity)
+        })
+    }
+
+    @MainActor
+    func updateLiveBox(text: String) {
+        // Simply update the model - SwiftUI will handle the rest
+        // No view recreation needed!
+        liveBoxModel?.text = text
+    }
+
+    @MainActor
+    func dismissLiveBox() {
+        dismissLiveBoxWindow(clearModel: true)
+    }
+
+    @MainActor
+    private func dismissLiveBoxWindow(clearModel: Bool) {
+        guard let window = liveBoxWindow else { return }
+
+        // Save position before closing
+        saveLiveBoxPosition()
+
+        // Save text before clearing if we might need it
+        let savedText = liveBoxModel?.text ?? ""
+
+        liveBoxWindow = nil
+        liveBoxHostingController = nil
+        if clearModel {
+            liveBoxModel = nil
+        }
+
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            window.animator().alphaValue = 0
+        }, completionHandler: { [weak self] in
+            window.close()
+            // If we're preserving the model, store the text for restoration
+            if !clearModel {
+                self?.preservedLiveBoxText = savedText
+            }
+        })
+    }
+
+    private var preservedLiveBoxText: String = ""
+
+    @MainActor
+    func toggleLiveBox() {
+        if liveBoxWindow != nil {
+            // Hide but preserve text for when we toggle back on
+            dismissLiveBoxWindow(clearModel: false)
+        } else {
+            showLiveBox()
+            // Restore the preserved text if we have any
+            if !preservedLiveBoxText.isEmpty {
+                liveBoxModel?.text = preservedLiveBoxText
+            }
+        }
+    }
+
+    @MainActor
+    var isLiveBoxVisible: Bool {
+        liveBoxWindow != nil
+    }
+
+    @MainActor
+    func setLiveBoxOpacity(_ opacity: Double) {
+        StreamingLogger.shared.log("📦 setLiveBoxOpacity: \(opacity)")
+        if let window = liveBoxWindow {
+            window.alphaValue = CGFloat(opacity)
+        }
+    }
+
+    @MainActor
+    private func positionLiveBoxWindow(_ window: NSWindow) {
+        let defaults = UserDefaults.standard
+        let savedX = defaults.double(forKey: liveBoxPositionXKey)
+        let savedTopY = defaults.double(forKey: liveBoxPositionYKey)  // This is the TOP edge (maxY)
+
+        // Check if we have a saved position (both > 0 means it was saved)
+        if savedX > 0 || savedTopY > 0 {
+            // Convert saved top edge to origin (bottom edge)
+            // origin.y = maxY - height
+            let originY = savedTopY - window.frame.height
+            window.setFrameOrigin(NSPoint(x: savedX, y: originY))
+        } else {
+            // Default: center horizontally, 150px from bottom
+            let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
+            let screenRect = activeScreen.visibleFrame
+            let windowRect = window.frame
+
+            let x = screenRect.midX - (windowRect.width / 2)
+            let y = screenRect.minY + 150
+
+            window.setFrameOrigin(NSPoint(x: x, y: y))
+        }
+    }
+
+    @MainActor
+    private func saveLiveBoxPosition() {
+        guard let window = liveBoxWindow else { return }
+        let frame = window.frame
+        // Save X origin and TOP edge (maxY) - this is stable regardless of height
+        UserDefaults.standard.set(frame.origin.x, forKey: liveBoxPositionXKey)
+        UserDefaults.standard.set(frame.maxY, forKey: liveBoxPositionYKey)  // Save top edge, not bottom
+    }
+
+    @MainActor
+    private func adjustLiveBoxWindowHeight(_ newHeight: CGFloat) {
+        guard let window = liveBoxWindow else { return }
+
+        // Recalculate the window size based on new content height
+        let currentFrame = window.frame
+        let newSize = liveBoxHostingController?.view.fittingSize ?? currentFrame.size
+
+        // Keep the same x position and top edge, adjust bottom
+        let newY = currentFrame.maxY - newSize.height
+        let newFrame = NSRect(
+            x: currentFrame.minX,
+            y: newY,
+            width: newSize.width,
+            height: newSize.height
+        )
+
+        window.setFrame(newFrame, display: true, animate: true)
+    }
+
+    // MARK: - Format Content Box (shows Stage 1 content during Format with AI)
+
+    private var formatContentWindow: FormatContentPanel?
+    private var formatContentHostingController: NSHostingController<FormatContentBox>?
+
+    // Keys for persisting position
+    private let formatContentPositionXKey = "FormatContentPositionX"
+    private let formatContentPositionYKey = "FormatContentPositionY"
+
+    @MainActor
+    func showFormatContentBox(content: String) {
+        // Close any existing format content box
+        if let existingWindow = formatContentWindow {
+            existingWindow.close()
+            formatContentWindow = nil
+            formatContentHostingController = nil
+        }
+
+        let panel = FormatContentPanel()
+
+        let formatContentView = FormatContentBox(
+            content: content,
+            onDismiss: { [weak self] in
+                Task { @MainActor in
+                    self?.dismissFormatContentBox()
+                }
+            }
+        )
+
+        let hostingController = NSHostingController(rootView: formatContentView)
+        hostingController.view.frame = NSRect(x: 0, y: 0, width: 320, height: 220)
+        panel.contentView = hostingController.view
+
+        // Position the panel - check for saved position
+        if let screen = NSScreen.main {
+            let savedX = UserDefaults.standard.double(forKey: formatContentPositionXKey)
+            let savedY = UserDefaults.standard.double(forKey: formatContentPositionYKey)
+
+            if savedX != 0 || savedY != 0 {
+                // Use saved position
+                panel.setFrameOrigin(NSPoint(x: savedX, y: savedY))
+            } else {
+                // Default: position on left side, vertically centered
+                let screenFrame = screen.visibleFrame
+                let panelSize = panel.frame.size
+                let x = screenFrame.minX + 50
+                let y = screenFrame.midY - (panelSize.height / 2)
+                panel.setFrameOrigin(NSPoint(x: x, y: y))
+            }
+        }
+
+        panel.alphaValue = 0
+        panel.orderFront(nil)
+
+        self.formatContentWindow = panel
+        self.formatContentHostingController = hostingController
+
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.25
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().alphaValue = 0.95
+        })
+    }
+
+    @MainActor
+    func dismissFormatContentBox() {
+        guard let window = formatContentWindow else { return }
+
+        // Save position before closing
+        saveFormatContentPosition()
+
+        formatContentWindow = nil
+        formatContentHostingController = nil
+
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            window.animator().alphaValue = 0
+        }, completionHandler: {
+            window.close()
+        })
+    }
+
+    @MainActor
+    private func saveFormatContentPosition() {
+        guard let window = formatContentWindow else { return }
+        let frame = window.frame
+        UserDefaults.standard.set(frame.origin.x, forKey: formatContentPositionXKey)
+        UserDefaults.standard.set(frame.origin.y, forKey: formatContentPositionYKey)
+    }
+
+    @MainActor
+    var isFormatContentBoxVisible: Bool {
+        formatContentWindow != nil
     }
 } 

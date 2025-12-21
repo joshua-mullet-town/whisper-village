@@ -4,6 +4,471 @@
 
 ---
 
+## [2025-12-21 ~15:30] Command Mode - COMPLETE
+
+**Achievement:** Voice-activated system navigation. Start recording, say a command, hit Command Mode shortcut → immediately stops and executes.
+
+### How It Works
+1. Start normal recording with main hotkey
+2. Say command: "terminal", "Chrome", "second terminal tab"
+3. Hit Command Mode shortcut (e.g., ⌘⇧C)
+4. Recording stops immediately → Ollama interprets → AppleScript executes
+
+### Flow (Single Action)
+- Shortcut triggers `triggerCommandMode()` which:
+  - Captures current `interimTranscription`
+  - Stops all recording (streaming, audio engine)
+  - Sends to Ollama for interpretation
+  - Executes via AppleScript (focusApp, focusTab)
+  - Plays success/error sound
+
+### Files Created
+- `VoiceInk/Views/Settings/CommandModeSection.swift` - Settings UI with enable toggle, shortcut, Ollama status indicator
+
+### Files Modified
+| File | Changes |
+|------|---------|
+| `HotkeyManager.swift` | Added `.commandMode` shortcut, handler calls `triggerCommandMode()` |
+| `WhisperState.swift` | Added `isInCommandMode`, `isCommandModeEnabled` properties |
+| `WhisperState+UI.swift` | Added `triggerCommandMode()`, `executeCommandModeTranscription()`, AppleScript helpers |
+| `NotchRecorderView.swift` | Added orange gradient for command mode, ⌘ icon indicator |
+| `SettingsView.swift` | Added CommandModeSection to settings |
+
+### Key Design Decisions
+- **One action**: Shortcut immediately stops and executes (no extra step to stop)
+- **Single command**: One command per activation, keeps it simple
+- **Reuses existing code**: `OllamaClient.interpret()`, AppleScript helpers from old Jarvis
+
+### Slack Navigation - Explored, Deferred
+Researched Slack deep linking (`slack://channel?team=X&id=Y`). Requires:
+- User OAuth Token (xoxp-...) with `channels:read`, `users:read` scopes
+- Per-workspace installation (each org needs separate token)
+
+Not worth the complexity for single-workspace use. Core Command Mode works great for apps/tabs.
+
+---
+
+## [2025-12-21 ~02:00] Settings Reorganization - COMPLETE
+
+**All settings work is done.** Scooped from PLAN.md.
+
+### Summary of All Changes
+- **AI Polish** (renamed from "Format with AI") - dedicated section with GPT-5 model picker, cost tracking
+- **Default behavior** - basic cleanup if no instructions given
+- **Parakeet V3** - auto-downloads and sets as default for new users
+- **Mini recorder** - forced migration to notch, picker removed
+- **Voice Engine** - simplified, Parakeet recommended with green badge
+- **About page** - "offline-first with optional cloud power" messaging
+- **Removed** - Hotkey 2, Retry, Cancel Shortcut, Middle-Click, Recorder Style picker
+
+### Deferred Cleanup (not blocking)
+- Mini recorder code still exists (MiniRecorderView.swift, MiniWindowManager.swift, etc.)
+- Can delete in future pass - UI is hidden, no user impact
+
+---
+
+## [2025-12-21 ~01:45] AI Polish Default Behavior
+
+**Achievement:** When user enters AI Polish mode but doesn't provide specific instructions, it now does sensible default formatting.
+
+### Default Behavior
+If instructions are empty or under 10 characters, AI Polish will:
+- Fix typos, misspellings, and transcription errors
+- Add proper punctuation and capitalization
+- Remove filler words (um, uh, like, you know)
+- Add paragraph breaks at natural topic changes
+- Keep original voice and word choices
+
+### Implementation
+- Added `defaultPolishInstructions` constant with the default prompt
+- Modified `format()` to check if instructions are minimal
+- Uses default if `trimmedInstructions.count < 10`
+- Logs "Using default formatting" when this happens
+
+---
+
+## [2025-12-21 ~01:30] Messaging Overhaul - Offline First + AI Polish Rename
+
+**Achievement:** Updated app messaging to reflect "offline-first with optional cloud power" positioning and renamed "Format with AI" to "AI Polish".
+
+### About View Changes
+- Changed "privacy-first, offline processing" → "Lightning-fast local transcription by default. Optional cloud features when you need extra power."
+- Updated features:
+  - "Blazing Fast" - Parakeet V3 transcribes in real-time, 100% local
+  - "AI Polish" - Optional AI formatting
+  - "Offline First" - Local by default, cloud opt-in
+
+### Voice Engine Overhaul
+- Removed "Recommended" tab (was showing random old models)
+- Default to "Local" tab with Parakeet first
+- New header shows:
+  - Green checkmark + "Recommended" badge when using Parakeet V3
+  - "You're all set!" message
+  - Tip about AI Polish in Settings
+  - Orange warning if using non-Parakeet model
+
+### Renamed "Format with AI" → "AI Polish"
+- Updated FormatWithAISection header
+- Updated NotchRecorderView tooltip
+- Updated error messages
+
+### Files Modified
+- `WhisperVillageAboutView.swift` - New messaging
+- `ModelManagementView.swift` - Removed Recommended tab, new header
+- `FormatWithAISection.swift` - Renamed to AI Polish
+- `NotchRecorderView.swift` - Updated tooltip
+- `LLMFormattingService.swift` - Updated error message
+
+---
+
+## [2025-12-21 ~01:15] Parakeet V3 as Default Model + Auto-Download
+
+**Achievement:** Parakeet V3 is now the default transcription model for all new users, with automatic download on first launch.
+
+### Behavior
+1. **User has saved model preference** → Respects their choice
+2. **No saved model + Parakeet downloaded** → Auto-sets Parakeet as default
+3. **No saved model + Parakeet NOT downloaded** → Auto-starts download, then sets as default
+
+### Implementation
+Modified `WhisperState+ModelManagement.swift:loadCurrentTranscriptionModel()`:
+- Checks for saved model first (preserves existing user choices)
+- If no saved model, defaults to Parakeet V3
+- If Parakeet not downloaded, triggers automatic background download
+- Once download completes, sets Parakeet as the default model
+
+### Why Parakeet V3?
+- Significantly faster than local Whisper models
+- Better accuracy for real-time streaming transcription
+- Best user experience out of the box
+
+---
+
+## [2025-12-21 ~01:00] Mini Recorder Migration - Force to Notch
+
+**Achievement:** Users who had "mini" recorder saved in UserDefaults are now automatically migrated to "notch" on app launch.
+
+### Implementation
+Added migration code in `AppDelegate.swift:cleanupLegacyUserDefaults()`:
+```swift
+// Force notch recorder for all users (deprecating mini recorder)
+defaults.set("notch", forKey: "RecorderType")
+```
+
+This runs on every app launch, ensuring all users use the notch recorder regardless of previous settings.
+
+---
+
+## [2025-12-21 ~00:30] Settings Reorganization & Cleanup
+
+**Achievements:**
+1. Created dedicated **Format with AI section** in settings - visually exciting with purple/blue gradient, status badge, 3-step explanation, API key field
+2. Created unified **Shortcuts section** - Main Hotkey prominently displayed with orange highlight, Quick Actions (Paste Last, Send, Peek) as sub-items
+3. Removed **Mini Recorder choice** - default is now notch, picker removed from settings
+4. Added **Format with AI button** in notch - purple wand icon, only visible when API key is set and recording
+
+### Files Created
+- `VoiceInk/Views/Settings/FormatWithAISection.swift` - Dedicated Format with AI settings
+- `VoiceInk/Views/Settings/ShortcutsSection.swift` - Unified shortcuts section
+
+### Files Modified
+- `VoiceInk/Views/Settings/SettingsView.swift` - Replaced old shortcut sections with new unified components
+- `VoiceInk/Whisper/WhisperState.swift` - Changed default recorderType to "notch"
+- `VoiceInk/Views/Recorder/NotchRecorderView.swift` - Added Format with AI button
+- `VoiceInk/AppDelegate.swift` - Added migration to force "notch" recorder
+
+### Removed from Settings
+- Hotkey 2 option (only one main hotkey now)
+- Retry Last Transcription shortcut
+- Custom Cancel Shortcut (just use ESC)
+- Middle-Click Toggle
+- Recorder Style picker (mini vs notch)
+
+---
+
+## [2025-12-20 ~23:00] Format with AI - Two-Stage LLM Formatting
+
+**Achievement:** Implemented a two-stage voice-to-formatted-text feature. User records content, hits Format with AI shortcut, records formatting instructions, and GPT-4o-mini formats and pastes the result.
+
+### Key Implementation Details
+
+**1. Flow Design (Mid-Recording Decision)**
+- User starts normal recording with regular hotkey
+- While recording, user hits "Format with AI" shortcut
+- Current transcription captured as Stage 1, shown in Live Box
+- Recording continues for Stage 2 (formatting instructions)
+- On stop, both sent to OpenAI GPT-4o-mini, result pasted
+
+**2. Files Created/Modified**
+- `LLMFormattingService.swift` - NEW: OpenAI API integration with voice-preserving prompt
+- `WhisperState+UI.swift` - Added `triggerLLMFormatting()`, `completeLLMFormattingStage2()`, state tracking
+- `HotkeyManager.swift` - Added `formatWithLLM` keyboard shortcut
+- `SettingsView.swift` - Added Format with AI shortcut config + OpenAI API key field
+- `NotchRecorderView.swift` - Fixed error message display (was showing "Error" not actual message)
+
+**3. Prompt Design (Voice Preservation)**
+```
+VOICE & TONE RULES:
+- By default, maintain the user's original voice and tone exactly
+- Use their existing words and phrasing wherever possible
+- Only clean up obvious mistakes, filler words, or transcription errors
+- If user explicitly asks for tone change, apply SUBTLY
+- Never make it sound overly formal, corporate, or "AI-generated"
+```
+
+**4. Deprecated/Hidden Features**
+- Jarvis Commands section hidden from Experimental Features
+- LLM Correction (local Ollama) hidden from Experimental Features
+- Inline Loading Placeholder hidden from Experimental Features
+
+### Lessons Learned
+- Error messages in notch weren't visible - need to display `errorMessage` not just "Error"
+- OpenAI API key wasn't exposed in settings - added simple field in shortcuts section
+- Two-stage flow works best as mid-recording decision, not separate mode to start
+
+---
+
+## [2025-12-20 ~14:30] Notch Always-On Mode - Shrink When Idle
+
+**Achievement:** Notch recorder now shrinks to minimal width when idle in always-visible mode, expanding smoothly when recording starts.
+
+### Key Implementation Details
+
+**1. Animated section widths with centered shrinking**
+- `sectionWidth` computed property: 20px when idle, 100px when active
+- `totalBarWidth` = `exactNotchWidth + (sectionWidth * 2)`
+- Used `.frame(width: totalBarWidth)` + `.frame(maxWidth: .infinity)` for centered shrink
+
+**2. Symmetrical shrink from both sides**
+- Initial attempt only shrank from right side (not centered)
+- Fix: Add `.frame(maxWidth: .infinity)` after the width constraint
+- SwiftUI centers the fixed-width child within the full-width parent automatically
+
+**3. Smooth content transitions for expand animation**
+- Shrink animation was smooth, but expand was abrupt
+- Content (buttons, timer) used `if` statements → appeared instantly
+- Fix: Added `.transition(.opacity.combined(with: .scale(scale: 0.8)))` to buttons/timer
+- Now content fades and scales in smoothly during expand
+
+**4. Keep 20% width when idle (not 0)**
+- Shrinking to 0 was too aggressive
+- Changed idle width from 0 to 20px (20% of full 100px)
+- Provides visual padding and smoother transition
+
+---
+
+## [2025-12-20 ~11:00] Live Preview Box - Button Click & Persistence Fixes
+
+**Achievement:** Fixed opacity button click-through issues and added full state persistence (height, position, opacity).
+
+### Critical Lessons Learned
+
+**1. SwiftUI buttons in floating NSPanels don't receive clicks by default**
+- Buttons with `.buttonStyle(PlainButtonStyle())` don't support "click-through" on inactive windows
+- The fix: Override `acceptsFirstMouse(for:)` to return `true` on the NSHostingView
+- Created `ClickThroughHostingView.swift` and `ClickThroughHostingController.swift` for this
+
+**2. Never put buttons inside containers with `.background()` in floating panels**
+- The old opacity buttons were inside an HStack with `.background(Color.white.opacity(0.1))`
+- This container intercepted mouse events before they reached the buttons
+- Fix: Moved opacity buttons to header (same row as height buttons) - no nested backgrounds
+
+**3. When saving window position, save the TOP edge (maxY) not the origin**
+- Window height adjustments (via `adjustLiveBoxWindowHeight`) keep top fixed, move bottom
+- Saving origin (bottom-left) causes position drift when height differs between sessions
+- Fix: Save `frame.maxY`, restore via `originY = savedTopY - window.height`
+
+**4. ObservableObject pattern for live updates without view recreation**
+- Old approach: Replaced `hostingController.rootView` on every text update → broke button state
+- Fix: Use `LiveBoxModel` with `@Published var text` and `@ObservedObject` in view
+
+### Files Modified/Created
+
+| File | Changes |
+|------|---------|
+| `ClickThroughHostingView.swift` | **NEW** - NSHostingView subclass with acceptsFirstMouse override |
+| `LiveBoxPanel.swift` | **NEW** - Custom NSPanel subclass (like MiniRecorderPanel) |
+| `LiveBoxView.swift` | Moved opacity controls to header, added ObservableObject pattern, height/position persistence |
+| `NotificationManager.swift` | Use ClickThroughHostingController, save/restore position via top edge |
+
+### Persisted Settings
+
+| Setting | UserDefaults Key | Notes |
+|---------|-----------------|-------|
+| Opacity | `LiveBoxOpacity` | 0.3 - 1.0, default 0.95 |
+| Height | `LiveBoxHeight` | 60 - 400px, default 120 |
+| Position X | `LiveBoxPositionX` | Screen X coordinate |
+| Position Y | `LiveBoxPositionY` | TOP edge (maxY) of window |
+
+---
+
+## [2025-12-19 23:30] Live Preview Box Mode Complete
+
+**Achievement:** Added "Box" mode as alternative to "Ticker" mode for live transcription preview during recording.
+
+### What Was Built
+
+| Feature | Description |
+|---------|-------------|
+| **LiveBoxView.swift** | Draggable floating box showing live transcription text |
+| **Height Controls** | +/- buttons to resize the box (60-400px) |
+| **Opacity Controls** | +/- buttons to adjust transparency (0.3-1.0), persisted with @AppStorage |
+| **Draggable Window** | NSPanel with `isMovableByWindowBackground = true` |
+| **Toggle via Eye Icon** | Eye button in recorder toggles box visibility |
+| **Settings Toggle** | "Ticker" vs "Box" mode in Audio Input Settings |
+
+### Design Details
+
+- Softer warmer dark background with purple tint
+- 16px corner radius
+- Green-to-purple gradient border
+- Orange "Listening..." indicator (friendlier than red "Recording")
+- Subtle hand icon for drag hint
+- Drop shadow for depth
+- No countdown timer (stays visible until recording stops)
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `VoiceInk/Notifications/LiveBoxView.swift` | **NEW** - Complete live preview box UI |
+| `VoiceInk/Notifications/NotificationManager.swift` | showLiveBox(), updateLiveBox(), dismissLiveBox(), toggleLiveBox(), setLiveBoxOpacity() |
+| `VoiceInk/Views/Recorder/NotchRecorderView.swift` | Eye icon toggles box in box mode, hide peek button in box mode |
+| `VoiceInk/Views/Recorder/MiniRecorderView.swift` | Same changes as NotchRecorderView |
+| `VoiceInk/Views/Settings/AudioInputSettingsView.swift` | "Ticker" / "Box" picker for LivePreviewStyle |
+
+### Key Lesson Learned
+
+**Opacity controls in NSPanel**: Don't use SwiftUI `.opacity()` modifier - it doesn't work on floating panels. Must set `window.alphaValue` directly on the NSPanel. The view-internal Button approach worked better than passing closures from NotificationManager.
+
+---
+
+## [2025-12-19 23:15] Crash Reporting & Error Recovery Complete
+
+**Achievement:** Full crash catching and Slack reporting system with error UI in recorder.
+
+### What Was Built
+
+| Feature | Description |
+|---------|-------------|
+| **CrashReporter.swift** | Signal handlers (SIGABRT, SIGSEGV, SIGBUS, SIGFPE, SIGILL), exception handler, session file for detecting unclean shutdowns |
+| **Slack Webhook Integration** | Automatic crash reports to Slack with formatted attachments |
+| **Settings Context in Reports** | All 18 key settings captured and included in crash reports |
+| **Error UI in Notch Recorder** | Red background, pulsing retry button, dismiss button |
+| **Real Error Wiring** | Transcription failures now show error UI instead of silently dismissing |
+
+### Crash Report Contents
+
+Reports sent to Slack include:
+- **Crash Type**: Signal Crash / Exception / Error / Unexpected Termination
+- **App Version** + **OS Version** + **Timestamp**
+- **Message**: What happened
+- **Stack Trace**: When available (not for "Unexpected Termination" detected on next launch)
+- **Settings Context**: 18 settings including RecorderType, StreamingMode, JarvisEnabled, TranscriptionProvider, etc.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `VoiceInk/Services/CrashReporter.swift` | Complete crash catching and reporting system |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `VoiceInk/AppDelegate.swift` | Initialize CrashReporter on launch, mark clean shutdown on terminate |
+| `VoiceInk/Whisper/WhisperState.swift` | Transcription errors trigger error UI instead of dismissing |
+| `VoiceInk/Whisper/WhisperState+UI.swift` | Added `handleTranscriptionError`, `dismissError`, `retryAfterError` |
+| `VoiceInk/Views/Recorder/NotchRecorderView.swift` | Error state UI with red background, pulsing retry button |
+
+### Key Technical Decisions
+
+1. **File-based state persistence**: Settings are written to file on init because signal handlers can't make network calls
+2. **Session file approach**: Detects unclean shutdowns by checking if session flag file exists on next launch
+3. **Slack over Discord**: User preference, webhook format uses "attachments" with "fields" array
+4. **Stack trace availability**: Only available for caught signals/exceptions, not for "Unexpected Termination"
+
+### Webhook URL
+
+Slack webhook configured in `VoiceInk/secrets.plist` (gitignored). See `secrets.plist.example` for template.
+
+---
+
+## [2025-12-19 12:30] Main Thread Blocking Fixed - Timer Now Responsive
+
+**Problem:** Timer froze during live transcription because heavy CPU work blocked the main thread.
+
+**Root Cause:** WhisperState is `@MainActor` class, so ALL methods run on main thread by default. The streaming transcription loop was doing:
+1. VAD preprocessing (Silero neural network) - CPU intensive
+2. Transcription (Whisper/Parakeet inference) - 500ms-2s
+3. Both running ON MainActor, blocking UI updates
+
+**The Fix (3 parts):**
+
+1. **Move transcription to background:**
+   ```swift
+   let result = await Task.detached(priority: .userInitiated) {
+       // Heavy work here
+   }.value
+   ```
+
+2. **Move VAD preprocessing to same background task:**
+   ```swift
+   let samples = audioPreprocessor.extractSpeech(from: rawSamples)  // NOW inside Task.detached
+   ```
+
+3. **Add Task.yield() to let RunLoop process timers:**
+   ```swift
+   while ... {
+       await self.performInterimTranscription()
+       await Task.yield()  // Let timer fire between iterations
+   }
+   ```
+
+**Key Insight:** `await` suspends MainActor but doesn't automatically pump the RunLoop. Adding `Task.yield()` explicitly gives the RunLoop a chance to process timer callbacks.
+
+**Files Modified:**
+- `WhisperState.swift` - Task.detached for heavy work, Task.yield in loop
+
+---
+
+## [2025-12-18 23:45] v1.9.0 Released - Smart Capitalization & Auto End Punctuation
+
+**Release:** https://github.com/joshua-mullet-town/whisper-village/releases/tag/v1.9.0
+
+### What Shipped
+
+| Feature | Description |
+|---------|-------------|
+| **Smart Capitalization** | Auto-lowercase first word when pasting mid-sentence |
+| **Auto End Punctuation** | Adds period at end if no ending punctuation present |
+| **Performance Improvements** | Non-blocking context caching eliminates paste lag |
+
+### How Smart Capitalization Works
+1. When recording starts, cache cursor context via Accessibility API (non-blocking)
+2. On paste, check last non-whitespace character before cursor:
+   - `.!?` or newline → CAPITALIZE (sentence/paragraph start)
+   - `:;,` or letter/digit or whitespace → lowercase (mid-sentence)
+3. Uses cached context to avoid slow AX API call at paste time
+
+### Key Technical Fix
+`UserDefaults.standard.bool()` returns `false` for non-existent keys, but `@AppStorage` defaults to `true`. Fixed by using `UserDefaults.standard.object() as? Bool ?? true`.
+
+### Files Created
+| File | Purpose |
+|------|---------|
+| `VoiceInk/Services/TextContextService.swift` | Accessibility API wrapper + caching + capitalization logic |
+
+### Files Modified
+| File | Changes |
+|------|---------|
+| `VoiceInk/CursorPaster.swift` | Smart cap + auto end punctuation, fixed UserDefaults |
+| `VoiceInk/Whisper/WhisperState.swift` | Non-blocking context caching at recording start |
+| `VoiceInk/Views/Settings/ExperimentalFeaturesSection.swift` | Added toggles for both features |
+| `CLAUDE.md` | Added CRITICAL warning about ship-it.sh script |
+
+---
+
 ## [2025-12-18 23:15] Smart Capitalization (Context-Aware) - WORKING
 
 **Achievement:** Transcriptions now respect cursor context - lowercases first character when pasting mid-sentence.
@@ -1288,7 +1753,7 @@ The regex `\bI'\b` fails because `\b` (word boundary) doesn't work after apostro
 ## Project Facts
 
 **App Name:** Whisper Village (rebranded from VoiceInk)
-**Current Version:** v1.8.0
+**Current Version:** v1.9.0
 **Platform:** macOS
 **Distribution:** GitHub Releases + Sparkle auto-updates
 **DMG Size:** ~254MB (includes ~126MB CoreML models per model)

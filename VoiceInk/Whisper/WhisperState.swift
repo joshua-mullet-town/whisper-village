@@ -13,6 +13,7 @@ enum RecordingState: Equatable {
     case transcribing
     case enhancing
     case busy
+    case error(message: String)
 }
 
 // MARK: - Debug Log Entry
@@ -40,7 +41,14 @@ enum DebugLogEntry: Identifiable {
 
 @MainActor
 class WhisperState: NSObject, ObservableObject {
-    @Published var recordingState: RecordingState = .idle
+    @Published var recordingState: RecordingState = .idle {
+        didSet {
+            // Dismiss live preview box when recording stops
+            if recordingState != .recording {
+                NotificationManager.shared.dismissLiveBox()
+            }
+        }
+    }
     @Published var isModelLoaded = false
     @Published var loadedLocalModel: WhisperModel?
     @Published var currentTranscriptionModel: (any TranscriptionModel)?
@@ -54,8 +62,32 @@ class WhisperState: NSObject, ObservableObject {
     /// When true, the next paste operation should also press Enter (for double-tap send)
     var doubleTapSendPending = false
 
+    // MARK: - Two-Stage LLM Formatting
+    /// Tracks whether we're in LLM formatting mode (two-stage transcription)
+    @Published var isLLMFormattingMode = false
+    /// Stage 1 content (the main message)
+    @Published var llmFormattingContent = ""
+    /// Whether we're waiting for Stage 2 (instruction recording)
+    @Published var isWaitingForFormattingInstruction = false
+    /// Whether LLM is processing the formatted result
+    @Published var isLLMProcessing = false
 
-    @Published var recorderType: String = UserDefaults.standard.string(forKey: "RecorderType") ?? "mini" {
+    /// Clears the final transcribed chunks buffer - used when entering format mode
+    /// to ensure the live preview starts fresh for formatting instructions
+    func clearFinalTranscribedChunksForFormatMode() {
+        finalTranscribedChunks = []
+        StreamingLogger.shared.log("🎨 Cleared finalTranscribedChunks for format mode")
+    }
+
+    // MARK: - Command Mode (Voice Navigation)
+    /// Whether we're in Command Mode (recording a voice command)
+    @Published var isInCommandMode = false
+    /// Whether Command Mode is enabled in settings
+    var isCommandModeEnabled: Bool {
+        UserDefaults.standard.bool(forKey: "CommandModeEnabled")
+    }
+
+    @Published var recorderType: String = UserDefaults.standard.string(forKey: "RecorderType") ?? "notch" {
         didSet {
             UserDefaults.standard.set(recorderType, forKey: "RecorderType")
             StreamingLogger.shared.log("🎛️ RECORDER_TYPE CHANGED: '\(oldValue)' → '\(recorderType)'")
@@ -89,6 +121,16 @@ class WhisperState: NSObject, ObservableObject {
     /// When OFF: Simple Mode - just record, transcribe only on stop/peek/send
     var isLivePreviewEnabled: Bool {
         UserDefaults.standard.bool(forKey: "LivePreviewEnabled")
+    }
+
+    /// Live preview style: "ticker" (horizontal scrolling) or "box" (draggable floating box)
+    var livePreviewStyle: String {
+        UserDefaults.standard.string(forKey: "LivePreviewStyle") ?? "ticker"
+    }
+
+    /// Whether live preview is in box mode (floating draggable box)
+    var isLivePreviewBoxMode: Bool {
+        isLivePreviewEnabled && livePreviewStyle == "box"
     }
 
     // MARK: - Streaming Transcription (Simplified - Full Buffer)
@@ -232,7 +274,9 @@ class WhisperState: NSObject, ObservableObject {
     }
     
     func toggleRecord() async {
+        StreamingLogger.shared.log("🎯 toggleRecord() called, current state: \(recordingState)")
         if recordingState == .recording {
+            StreamingLogger.shared.log("🎯 Was recording, now stopping...")
             // FIRST: Stop audio engines to release audio resources
             // This allows sounds to play without being blocked by AVAudioEngine
             // Samples are already buffered in memory so transcription will still work
@@ -242,6 +286,13 @@ class WhisperState: NSObject, ObservableObject {
 
             // NOW play stop sound - audio resources are released
             SoundManager.shared.playStopSound()
+
+            // Show transcribing/processing state immediately (for always-visible notch)
+            StreamingLogger.shared.log("🔵 ABOUT TO SET recordingState = .transcribing")
+            await MainActor.run {
+                recordingState = .transcribing
+                StreamingLogger.shared.log("🔵 DONE SET recordingState = .transcribing, now: \(recordingState)")
+            }
 
             // If Jarvis streaming mode - handle transcription with captured samples
             if isStreamingModeEnabled && jarvisService.isEnabled {
@@ -340,9 +391,10 @@ class WhisperState: NSObject, ObservableObject {
                         CursorPaster.pasteAtCursor(finalText)
 
                         // If double-tap send was pending, play sound and press Enter
+                        // Delay needs to be long enough for paste to complete, especially for long transcriptions
                         if shouldSend {
                             SoundManager.shared.playSendSound()
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                                 CursorPaster.pressEnter()
                             }
                         }
@@ -425,6 +477,7 @@ class WhisperState: NSObject, ObservableObject {
                     }
                     await MainActor.run {
                         recordingState = .idle
+                        isInCommandMode = false  // Reset command mode on cancel
                     }
                     await cleanupModelResources()
                     await cleanupAfterSend()
@@ -471,9 +524,10 @@ class WhisperState: NSObject, ObservableObject {
                         CursorPaster.pasteAtCursor(finalText)
 
                         // If double-tap send was pending, play sound and press Enter
+                        // Delay needs to be long enough for paste to complete, especially for long transcriptions
                         if shouldSend {
                             SoundManager.shared.playSendSound()
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                                 CursorPaster.pressEnter()
                             }
                         }
@@ -565,8 +619,13 @@ class WhisperState: NSObject, ObservableObject {
 
                                 StreamingLogger.shared.log("  debugLog.count AFTER clear: \(self.debugLog.count)")
                                 StreamingLogger.shared.log("=== RECORDING START COMPLETE ===")
+
+                                // Show live preview box if in box mode
+                                if self.isLivePreviewBoxMode {
+                                    NotificationManager.shared.showLiveBox()
+                                }
                             }
-                            
+
                             await ActiveWindowService.shared.applyConfigurationForCurrentApp()
          
                             // Only load model if it's a local model and not already loaded
@@ -637,7 +696,14 @@ class WhisperState: NSObject, ObservableObject {
             // NOW play send sound - audio resources are released
             SoundManager.shared.playSendSound()
 
-            // Hide UI
+            // Show transcribing/processing state immediately (for always-visible notch)
+            StreamingLogger.shared.log("🔵 stopRecordingAndSend: ABOUT TO SET .transcribing")
+            await MainActor.run {
+                recordingState = .transcribing
+                StreamingLogger.shared.log("🔵 stopRecordingAndSend: DONE SET .transcribing, now: \(recordingState)")
+            }
+
+            // Hide UI (if not in always-visible mode, this hides the window)
             hideRecorderPanel()
             await MainActor.run {
                 isMiniRecorderVisible = false
@@ -967,14 +1033,11 @@ class WhisperState: NSObject, ObservableObject {
                 logger.error("❌ Could not create a record for the failed transcription: \(error.localizedDescription)")
             }
             
+            // Show error in recorder UI instead of dismissing
             await MainActor.run {
-                NotificationManager.shared.showNotification(
-                    title: "Transcription Failed",
-                    type: .error
-                )
+                recordingState = .error(message: "Transcription failed")
+                miniRecorderError = "Transcription failed"
             }
-            
-            await self.dismissMiniRecorder()
         }
     }
 
@@ -1025,6 +1088,8 @@ class WhisperState: NSObject, ObservableObject {
                   !self.shouldStopStreamingGracefully,
                   !Task.isCancelled {
                 await self.performInterimTranscription()
+                // Yield to let RunLoop process timer events (fixes frozen timer)
+                await Task.yield()
             }
 
             // Graceful stop: do one final transcription to catch any trailing audio
@@ -1085,6 +1150,7 @@ class WhisperState: NSObject, ObservableObject {
 
     /// Perform one interim transcription of the FULL audio buffer
     /// This is the simplified architecture: preview = final
+    /// NOTE: Heavy transcription work runs on background thread to avoid UI freezing
     private func performInterimTranscription() async {
         // ============================================================
         // JARVIS BYPASS: When Jarvis is disabled, use simple path
@@ -1114,65 +1180,91 @@ class WhisperState: NSObject, ObservableObject {
         }
 
         // Get ALL samples from the buffer (not chunks - full buffer mode)
+        let getSamplesStart = Date()
         let rawSamples = await streamingRecorder.getCurrentSamples()
+        let getSamplesElapsed = Date().timeIntervalSince(getSamplesStart)
+        if getSamplesElapsed > 0.05 {
+            StreamingLogger.shared.log("⚠️ MAIN THREAD: getCurrentSamples took \(String(format: "%.3f", getSamplesElapsed))s")
+        }
 
         guard rawSamples.count >= 16000 else {  // Need at least 1 second
             // Don't log this - it's normal at the start of recording
             return
         }
 
-        // Apply VAD preprocessing to extract speech and remove silence
-        let samples = AudioPreprocessor.shared.extractSpeech(from: rawSamples)
-
-        guard samples.count >= 8000 else {  // Need at least 0.5s of speech
-            StreamingLogger.shared.log("Skipping transcription - not enough speech detected")
-            return
-        }
-
-        let sampleDuration = Double(samples.count) / 16000.0
-        let rawDuration = Double(rawSamples.count) / 16000.0
-        StreamingLogger.shared.log("Transcribing: \(samples.count) samples (\(String(format: "%.2f", sampleDuration))s speech from \(String(format: "%.2f", rawDuration))s) [provider: \(model.provider.rawValue)]")
-
         isStreamingTranscriptionInProgress = true
         let startTime = Date()
+        StreamingLogger.shared.log("🚀 Starting background task...")
 
-        // Run transcription based on provider
-        var trimmedText = ""
+        // Capture references needed for background work
+        let parakeetService = parakeetTranscriptionService
+        let context = whisperContext
+        let provider = model.provider
+        let audioPreprocessor = AudioPreprocessor.shared
 
-        if model.provider == .parakeet {
-            // Use Parakeet
-            do {
-                let text = try await parakeetTranscriptionService.transcribeSamples(samples)
-                trimmedText = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
-                let elapsed = Date().timeIntervalSince(startTime)
-                StreamingLogger.shared.log("Full buffer result (\(String(format: "%.2f", elapsed))s): \"\(trimmedText.prefix(100))...\"")
-            } catch {
-                let elapsed = Date().timeIntervalSince(startTime)
-                StreamingLogger.shared.log("Transcription failed after \(String(format: "%.2f", elapsed))s: \(error)")
+        // Run ALL CPU-intensive work on background thread to avoid UI freezing
+        // This includes VAD preprocessing AND transcription
+        let transcriptionResult: String = await Task.detached(priority: .userInitiated) {
+            // Apply VAD preprocessing to extract speech and remove silence (CPU-intensive)
+            let samples = audioPreprocessor.extractSpeech(from: rawSamples)
+
+            guard samples.count >= 8000 else {  // Need at least 0.5s of speech
+                StreamingLogger.shared.log("Skipping transcription - not enough speech detected")
+                return ""
             }
-        } else if model.provider == .local, let context = whisperContext {
-            // Use Whisper
-            let success = await context.fullTranscribe(samples: samples)
-            let elapsed = Date().timeIntervalSince(startTime)
 
-            if success {
-                let text = await context.getTranscription()
-                trimmedText = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
-                StreamingLogger.shared.log("Full buffer result (\(String(format: "%.2f", elapsed))s): \"\(trimmedText.prefix(100))...\"")
-            } else {
-                StreamingLogger.shared.log("Transcription failed after \(String(format: "%.2f", elapsed))s")
+            let sampleDuration = Double(samples.count) / 16000.0
+            let rawDuration = Double(rawSamples.count) / 16000.0
+            StreamingLogger.shared.log("Transcribing: \(samples.count) samples (\(String(format: "%.2f", sampleDuration))s speech from \(String(format: "%.2f", rawDuration))s) [provider: \(provider.rawValue)]")
+
+            var trimmedText = ""
+
+            if provider == .parakeet {
+                // Use Parakeet
+                do {
+                    let text = try await parakeetService.transcribeSamples(samples)
+                    trimmedText = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                    let elapsed = Date().timeIntervalSince(startTime)
+                    StreamingLogger.shared.log("Full buffer result (\(String(format: "%.2f", elapsed))s): \"\(trimmedText.prefix(100))...\"")
+                } catch {
+                    let elapsed = Date().timeIntervalSince(startTime)
+                    StreamingLogger.shared.log("Transcription failed after \(String(format: "%.2f", elapsed))s: \(error)")
+                }
+            } else if provider == .local, let context = context {
+                // Use Whisper
+                let success = await context.fullTranscribe(samples: samples)
+                let elapsed = Date().timeIntervalSince(startTime)
+
+                if success {
+                    let text = await context.getTranscription()
+                    trimmedText = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                    StreamingLogger.shared.log("Full buffer result (\(String(format: "%.2f", elapsed))s): \"\(trimmedText.prefix(100))...\"")
+                } else {
+                    StreamingLogger.shared.log("Transcription failed after \(String(format: "%.2f", elapsed))s")
+                }
             }
-        }
 
+            return trimmedText
+        }.value
+
+        let totalElapsed = Date().timeIntervalSince(startTime)
+        StreamingLogger.shared.log("✅ Background task complete after \(String(format: "%.2f", totalElapsed))s")
+
+        // Back on MainActor - update UI state
         // Apply built-in fixes (e.g., I' -> I'm) to preview
-        if !trimmedText.isEmpty {
-            trimmedText = WordReplacementService.shared.applyBuiltInFixes(to: trimmedText)
-            interimTranscription = trimmedText
+        if !transcriptionResult.isEmpty {
+            let fixedText = WordReplacementService.shared.applyBuiltInFixes(to: transcriptionResult)
+            interimTranscription = fixedText
+
+            // Update live preview box if in box mode
+            if isLivePreviewBoxMode {
+                NotificationManager.shared.updateLiveBox(text: fixedText)
+            }
 
             // JARVIS: Only update Jarvis buffers and check for commands if enabled
             if jarvisEnabled {
-                jarvisTranscriptionBuffer = trimmedText
-                checkForVoiceCommand(in: trimmedText)
+                jarvisTranscriptionBuffer = fixedText
+                checkForVoiceCommand(in: fixedText)
             }
         }
 
@@ -1282,7 +1374,7 @@ class WhisperState: NSObject, ObservableObject {
     /// This is called on user pause/send boundaries to get the real transcription
     /// Returns the transcribed text, or nil if transcription failed
     /// Transcribe pre-captured audio samples (used when recorder was stopped before sound playback)
-    private func transcribeCapturedSamples(_ rawSamples: [Float]) async -> String? {
+    func transcribeCapturedSamples(_ rawSamples: [Float]) async -> String? {
         guard let model = currentTranscriptionModel else {
             StreamingLogger.shared.log("Final transcription: No model selected")
             return nil

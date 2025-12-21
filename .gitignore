@@ -23,3 +23,6 @@ VoiceInk/Resources/MLModels/
 # Self-signed certificate files (contains private key)
 certs/
 ml/coreml/**/*.bin
+
+# Secrets (webhook URLs, API keys, etc.)
+VoiceInk/secrets.plist

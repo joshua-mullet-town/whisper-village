@@ -38,12 +38,16 @@ struct MiniRecorderView: View {
     /// Whether preview box is visible (persisted)
     @AppStorage("StreamingPreviewVisible") private var isPreviewVisible: Bool = true
 
+    /// Live preview style: "ticker" (horizontal scrolling) or "box" (draggable floating box)
+    @AppStorage("LivePreviewStyle") private var livePreviewStyle = "ticker"
+
     /// Preview box opacity (persisted)
     @AppStorage("StreamingPreviewOpacity") private var previewOpacity: Double = 0.85
 
     /// Preview box dimensions (persisted)
     @AppStorage("StreamingPreviewWidth") private var previewWidth: Double = 416
     @AppStorage("StreamingPreviewHeight") private var previewHeight: Double = 210
+
 
     // MARK: - Chat Bubble Streaming Preview
 
@@ -364,7 +368,30 @@ struct MiniRecorderView: View {
     
     /// Whether the recorder is in an active state (recording or processing)
     private var isActive: Bool {
-        whisperState.recordingState != .idle
+        switch whisperState.recordingState {
+        case .idle:
+            return false
+        case .error:
+            return true
+        default:
+            return true
+        }
+    }
+
+    /// Check if we're in error state
+    private var isInErrorState: Bool {
+        if case .error = whisperState.recordingState {
+            return true
+        }
+        return false
+    }
+
+    /// Get error message if in error state
+    private var errorMessage: String? {
+        if case .error(let message) = whisperState.recordingState {
+            return message
+        }
+        return nil
     }
 
     private var contentLayout: some View {
@@ -405,8 +432,8 @@ struct MiniRecorderView: View {
 
             // RIGHT SECTION: Peek button + Eyeball button (matches notch layout)
             HStack(spacing: 6) {
-                // Peek button - show full transcription toast (only when recording)
-                if isStreamingModeEnabled && whisperState.recordingState == .recording {
+                // Peek button - show full transcription toast (only in ticker mode, not box mode)
+                if isStreamingModeEnabled && whisperState.recordingState == .recording && livePreviewStyle == "ticker" {
                     Button(action: {
                         Task { @MainActor in
                             await whisperState.peekTranscription()
@@ -420,17 +447,23 @@ struct MiniRecorderView: View {
                     .help("Show full transcription")
                 }
 
-                // Eyeball button - toggle ticker visibility (only in Live Preview mode)
+                // Eyeball button - toggle ticker visibility (in ticker mode) or live box visibility (in box mode)
                 if isStreamingModeEnabled && isLivePreviewEnabled && isActive {
                     Button(action: {
-                        isPreviewVisible.toggle()
+                        if livePreviewStyle == "box" {
+                            // Toggle live box visibility
+                            NotificationManager.shared.toggleLiveBox()
+                        } else {
+                            // Toggle ticker visibility
+                            isPreviewVisible.toggle()
+                        }
                     }) {
                         Image(systemName: isPreviewVisible ? "eye.fill" : "eye.slash.fill")
                             .font(.system(size: 12))
                             .foregroundColor(.white.opacity(0.8))
                     }
                     .buttonStyle(PlainButtonStyle())
-                    .help("Toggle ticker")
+                    .help(livePreviewStyle == "box" ? "Toggle live box" : "Toggle ticker")
                 }
             }
             .padding(.trailing, 10)
@@ -459,6 +492,94 @@ struct MiniRecorderView: View {
                 }
             }
     }
+
+    // MARK: - Error UI
+
+    private var errorBackgroundView: some View {
+        ZStack {
+            // Red error gradient
+            LinearGradient(
+                colors: [
+                    Color(red: 0.8, green: 0.2, blue: 0.2).opacity(0.9),
+                    Color(red: 0.6, green: 0.1, blue: 0.1).opacity(0.95)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            VisualEffectView(material: .hudWindow, blendingMode: .withinWindow)
+                .opacity(0.1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var errorContentLayout: some View {
+        VStack(spacing: 8) {
+            // Error icon and message
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(.yellow)
+
+                Text("Something went wrong")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white)
+            }
+
+            // Action buttons
+            HStack(spacing: 12) {
+                Button(action: {
+                    Task { @MainActor in
+                        await whisperState.retryAfterError()
+                    }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 10))
+                        Text("Try Again")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.white.opacity(0.2))
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(PlainButtonStyle())
+
+                Button(action: {
+                    whisperState.dismissError()
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 10))
+                        Text("Dismiss")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundColor(.white.opacity(0.8))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.white.opacity(0.1))
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
+    }
+
+    private var errorCapsule: some View {
+        RoundedRectangle(cornerRadius: 16)
+            .fill(.clear)
+            .background(errorBackgroundView)
+            .overlay {
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(Color.red.opacity(0.6), lineWidth: 1.5)
+            }
+            .overlay {
+                errorContentLayout
+            }
+    }
     
     private func formatTime(_ timeInterval: TimeInterval) -> String {
         let minutes = Int(timeInterval) / 60
@@ -466,9 +587,9 @@ struct MiniRecorderView: View {
         return String(format: "%d:%02d", minutes, seconds)
     }
     
-    /// Whether to show the ticker (streaming mode + live preview + recording + visible toggle)
+    /// Whether to show the ticker (streaming mode + live preview + ticker mode + recording + visible toggle)
     private var shouldShowTicker: Bool {
-        isStreamingModeEnabled && isLivePreviewEnabled && whisperState.recordingState == .recording && isPreviewVisible
+        isStreamingModeEnabled && isLivePreviewEnabled && livePreviewStyle == "ticker" && whisperState.recordingState == .recording && isPreviewVisible
     }
 
     var body: some View {
@@ -478,8 +599,8 @@ struct MiniRecorderView: View {
                 VStack(spacing: 8) {
                     Spacer(minLength: 0)
 
-                    // Ticker above capsule (same component as notch mode)
-                    if isStreamingModeEnabled && isLivePreviewEnabled {
+                    // Live preview ticker (only in ticker mode, not box mode)
+                    if isStreamingModeEnabled && isLivePreviewEnabled && livePreviewStyle == "ticker" {
                         NotchTranscriptionTicker(
                             text: whisperState.interimTranscription,
                             isRecording: whisperState.recordingState == .recording
@@ -488,9 +609,14 @@ struct MiniRecorderView: View {
                         .opacity(shouldShowTicker ? 1 : 0)
                     }
 
-                    // Orange capsule - always at bottom
-                    recorderCapsule
-                        .frame(width: 250, height: 36)
+                    // Show error capsule or normal recorder capsule
+                    if isInErrorState {
+                        errorCapsule
+                            .frame(width: 280, height: 70)
+                    } else {
+                        recorderCapsule
+                            .frame(width: 250, height: 36)
+                    }
                 }
                 .padding(.bottom, 8)
                 .onChange(of: whisperState.recordingState) { _, newState in

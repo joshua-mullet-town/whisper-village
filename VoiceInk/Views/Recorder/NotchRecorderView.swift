@@ -7,17 +7,59 @@ struct NotchRecorderView: View {
     @EnvironmentObject var windowManager: NotchWindowManager
     @State private var isHovering = false
     @State private var recordingDuration: TimeInterval = 0
+    @State private var formatModeDuration: TimeInterval = 0
     @State private var timer: Timer?
     @State private var isPreviewVisible = true
+    @State private var retryPulse = false
+    @State private var shimmerPhase: CGFloat = 0
+    @State private var wasInFormatMode = false
 
     // Settings for eyeball button behavior
     @AppStorage("StreamingModeEnabled") private var isStreamingModeEnabled = false
     @AppStorage("LivePreviewEnabled") private var isLivePreviewEnabled = true
     @AppStorage("NotchAlwaysVisible") private var isAlwaysVisible = false
+    @AppStorage("OpenAIAPIKey") private var openAIAPIKey = ""
+
+    /// Whether we're in format mode (recording formatting instructions)
+    private var isInFormatMode: Bool {
+        whisperState.isWaitingForFormattingInstruction
+    }
+
+    /// Whether we're in Command Mode (recording a voice command)
+    private var isInCommandMode: Bool {
+        whisperState.isInCommandMode
+    }
+
+    /// Whether AI Polish button should be visible (only when NOT in format mode and NOT in command mode)
+    private var showFormatButton: Bool {
+        !openAIAPIKey.isEmpty && whisperState.recordingState == .recording && !isInFormatMode && !isInCommandMode
+    }
+
+    /// Timer to display - format mode timer or regular recording timer
+    private var displayDuration: TimeInterval {
+        isInFormatMode ? formatModeDuration : recordingDuration
+    }
+
 
     /// Whether we're in idle state (always visible but not recording)
     private var isIdleState: Bool {
         isAlwaysVisible && whisperState.recordingState == .idle
+    }
+
+    /// Check if we're in error state
+    private var isInErrorState: Bool {
+        if case .error = whisperState.recordingState {
+            return true
+        }
+        return false
+    }
+
+    /// Get error message if in error state
+    private var errorMessage: String? {
+        if case .error(let message) = whisperState.recordingState {
+            return message
+        }
+        return nil
     }
     
     private var menuBarHeight: CGFloat {
@@ -41,39 +83,74 @@ struct NotchRecorderView: View {
     }
     
     /// Total width for each side section (content + padding)
-    private let sectionWidth: CGFloat = 100
+    /// Animates to 20 (20%) when idle for minimal footprint, 100 when active
+    private var sectionWidth: CGFloat {
+        isIdleState ? 20 : 100
+    }
+
+    /// Total width of the entire notch bar
+    /// Idle: just the notch width. Recording: notch + side sections
+    private var totalBarWidth: CGFloat {
+        exactNotchWidth + (sectionWidth * 2)
+    }
 
     private var leftSection: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             // Cancel button - hide when idle
             if !isIdleState {
-                Button(action: {
+                NotchIconButton(
+                    icon: "xmark.circle.fill",
+                    color: .white,
+                    tooltip: cancelTooltip
+                ) {
                     Task { @MainActor in
+                        // Reset format mode state before dismissing
+                        if isInFormatMode {
+                            whisperState.isLLMFormattingMode = false
+                            whisperState.isWaitingForFormattingInstruction = false
+                            whisperState.llmFormattingContent = ""
+                            NotificationManager.shared.dismissFormatContentBox()
+                        }
+                        // Reset Command Mode if active
+                        if isInCommandMode {
+                            whisperState.isInCommandMode = false
+                        }
                         await whisperState.dismissMiniRecorder()
                     }
-                }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundColor(.white.opacity(0.9))
                 }
-                .buttonStyle(PlainButtonStyle())
-                .help("Cancel recording")
+                .transition(.opacity.combined(with: .scale(scale: 0.8)))
+            }
+
+            // Command Mode indicator
+            if isInCommandMode {
+                Image(systemName: "command")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.white)
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
 
             // Timer display
             if whisperState.recordingState == .recording {
-                Text(formatTime(recordingDuration))
+                Text(formatTime(displayDuration))
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundColor(.white)
                     .frame(width: 35)
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
 
             Spacer()
         }
         .padding(.leading, 12)
         .frame(width: sectionWidth)
+        .clipped()
     }
-    
+
+    private var cancelTooltip: String {
+        if isInCommandMode { return "Cancel command" }
+        if isInFormatMode { return "Cancel formatting" }
+        return "Cancel recording"
+    }
+
     private var centerSection: some View {
         Rectangle()
             .fill(Color.clear)
@@ -81,40 +158,135 @@ struct NotchRecorderView: View {
             .contentShape(Rectangle())
     }
     
-    private var rightSection: some View {
-        HStack(spacing: 6) {
+    // MARK: - Error UI Sections
+
+    private var errorLeftSection: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 14))
+                .foregroundColor(.yellow)
+
+            Text(errorMessage ?? "Error")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.white)
+                .lineLimit(2)
+                .truncationMode(.tail)
+
+            Spacer()
+        }
+        .padding(.leading, 12)
+        .frame(width: sectionWidth)
+    }
+
+    private var errorRightSection: some View {
+        HStack(spacing: 12) {
             Spacer()
 
-            // Peek button - show full transcription toast (only when recording)
-            if isStreamingModeEnabled && !isIdleState && whisperState.recordingState == .recording {
-                Button(action: {
-                    Task { @MainActor in
-                        await whisperState.peekTranscription()
-                    }
-                }) {
-                    Image(systemName: "doc.text.magnifyingglass")
-                        .font(.system(size: 11))
-                        .foregroundColor(.white.opacity(0.8))
+            Button(action: {
+                Task { @MainActor in
+                    await whisperState.retryAfterError()
                 }
-                .buttonStyle(PlainButtonStyle())
-                .help("Show full transcription")
+            }) {
+                Image(systemName: "arrow.clockwise.circle.fill")
+                    .font(.system(size: 22))
+                    .foregroundColor(.white)
+                    .scaleEffect(retryPulse ? 1.15 : 1.0)
+                    .opacity(retryPulse ? 1.0 : 0.85)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .help("Retry")
+            .onAppear {
+                withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+                    retryPulse = true
+                }
+            }
+            .onDisappear {
+                retryPulse = false
             }
 
-            // Eyeball button - toggle ticker visibility (only in Live Preview mode)
-            if isStreamingModeEnabled && isLivePreviewEnabled && !isIdleState {
-                Button(action: {
-                    isPreviewVisible.toggle()
-                }) {
-                    Image(systemName: isPreviewVisible ? "eye.fill" : "eye.slash.fill")
-                        .font(.system(size: 12))
-                        .foregroundColor(.white.opacity(0.8))
-                }
-                .buttonStyle(PlainButtonStyle())
-                .help("Toggle ticker")
+            Button(action: {
+                whisperState.dismissError()
+            }) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(.white.opacity(0.7))
             }
+            .buttonStyle(PlainButtonStyle())
+            .help("Dismiss")
         }
         .padding(.trailing, 10)
         .frame(width: sectionWidth)
+    }
+
+    private var rightSection: some View {
+        HStack(spacing: 4) {
+            Spacer()
+
+            // Hide preview buttons when in format mode
+            if !isInFormatMode {
+                // Peek button - show full transcription toast (only in ticker mode, not box mode)
+                if isStreamingModeEnabled && !isIdleState && whisperState.recordingState == .recording && livePreviewStyle == "ticker" {
+                    NotchIconButton(
+                        icon: "doc.text.magnifyingglass",
+                        color: .white.opacity(0.9),
+                        tooltip: "Show full transcription"
+                    ) {
+                        Task { @MainActor in
+                            await whisperState.peekTranscription()
+                        }
+                    }
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                }
+
+                // Eyeball button - toggle preview visibility (ticker or box depending on mode)
+                if isStreamingModeEnabled && isLivePreviewEnabled && !isIdleState {
+                    NotchIconButton(
+                        icon: isPreviewVisible ? "eye.fill" : "eye.slash.fill",
+                        color: .white.opacity(0.9),
+                        tooltip: livePreviewStyle == "box" ? "Toggle live box" : "Toggle ticker"
+                    ) {
+                        if livePreviewStyle == "box" {
+                            NotificationManager.shared.toggleLiveBox()
+                        } else {
+                            isPreviewVisible.toggle()
+                        }
+                    }
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                }
+            }
+
+            // AI Polish button - always on right when API key is set and recording
+            // Shows as "engaged" (highlighted) when in format mode
+            if !openAIAPIKey.isEmpty && whisperState.recordingState == .recording {
+                if isInFormatMode {
+                    // Engaged state - highlighted wand
+                    Image(systemName: "wand.and.stars")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(width: 24, height: 24)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(Color.white.opacity(0.3))
+                        )
+                        .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                } else {
+                    // Normal state - clickable button
+                    NotchIconButton(
+                        icon: "wand.and.stars",
+                        color: .white,
+                        tooltip: "AI Polish"
+                    ) {
+                        Task { @MainActor in
+                            await whisperState.triggerLLMFormatting()
+                        }
+                    }
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                }
+            }
+        }
+        .padding(.trailing, 8)
+        .frame(width: sectionWidth)
+        .clipped()
     }
 
     /// Normalized audio level (0.0 to 1.0) from the active recorder
@@ -171,20 +343,102 @@ struct NotchRecorderView: View {
     /// Background that changes based on state
     @ViewBuilder
     private var stateBackground: some View {
-        if isIdleState {
-            // Idle state: very subtle, almost invisible gray
-            // Brightens on hover to show interactivity
-            Color.gray.opacity(isHovering ? 0.35 : 0.15)
-        } else if whisperState.recordingState == .transcribing {
-            // Transcribing state: subtle blue processing indicator
+        if isInErrorState {
+            // Error state: red background
             LinearGradient(
                 colors: [
-                    Color.blue.opacity(0.6),
-                    Color.blue.opacity(0.4)
+                    Color(red: 0.8, green: 0.2, blue: 0.2).opacity(0.9),
+                    Color(red: 0.6, green: 0.1, blue: 0.1).opacity(0.95)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
+        } else if isIdleState {
+            // Idle state: very subtle, almost invisible gray
+            // Brightens on hover to show interactivity
+            Color.gray.opacity(isHovering ? 0.35 : 0.15)
+        } else if whisperState.recordingState == .transcribing {
+            // Transcribing state: animated shimmer loading effect
+            ZStack {
+                // Base gradient - purple/blue processing colors
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.4, green: 0.3, blue: 0.7).opacity(0.7),
+                        Color(red: 0.3, green: 0.4, blue: 0.8).opacity(0.8)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                // Shimmer overlay - sweeping highlight
+                GeometryReader { geometry in
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0),
+                            Color.white.opacity(0.3),
+                            Color.white.opacity(0.5),
+                            Color.white.opacity(0.3),
+                            Color.white.opacity(0)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                    .frame(width: geometry.size.width * 0.5)
+                    .offset(x: shimmerPhase * geometry.size.width * 1.5 - geometry.size.width * 0.25)
+                }
+            }
+            .onAppear {
+                withAnimation(.linear(duration: 1.2).repeatForever(autoreverses: false)) {
+                    shimmerPhase = 1
+                }
+            }
+            .onDisappear {
+                shimmerPhase = 0
+            }
+        } else if isInCommandMode {
+            // Command Mode: orange/yellow gradient to show voice navigation mode
+            ZStack {
+                // Base gradient - orange/yellow (matches Command Mode branding)
+                LinearGradient(
+                    colors: [
+                        Color(red: 1.0, green: 0.6, blue: 0.2).opacity(0.85),
+                        Color(red: 0.9, green: 0.4, blue: 0.1).opacity(0.9)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                // Highlight gradient - extent and opacity animated with audio
+                LinearGradient(
+                    colors: [
+                        Color(red: 1.0, green: 0.9, blue: 0.5).opacity(highlightOpacity),
+                        Color.clear
+                    ],
+                    startPoint: .top,
+                    endPoint: highlightExtent
+                )
+            }
+        } else if isInFormatMode {
+            // Format mode: purple/blue gradient to show we're in AI formatting mode
+            ZStack {
+                // Base gradient - purple/blue (matches Format with AI branding)
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.5, green: 0.3, blue: 0.8).opacity(0.85),
+                        Color(red: 0.3, green: 0.4, blue: 0.9).opacity(0.9)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                // Highlight gradient - extent and opacity animated with audio
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.8, green: 0.7, blue: 1.0).opacity(highlightOpacity),
+                        Color.clear
+                    ],
+                    startPoint: .top,
+                    endPoint: highlightExtent
+                )
+            }
         } else {
             // Recording state (or normal show): full orange/red gradient with animated highlight
             ZStack {
@@ -210,9 +464,12 @@ struct NotchRecorderView: View {
         }
     }
     
-    /// Whether to show live transcription ticker (streaming mode + live preview enabled)
+    /// Live preview style: "ticker" (horizontal scrolling) or "box" (draggable floating box)
+    @AppStorage("LivePreviewStyle") private var livePreviewStyle = "ticker"
+
+    /// Whether to show live transcription ticker (streaming mode + live preview enabled + ticker mode)
     private var shouldShowTicker: Bool {
-        isStreamingModeEnabled && isLivePreviewEnabled && !isIdleState
+        isStreamingModeEnabled && isLivePreviewEnabled && !isIdleState && livePreviewStyle == "ticker"
     }
 
     var body: some View {
@@ -221,12 +478,17 @@ struct NotchRecorderView: View {
                 VStack(spacing: 4) {
                     // Main notch bar
                     HStack(spacing: 0) {
-                        leftSection
-                        centerSection
-                        rightSection
+                        if isInErrorState {
+                            errorLeftSection
+                            centerSection
+                            errorRightSection
+                        } else {
+                            leftSection
+                            centerSection
+                            rightSection
+                        }
                     }
-                    .frame(height: menuBarHeight)
-                    .frame(maxWidth: windowManager.isVisible ? .infinity : 0)
+                    .frame(width: totalBarWidth, height: menuBarHeight)
                     .background(stateBackground)
                     .mask {
                         NotchShape(cornerRadius: 10)
@@ -267,6 +529,8 @@ struct NotchRecorderView: View {
                     }
                     .animation(.easeInOut(duration: 0.3), value: whisperState.recordingState)
                     .animation(.easeInOut(duration: 0.2), value: isHovering)
+                    .animation(.easeInOut(duration: 0.4), value: isIdleState)
+                    .frame(maxWidth: .infinity)  // Center the shrinking bar within full-width parent
 
                     // Live transcription ticker below notch
                     if shouldShowTicker && isPreviewVisible {
@@ -281,13 +545,24 @@ struct NotchRecorderView: View {
                 .onChange(of: whisperState.recordingState) { _, newState in
                     if newState == .recording {
                         recordingDuration = 0
+                        formatModeDuration = 0
                         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
                             recordingDuration += 0.1
+                            if isInFormatMode {
+                                formatModeDuration += 0.1
+                            }
                         }
                     } else {
                         timer?.invalidate()
                         timer = nil
                         recordingDuration = 0
+                        formatModeDuration = 0
+                    }
+                }
+                .onChange(of: whisperState.isWaitingForFormattingInstruction) { oldValue, newValue in
+                    // When entering format mode, reset the format timer
+                    if newValue && !oldValue {
+                        formatModeDuration = 0
                     }
                 }
                 .onAppear {
@@ -306,6 +581,41 @@ struct NotchRecorderView: View {
     }
 }
 
+// MARK: - Notch Icon Button
 
+/// A styled button for the notch UI with hover effects and pointer cursor
+private struct NotchIconButton: View {
+    let icon: String
+    let color: Color
+    let tooltip: String
+    let action: () -> Void
 
- 
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(isHovered ? color : color.opacity(0.8))
+                .frame(width: 24, height: 24)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(isHovered ? Color.white.opacity(0.15) : Color.clear)
+                )
+                .scaleEffect(isHovered ? 1.1 : 1.0)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .help(tooltip)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovered = hovering
+            }
+            if hovering {
+                NSCursor.pointingHand.push()
+            } else {
+                NSCursor.pop()
+            }
+        }
+    }
+}
+

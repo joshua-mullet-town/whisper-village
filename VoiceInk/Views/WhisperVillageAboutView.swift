@@ -34,10 +34,10 @@ struct WhisperVillageAboutView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("About")
                         .font(.headline)
-                    
+
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Whisper Village is a free, community-focused voice dictation tool built for everyone.")
-                        Text("Transform your voice into text instantly with privacy-first, offline processing.")
+                        Text("Lightning-fast local transcription by default. Optional cloud features when you need extra power.")
                         Text("No trials, no limits, no subscriptions - just powerful voice transcription that works.")
                     }
                     .font(.body)
@@ -48,13 +48,13 @@ struct WhisperVillageAboutView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Features")
                         .font(.headline)
-                    
+
                     VStack(alignment: .leading, spacing: 8) {
-                        FeatureRow(icon: "mic.fill", title: "Instant Transcription", description: "Real-time voice-to-text with 99% accuracy")
-                        FeatureRow(icon: "lock.shield.fill", title: "Privacy First", description: "100% offline - your data never leaves your device")
+                        FeatureRow(icon: "bolt.fill", title: "Blazing Fast", description: "Parakeet V3 transcribes in real-time, 100% local")
+                        FeatureRow(icon: "wand.and.stars", title: "AI Polish", description: "Optional AI formatting - translate, rewrite, perfect your words")
+                        FeatureRow(icon: "lock.shield.fill", title: "Offline First", description: "Local by default - cloud features are opt-in")
                         FeatureRow(icon: "keyboard.fill", title: "Global Shortcuts", description: "Quick recording with customizable hotkeys")
                         FeatureRow(icon: "book.fill", title: "Custom Words", description: "Train the AI with your vocabulary")
-                        FeatureRow(icon: "doc.text.fill", title: "Full History", description: "Access all your past transcriptions")
                     }
                 }
                 

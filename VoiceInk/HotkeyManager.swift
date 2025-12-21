@@ -8,6 +8,8 @@ extension KeyboardShortcuts.Name {
     static let toggleMiniRecorder2 = Self("toggleMiniRecorder2")
     static let pasteLastTranscription = Self("pasteLastTranscription")
     static let retryLastTranscription = Self("retryLastTranscription")
+    static let formatWithLLM = Self("formatWithLLM")
+    static let commandMode = Self("commandMode")
 }
 
 @MainActor
@@ -163,7 +165,26 @@ class HotkeyManager: ObservableObject {
                 LastTranscriptionService.retryLastTranscription(from: self.whisperState.modelContext, whisperState: self.whisperState)
             }
         }
-        
+
+        // Format with LLM hotkey - triggers two-stage formatting mode
+        // User must be actively recording - this captures content and starts Stage 2
+        KeyboardShortcuts.onKeyUp(for: .formatWithLLM) { [weak self] in
+            guard let self = self else { return }
+            Task { @MainActor in
+                await self.whisperState.triggerLLMFormatting()
+            }
+        }
+
+        // Command Mode hotkey - converts current recording to a command
+        // User must be actively recording - this marks the transcription as a command
+        // When recording stops, it interprets and executes instead of pasting
+        KeyboardShortcuts.onKeyUp(for: .commandMode) { [weak self] in
+            guard let self = self else { return }
+            Task { @MainActor in
+                await self.whisperState.triggerCommandMode()
+            }
+        }
+
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 100_000_000)
             self.setupHotkeyMonitoring()
@@ -375,6 +396,13 @@ class HotkeyManager: ObservableObject {
                 // BUSY - ignore keypress entirely
                 return
 
+            case .error:
+                // In error state - dismiss error and allow starting new recording
+                Task { @MainActor in
+                    whisperState.dismissError()
+                }
+                return
+
             case .recording:
                 // STOP recording
                 isHandsFreeMode = false
@@ -453,6 +481,11 @@ class HotkeyManager: ObservableObject {
         switch state {
         case .transcribing, .enhancing, .busy:
             // BUSY - ignore
+            return
+
+        case .error:
+            // In error state - dismiss error
+            whisperState.dismissError()
             return
 
         case .recording:

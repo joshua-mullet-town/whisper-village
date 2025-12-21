@@ -15,408 +15,64 @@ struct SettingsView: View {
     @ObservedObject private var playbackController = PlaybackController.shared
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = true
     @AppStorage("autoUpdateCheck") private var autoUpdateCheck = true
-    @AppStorage("NotchAlwaysVisible") private var notchAlwaysVisible = false
+    @AppStorage("NotchAlwaysVisible") private var notchAlwaysVisible = true
     @State private var showResetOnboardingAlert = false
     @State private var currentShortcut = KeyboardShortcuts.getShortcut(for: .toggleMiniRecorder)
-    @State private var isCustomCancelEnabled = false
+    @State private var isDataSectionExpanded = false
 
-    
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                SettingsSection(
-                    icon: "command.circle",
-                    title: "Whisper Village Shortcuts",
-                    subtitle: "Choose how you want to trigger Whisper Village"
-                ) {
-                    VStack(alignment: .leading, spacing: 18) {
-                        hotkeyView(
-                            title: "Hotkey 1",
-                            binding: $hotkeyManager.selectedHotkey1,
-                            shortcutName: .toggleMiniRecorder
-                        )
+                // Shortcuts - Main hotkey + quick actions
+                ShortcutsSection()
 
-                        if hotkeyManager.selectedHotkey2 != .none {
-                            Divider()
-                            hotkeyView(
-                                title: "Hotkey 2",
-                                binding: $hotkeyManager.selectedHotkey2,
-                                shortcutName: .toggleMiniRecorder2,
-                                isRemovable: true,
-                                onRemove: {
-                                    withAnimation { hotkeyManager.selectedHotkey2 = .none }
-                                }
-                            )
-                        }
+                // AI Polish - Dedicated exciting section
+                FormatWithAISection()
 
-                        if hotkeyManager.selectedHotkey1 != .none && hotkeyManager.selectedHotkey2 == .none {
-                            HStack {
-                                Spacer()
-                                Button(action: {
-                                    withAnimation { hotkeyManager.selectedHotkey2 = .rightOption }
-                                }) {
-                                    Label("Add another hotkey", systemImage: "plus.circle.fill")
-                                }
-                                .buttonStyle(.plain)
-                                .foregroundColor(.accentColor)
-                            }
-                        }
+                // Command Mode - Voice-activated navigation
+                CommandModeSection()
 
-                        Text("Quick tap to start hands-free recording (tap again to stop). Press and hold for push-to-talk (release to stop recording).")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
+                // Recording Feedback - Sounds and audio behavior
+                RecordingFeedbackSection()
 
-                SettingsSection(
-                    icon: "keyboard.badge.ellipsis",
-                    title: "Other App Shortcuts",
-                    subtitle: "Additional shortcuts for Whisper Village"
-                ) {
-                    VStack(alignment: .leading, spacing: 18) {
-                        // Paste Last Transcription
-                        HStack(spacing: 12) {
-                            Text("Paste Last Transcription")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.secondary)
-                            
-                            KeyboardShortcuts.Recorder(for: .pasteLastTranscription)
-                                .controlSize(.small)
-                            
-                            InfoTip(
-                                title: "Paste Last Transcription",
-                                message: "Shortcut for pasting the most recent transcription at current cursor position."
-                            )
-                            
-                            Spacer()
-                        }
+                // Live Preview - How transcription is displayed while recording
+                LivePreviewSection()
 
-                        // Retry Last Transcription
-                        HStack(spacing: 12) {
-                            Text("Retry Last Transcription")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.secondary)
+                // Auto Formatting - Text cleanup and formatting
+                AutoFormattingSection()
 
-                            KeyboardShortcuts.Recorder(for: .retryLastTranscription)
-                                .controlSize(.small)
-
-                            InfoTip(
-                                title: "Retry Last Transcription",
-                                message: "Re-transcribe the last recorded audio using the current model and copy the result."
-                            )
-
-                            Spacer()
-                        }
-
-                        Divider()
-                            .padding(.vertical, 4)
-
-                        Text("Recording Actions")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.primary)
-
-                        // Send Shortcut (Stop + Paste + Enter)
-                        HStack(spacing: 12) {
-                            Text("Send (Paste + Enter)")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.secondary)
-
-                            KeyboardShortcuts.Recorder(for: .sendRecorder)
-                                .controlSize(.small)
-
-                            InfoTip(
-                                title: "Send Recording",
-                                message: "Stop recording, transcribe, paste the text, and press Enter to send. Great for chat apps."
-                            )
-
-                            Spacer()
-                        }
-
-                        // Peek Shortcut (Show transcription without stopping)
-                        HStack(spacing: 12) {
-                            Text("Peek Transcription")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.secondary)
-
-                            KeyboardShortcuts.Recorder(for: .peekTranscription)
-                                .controlSize(.small)
-
-                            InfoTip(
-                                title: "Peek Transcription",
-                                message: "Show what you've said so far without stopping the recording. Only works in streaming mode."
-                            )
-
-                            Spacer()
-                        }
-
-                        // Custom Cancel Shortcut
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack(spacing: 8) {
-                                Toggle(isOn: $isCustomCancelEnabled.animation()) {
-                                    Text("Custom Cancel Shortcut")
-                                }
-                                .toggleStyle(.switch)
-                                .onChange(of: isCustomCancelEnabled) { _, newValue in
-                                    if !newValue {
-                                        KeyboardShortcuts.setShortcut(nil, for: .cancelRecorder)
-                                    }
-                                }
-                                
-                                InfoTip(
-                                    title: "Dismiss Recording",
-                                    message: "Shortcut for cancelling the current recording session. Default: double-tap Escape."
-                                )
-                            }
-                            
-                            if isCustomCancelEnabled {
-                                HStack(spacing: 12) {
-                                    Text("Cancel Shortcut")
-                                        .font(.system(size: 13, weight: .medium))
-                                        .foregroundColor(.secondary)
-                                    
-                                    KeyboardShortcuts.Recorder(for: .cancelRecorder)
-                                        .controlSize(.small)
-                                    
-                                    Spacer()
-                                }
-                                .padding(.leading, 16)
-                                .transition(.opacity.combined(with: .move(edge: .top)))
-                            }
-                        }
-
-                        // Middle-Click Toggle
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack(spacing: 8) {
-                                Toggle("Enable Middle-Click Toggle", isOn: $hotkeyManager.isMiddleClickToggleEnabled.animation())
-                                    .toggleStyle(.switch)
-                                
-                                InfoTip(
-                                    title: "Middle-Click Toggle",
-                                    message: "Use middle mouse button to toggle Whisper Village recording."
-                                )
-                            }
-
-                            if hotkeyManager.isMiddleClickToggleEnabled {
-                                HStack(spacing: 8) {
-                                    Text("Activation Delay")
-                                        .font(.system(size: 13, weight: .medium))
-                                        .foregroundColor(.secondary)
-                                    
-                                    TextField("", value: $hotkeyManager.middleClickActivationDelay, formatter: {
-                                        let formatter = NumberFormatter()
-                                        formatter.numberStyle = .none
-                                        formatter.minimum = 0
-                                        return formatter
-                                    }())
-                                    .textFieldStyle(PlainTextFieldStyle())
-                                    .padding(EdgeInsets(top: 3, leading: 6, bottom: 3, trailing: 6))
-                                    .background(Color(NSColor.textBackgroundColor))
-                                    .cornerRadius(5)
-                                    .frame(width: 70)
-                                    
-                                    Text("ms")
-                                        .foregroundColor(.secondary)
-                                    
-                                    Spacer()
-                                }
-                                .padding(.leading, 16)
-                                .transition(.opacity.combined(with: .move(edge: .top)))
-                            }
-                        }
-                    }
-                }
-
-                SettingsSection(
-                    icon: "speaker.wave.2.bubble.left.fill",
-                    title: "Recording Feedback",
-                    subtitle: "Customize app & system feedback"
-                ) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Toggle(isOn: .init(
-                            get: { SoundManager.shared.isEnabled },
-                            set: { SoundManager.shared.isEnabled = $0 }
-                        )) {
-                            Text("Sound feedback")
-                        }
-                        .toggleStyle(.switch)
-
-                        if SoundManager.shared.isEnabled {
-                            SoundThemePicker()
-                        }
-
-                        Toggle(isOn: $mediaController.isSystemMuteEnabled) {
-                            Text("Mute system audio during recording")
-                        }
-                        .toggleStyle(.switch)
-                        .help("Automatically mute system audio when recording starts and restore when recording stops")
-
-                        Toggle(isOn: Binding(
-                            get: { UserDefaults.standard.bool(forKey: "preserveTranscriptInClipboard") },
-                            set: { UserDefaults.standard.set($0, forKey: "preserveTranscriptInClipboard") }
-                        )) {
-                            Text("Preserve transcript in clipboard")
-                        }
-                        .toggleStyle(.switch)
-                        .help("Keep the transcribed text in clipboard instead of restoring the original clipboard content")
-
-                    }
-                }
-
+                // Experimental - Beta features
                 ExperimentalFeaturesSection()
 
-                SettingsSection(
-                    icon: "rectangle.on.rectangle",
-                    title: "Recorder Style",
-                    subtitle: "Choose your preferred recorder interface"
-                ) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Select how you want the recorder to appear on your screen.")
-                            .settingsDescription()
-                        
-                        Picker("Recorder Style", selection: $whisperState.recorderType) {
-                            Text("Notch Recorder").tag("notch")
-                            Text("Mini Recorder").tag("mini")
-                        }
-                        .pickerStyle(.radioGroup)
-                        .padding(.vertical, 4)
+                // Visual - Appearance settings
+                VisualSection(
+                    notchAlwaysVisible: $notchAlwaysVisible,
+                    menuBarManager: menuBarManager
+                )
 
-                        // Always visible toggle - only for notch recorder
-                        if whisperState.recorderType == "notch" {
-                            Divider()
-                                .padding(.vertical, 4)
+                // General - Startup and updates
+                GeneralSection(
+                    autoUpdateCheck: $autoUpdateCheck,
+                    showResetOnboardingAlert: $showResetOnboardingAlert,
+                    updaterViewModel: updaterViewModel
+                )
 
-                            Toggle(isOn: $notchAlwaysVisible) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Always Visible")
-                                    Text("Keep the notch recorder visible at all times")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                            .toggleStyle(.switch)
-                        }
-                    }
-                }
-
-                SettingsSection(
-                    icon: "doc.on.clipboard",
-                    title: "Paste Method",
-                    subtitle: "Choose how text is pasted"
-                ) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Select the method used to paste text. Use AppleScript if you have a non-standard keyboard layout.")
-                            .settingsDescription()
-                        
-                        Toggle("Use AppleScript Paste Method", isOn: Binding(
-                            get: { UserDefaults.standard.bool(forKey: "UseAppleScriptPaste") },
-                            set: { UserDefaults.standard.set($0, forKey: "UseAppleScriptPaste") }
-                        ))
-                        .toggleStyle(.switch)
-                    }
-                }
-
-                SettingsSection(
-                    icon: "gear",
-                    title: "General",
-                    subtitle: "Appearance, startup, and updates"
-                ) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Toggle("Hide Dock Icon (Menu Bar Only)", isOn: $menuBarManager.isMenuBarOnly)
-                            .toggleStyle(.switch)
-                        
-                        LaunchAtLogin.Toggle()
-                            .toggleStyle(.switch)
-
-                        Toggle("Enable automatic update checks", isOn: $autoUpdateCheck)
-                            .toggleStyle(.switch)
-                            .onChange(of: autoUpdateCheck) { _, newValue in
-                                updaterViewModel.toggleAutoUpdates(newValue)
-                            }
-                        
-                        Button("Check for Updates Now") {
-                            updaterViewModel.checkForUpdates()
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.large)
-                        .disabled(!updaterViewModel.canCheckForUpdates)
-                        
-                        Divider()
-
-                        Button("Reset Onboarding") {
-                            showResetOnboardingAlert = true
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.large)
-                    }
-                }
-                
-                SettingsSection(
-                    icon: "lock.shield",
-                    title: "Data & Privacy",
-                    subtitle: "Control transcript history and storage"
-                ) {
-                    AudioCleanupSettingsView()
-                }
-                
-                SettingsSection(
-                    icon: "arrow.up.arrow.down.circle",
-                    title: "Data Management",
-                    subtitle: "Import or export your settings"
-                ) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Export your custom prompts, power modes, word replacements, keyboard shortcuts, and app preferences to a backup file. API keys are not included in the export.")
-                            .settingsDescription()
-
-                        HStack(spacing: 12) {
-                            Button {
-                                ImportExportService.shared.importSettings(
-                                    enhancementService: enhancementService, 
-                                    whisperPrompt: whisperState.whisperPrompt, 
-                                    hotkeyManager: hotkeyManager, 
-                                    menuBarManager: menuBarManager, 
-                                    mediaController: MediaController.shared, 
-                                    playbackController: PlaybackController.shared,
-                                    soundManager: SoundManager.shared,
-                                    whisperState: whisperState
-                                )
-                            } label: {
-                                Label("Import Settings...", systemImage: "arrow.down.doc")
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .controlSize(.large)
-
-                            Button {
-                                ImportExportService.shared.exportSettings(
-                                    enhancementService: enhancementService, 
-                                    whisperPrompt: whisperState.whisperPrompt, 
-                                    hotkeyManager: hotkeyManager, 
-                                    menuBarManager: menuBarManager, 
-                                    mediaController: MediaController.shared, 
-                                    playbackController: PlaybackController.shared,
-                                    soundManager: SoundManager.shared,
-                                    whisperState: whisperState
-                                )
-                            } label: {
-                                Label("Export Settings...", systemImage: "arrow.up.doc")
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .controlSize(.large)
-                        }
-                    }
-                }
+                // Data & Privacy - Collapsible at bottom
+                DataPrivacySection(
+                    isExpanded: $isDataSectionExpanded,
+                    enhancementService: enhancementService,
+                    whisperState: whisperState,
+                    hotkeyManager: hotkeyManager,
+                    menuBarManager: menuBarManager
+                )
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 6)
         }
         .background(Color(NSColor.controlBackgroundColor))
-        .onAppear {
-            isCustomCancelEnabled = KeyboardShortcuts.getShortcut(for: .cancelRecorder) != nil
-        }
         .alert("Reset Onboarding", isPresented: $showResetOnboardingAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Reset", role: .destructive) {
-                // Defer state change to avoid layout issues while alert dismisses
                 DispatchQueue.main.async {
                     hasCompletedOnboarding = false
                 }
@@ -425,72 +81,414 @@ struct SettingsView: View {
             Text("Are you sure you want to reset the onboarding? You'll see the introduction screens again the next time you launch the app.")
         }
     }
-    
-    @ViewBuilder
-    private func hotkeyView(
-        title: String,
-        binding: Binding<HotkeyManager.HotkeyOption>,
-        shortcutName: KeyboardShortcuts.Name,
-        isRemovable: Bool = false,
-        onRemove: (() -> Void)? = nil
-    ) -> some View {
-        HStack(spacing: 12) {
-            Text(title)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.secondary)
-            
-            Menu {
-                ForEach(HotkeyManager.HotkeyOption.allCases, id: \.self) { option in
-                    Button(action: {
-                        binding.wrappedValue = option
-                    }) {
-                        HStack {
-                            Text(option.displayName)
-                            if binding.wrappedValue == option {
-                                Spacer()
-                                Image(systemName: "checkmark")
-                            }
-                        }
+}
+
+// MARK: - Recording Feedback Section
+
+struct RecordingFeedbackSection: View {
+    @ObservedObject private var mediaController = MediaController.shared
+
+    var body: some View {
+        SettingsSection(
+            icon: "speaker.wave.2.bubble.left.fill",
+            title: "Recording Feedback",
+            subtitle: "Sounds and audio behavior"
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
+                Toggle(isOn: .init(
+                    get: { SoundManager.shared.isEnabled },
+                    set: { SoundManager.shared.isEnabled = $0 }
+                )) {
+                    Text("Sound feedback")
+                }
+                .toggleStyle(.switch)
+
+                if SoundManager.shared.isEnabled {
+                    SoundThemePicker()
+                }
+
+                Toggle(isOn: $mediaController.isSystemMuteEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Mute system audio during recording")
+                        Text("Automatically mute and restore when done")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                 }
-            } label: {
-                HStack(spacing: 8) {
-                    Text(binding.wrappedValue.displayName)
-                        .foregroundColor(.primary)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Color(NSColor.controlBackgroundColor))
-                .cornerRadius(6)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
-                )
-            }
-            .menuStyle(.borderlessButton)
-            
-            if binding.wrappedValue == .custom {
-                KeyboardShortcuts.Recorder(for: shortcutName)
-                    .controlSize(.small)
-            }
-            
-            Spacer()
-            
-            if isRemovable {
-                Button(action: {
-                    onRemove?()
-                }) {
-                    Image(systemName: "minus.circle.fill")
-                        .foregroundColor(.red)
-                }
-                .buttonStyle(.plain)
+                .toggleStyle(.switch)
             }
         }
     }
 }
+
+// MARK: - Live Preview Section
+
+struct LivePreviewSection: View {
+    @AppStorage("LivePreviewEnabled") private var isLivePreviewEnabled = true
+    @AppStorage("LivePreviewStyle") private var livePreviewStyle = "ticker"
+
+    var body: some View {
+        SettingsSection(
+            icon: "text.bubble.fill",
+            title: "Live Preview",
+            subtitle: "See your transcription as you speak"
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
+                Toggle(isOn: $isLivePreviewEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Enable Live Preview")
+                        Text(isLivePreviewEnabled
+                            ? "Transcription updates in real-time as you speak"
+                            : "Transcription only appears when you stop recording")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .toggleStyle(.switch)
+
+                if isLivePreviewEnabled {
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Preview Style")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+
+                        Picker("", selection: $livePreviewStyle) {
+                            Text("Ticker").tag("ticker")
+                            Text("Box").tag("box")
+                        }
+                        .pickerStyle(SegmentedPickerStyle())
+                        .frame(width: 180)
+
+                        if livePreviewStyle == "ticker" {
+                            HStack(spacing: 6) {
+                                Image(systemName: "text.line.first.and.arrowtriangle.forward")
+                                    .foregroundColor(.secondary)
+                                Text("Horizontal scrolling text below the recorder")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        } else {
+                            HStack(spacing: 6) {
+                                Image(systemName: "rectangle.on.rectangle")
+                                    .foregroundColor(.secondary)
+                                Text("Draggable floating box with adjustable size")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Auto Formatting Section
+
+struct AutoFormattingSection: View {
+    @AppStorage("SmartCapitalizationEnabled") private var isSmartCapitalizationEnabled = true
+    @AppStorage("AutoEndPunctuationEnabled") private var isAutoEndPunctuationEnabled = true
+    @AppStorage("IsMLCleanupEnabled") private var isMLCleanupEnabled = false
+    @AppStorage("MLCleanupFillerEnabled") private var isFillerEnabled = true
+    @AppStorage("MLCleanupRepetitionEnabled") private var isRepetitionEnabled = true
+
+    var body: some View {
+        SettingsSection(
+            icon: "textformat.abc",
+            title: "Auto Formatting",
+            subtitle: "Automatic text cleanup and formatting"
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
+                Toggle(isOn: $isSmartCapitalizationEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Smart Capitalization")
+                        Text("Lowercase first word when pasting mid-sentence")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .toggleStyle(.switch)
+
+                Toggle(isOn: $isAutoEndPunctuationEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Auto End Punctuation")
+                        Text("Add period if transcription has no ending punctuation")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .toggleStyle(.switch)
+
+                Divider()
+
+                // ML Cleanup
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle(isOn: $isMLCleanupEnabled) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 6) {
+                                Text("ML Cleanup")
+                                Text("Beta")
+                                    .font(.caption2)
+                                    .fontWeight(.medium)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.orange.opacity(0.2))
+                                    .foregroundColor(.orange)
+                                    .cornerRadius(4)
+                            }
+                            Text("Use local ML models to clean up transcriptions")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .toggleStyle(.switch)
+
+                    if isMLCleanupEnabled {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Toggle(isOn: $isFillerEnabled) {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("Remove Fillers")
+                                        .font(.subheadline)
+                                    Text("uh, um, er, like → removed")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .toggleStyle(.switch)
+
+                            Toggle(isOn: $isRepetitionEnabled) {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("Remove Repetitions")
+                                        .font(.subheadline)
+                                    Text("I I I think → I think")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .toggleStyle(.switch)
+                        }
+                        .padding(.leading, 16)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Visual Section
+
+struct VisualSection: View {
+    @Binding var notchAlwaysVisible: Bool
+    @ObservedObject var menuBarManager: MenuBarManager
+
+    var body: some View {
+        SettingsSection(
+            icon: "sparkles.rectangle.stack.fill",
+            title: "Visual",
+            subtitle: "Appearance and display options"
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
+                Toggle(isOn: $notchAlwaysVisible) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Always Show Recorder")
+                        Text("Keep the notch recorder visible even when not recording")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .toggleStyle(.switch)
+
+                Toggle(isOn: $menuBarManager.isMenuBarOnly) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Hide Dock Icon")
+                        Text("Run as a menu bar only app")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .toggleStyle(.switch)
+            }
+        }
+    }
+}
+
+// MARK: - General Section
+
+struct GeneralSection: View {
+    @Binding var autoUpdateCheck: Bool
+    @Binding var showResetOnboardingAlert: Bool
+    @ObservedObject var updaterViewModel: UpdaterViewModel
+
+    var body: some View {
+        SettingsSection(
+            icon: "gearshape.fill",
+            title: "General",
+            subtitle: "Startup and updates"
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
+                LaunchAtLogin.Toggle {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Launch at Login")
+                        Text("Start Whisper Village when you log in")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .toggleStyle(.switch)
+
+                Toggle(isOn: $autoUpdateCheck) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Automatic Updates")
+                        Text("Check for updates in the background")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .toggleStyle(.switch)
+                .onChange(of: autoUpdateCheck) { _, newValue in
+                    updaterViewModel.toggleAutoUpdates(newValue)
+                }
+
+                Divider()
+
+                HStack(spacing: 12) {
+                    Button(action: {
+                        updaterViewModel.checkForUpdates()
+                    }) {
+                        Label("Check for Updates", systemImage: "arrow.triangle.2.circlepath")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.regular)
+                    .disabled(!updaterViewModel.canCheckForUpdates)
+
+                    Button(action: {
+                        showResetOnboardingAlert = true
+                    }) {
+                        Label("Reset Onboarding", systemImage: "arrow.counterclockwise")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.regular)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Data & Privacy Section (Collapsible)
+
+struct DataPrivacySection: View {
+    @Binding var isExpanded: Bool
+    @ObservedObject var enhancementService: AIEnhancementService
+    @ObservedObject var whisperState: WhisperState
+    @ObservedObject var hotkeyManager: HotkeyManager
+    @ObservedObject var menuBarManager: MenuBarManager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header - always visible, clickable to expand
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isExpanded.toggle()
+                }
+            }) {
+                HStack(spacing: 12) {
+                    Image(systemName: "lock.shield")
+                        .font(.system(size: 20))
+                        .foregroundColor(.secondary)
+                        .frame(width: 24, height: 24)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Data & Privacy")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        Text("History, storage, import/export")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+                .padding(16)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                Divider()
+                    .padding(.horizontal, 16)
+
+                VStack(alignment: .leading, spacing: 16) {
+                    // Audio Cleanup Settings
+                    AudioCleanupSettingsView()
+
+                    Divider()
+
+                    // Import/Export
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Data Management")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+
+                        Text("Export your custom prompts, power modes, word replacements, keyboard shortcuts, and app preferences. API keys are not included.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        HStack(spacing: 12) {
+                            Button {
+                                ImportExportService.shared.importSettings(
+                                    enhancementService: enhancementService,
+                                    whisperPrompt: whisperState.whisperPrompt,
+                                    hotkeyManager: hotkeyManager,
+                                    menuBarManager: menuBarManager,
+                                    mediaController: MediaController.shared,
+                                    playbackController: PlaybackController.shared,
+                                    soundManager: SoundManager.shared,
+                                    whisperState: whisperState
+                                )
+                            } label: {
+                                Label("Import...", systemImage: "arrow.down.doc")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .controlSize(.regular)
+
+                            Button {
+                                ImportExportService.shared.exportSettings(
+                                    enhancementService: enhancementService,
+                                    whisperPrompt: whisperState.whisperPrompt,
+                                    hotkeyManager: hotkeyManager,
+                                    menuBarManager: menuBarManager,
+                                    mediaController: MediaController.shared,
+                                    playbackController: PlaybackController.shared,
+                                    soundManager: SoundManager.shared,
+                                    whisperState: whisperState
+                                )
+                            } label: {
+                                Label("Export...", systemImage: "arrow.up.doc")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .controlSize(.regular)
+                        }
+                    }
+                }
+                .padding(16)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(CardBackground(isSelected: false, useAccentGradientWhenSelected: true))
+        .animation(.easeInOut(duration: 0.2), value: isExpanded)
+    }
+}
+
+// MARK: - Settings Section Component
 
 struct SettingsSection<Content: View>: View {
     let icon: String
@@ -498,7 +496,7 @@ struct SettingsSection<Content: View>: View {
     let subtitle: String
     let content: Content
     var showWarning: Bool = false
-    
+
     init(icon: String, title: String, subtitle: String, showWarning: Bool = false, @ViewBuilder content: () -> Content) {
         self.icon = icon
         self.title = title
@@ -506,7 +504,7 @@ struct SettingsSection<Content: View>: View {
         self.showWarning = showWarning
         self.content = content()
     }
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
@@ -514,7 +512,7 @@ struct SettingsSection<Content: View>: View {
                     .font(.system(size: 20))
                     .foregroundColor(showWarning ? .red : .accentColor)
                     .frame(width: 24, height: 24)
-                
+
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.headline)
@@ -522,7 +520,7 @@ struct SettingsSection<Content: View>: View {
                         .font(.subheadline)
                         .foregroundColor(showWarning ? .red : .secondary)
                 }
-                
+
                 if showWarning {
                     Spacer()
                     Image(systemName: "exclamationmark.triangle.fill")
@@ -530,10 +528,10 @@ struct SettingsSection<Content: View>: View {
                         .help("Permission required for Whisper Village to function properly")
                 }
             }
-            
+
             Divider()
                 .padding(.vertical, 4)
-            
+
             content
         }
         .padding(16)
@@ -553,7 +551,6 @@ struct SoundThemePicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Start sound picker
             SoundEventPicker(
                 label: "Start recording",
                 icon: "record.circle",
@@ -564,7 +561,6 @@ struct SoundThemePicker: View {
                 )
             )
 
-            // Stop sound picker
             SoundEventPicker(
                 label: "Stop recording",
                 icon: "stop.circle",
@@ -575,7 +571,6 @@ struct SoundThemePicker: View {
                 )
             )
 
-            // Cancel sound picker
             SoundEventPicker(
                 label: "Cancel / Escape",
                 icon: "xmark.circle",
@@ -586,7 +581,6 @@ struct SoundThemePicker: View {
                 )
             )
 
-            // Send sound picker
             SoundEventPicker(
                 label: "Send (paste + enter)",
                 icon: "paperplane.circle",
@@ -609,7 +603,6 @@ struct SoundEventPicker: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Label with icon
             HStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.system(size: 12))
@@ -620,7 +613,6 @@ struct SoundEventPicker: View {
             }
             .frame(width: 120, alignment: .leading)
 
-            // Dropdown picker
             Picker("", selection: $selection) {
                 ForEach(options) { option in
                     Text(option.displayName).tag(option)
@@ -632,7 +624,6 @@ struct SoundEventPicker: View {
                 SoundManager.shared.preview(newValue)
             }
 
-            // Preview button
             Button(action: {
                 SoundManager.shared.preview(selection)
             }) {
@@ -648,7 +639,6 @@ struct SoundEventPicker: View {
     }
 }
 
-// Add this extension for consistent description text styling
 extension Text {
     func settingsDescription() -> some View {
         self
@@ -657,5 +647,3 @@ extension Text {
             .fixedSize(horizontal: false, vertical: true)
     }
 }
-
-

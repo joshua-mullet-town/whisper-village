@@ -18,7 +18,8 @@ class NotchRecorderPanel: KeyablePanel {
             let notchHeight: CGFloat
             if safeAreaInsets.top > 0 {
                 // We're definitely on a notched MacBook
-                notchHeight = safeAreaInsets.top
+                // Extend slightly below the notch to fill the full header
+                notchHeight = safeAreaInsets.top + 4
             } else {
                 // For external displays or non-notched MacBooks, use system menu bar height
                 notchHeight = NSStatusBar.system.thickness
@@ -93,7 +94,8 @@ class NotchRecorderPanel: KeyablePanel {
         let notchHeight: CGFloat
         if safeAreaInsets.top > 0 {
             // We're definitely on a notched MacBook
-            notchHeight = safeAreaInsets.top
+            // Extend slightly below the notch to fill the full header
+            notchHeight = safeAreaInsets.top + 4
         } else {
             // For external displays or non-notched MacBooks, use system menu bar height
             notchHeight = NSStatusBar.system.thickness

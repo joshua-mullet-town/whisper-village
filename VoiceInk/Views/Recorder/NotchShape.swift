@@ -5,7 +5,7 @@ struct NotchShape: Shape {
         if bottomCornerRadius > 15 {
             bottomCornerRadius - 5
         } else {
-            5
+            8
         }
     }
     
@@ -26,34 +26,58 @@ struct NotchShape: Shape {
     
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        // Start from the top left corner
-        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        // Top left inner curve
-        path.addQuadCurve(
-            to: CGPoint(x: rect.minX + topCornerRadius, y: topCornerRadius),
-            control: CGPoint(x: rect.minX + topCornerRadius, y: rect.minY)
+
+        // Start at top edge, after the left concave corner
+        path.move(to: CGPoint(x: rect.minX + topCornerRadius, y: rect.minY))
+
+        // Top edge (narrower than body due to concave corners)
+        path.addLine(to: CGPoint(x: rect.maxX - topCornerRadius, y: rect.minY))
+
+        // Top-right corner - standard convex rounded corner
+        path.addArc(
+            center: CGPoint(x: rect.maxX - topCornerRadius, y: rect.minY + topCornerRadius),
+            radius: topCornerRadius,
+            startAngle: .degrees(270),  // pointing up (from top edge)
+            endAngle: .degrees(0),      // pointing right (to right edge)
+            clockwise: false
         )
-        // Left vertical line
-        path.addLine(to: CGPoint(x: rect.minX + topCornerRadius, y: rect.maxY - bottomCornerRadius))
-        // Bottom left corner
-        path.addQuadCurve(
-            to: CGPoint(x: rect.minX + topCornerRadius + bottomCornerRadius, y: rect.maxY),
-            control: CGPoint(x: rect.minX + topCornerRadius, y: rect.maxY)
+
+        // Right edge (at full width) going down
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - bottomCornerRadius))
+
+        // Bottom-right corner (convex/rounded as before)
+        path.addArc(
+            center: CGPoint(x: rect.maxX - bottomCornerRadius, y: rect.maxY - bottomCornerRadius),
+            radius: bottomCornerRadius,
+            startAngle: .degrees(0),
+            endAngle: .degrees(90),
+            clockwise: false
         )
-        path.addLine(to: CGPoint(x: rect.maxX - topCornerRadius - bottomCornerRadius, y: rect.maxY))
-        // Bottom right corner
-        path.addQuadCurve(
-            to: CGPoint(x: rect.maxX - topCornerRadius, y: rect.maxY - bottomCornerRadius),
-            control: CGPoint(x: rect.maxX - topCornerRadius, y: rect.maxY)
+
+        // Bottom edge
+        path.addLine(to: CGPoint(x: rect.minX + bottomCornerRadius, y: rect.maxY))
+
+        // Bottom-left corner (convex/rounded as before)
+        path.addArc(
+            center: CGPoint(x: rect.minX + bottomCornerRadius, y: rect.maxY - bottomCornerRadius),
+            radius: bottomCornerRadius,
+            startAngle: .degrees(90),
+            endAngle: .degrees(180),
+            clockwise: false
         )
-        path.addLine(to: CGPoint(x: rect.maxX - topCornerRadius, y: rect.minY + bottomCornerRadius))
-        
-        // Closing the path to top right inner curve
-        path.addQuadCurve(
-            to: CGPoint(x: rect.maxX, y: rect.minY),
-            control: CGPoint(x: rect.maxX - topCornerRadius, y: rect.minY)
+
+        // Left edge (at full width) going up
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + topCornerRadius))
+
+        // Top-left corner - standard convex rounded corner
+        path.addArc(
+            center: CGPoint(x: rect.minX + topCornerRadius, y: rect.minY + topCornerRadius),
+            radius: topCornerRadius,
+            startAngle: .degrees(180),  // pointing left (from left edge)
+            endAngle: .degrees(270),    // pointing up (to top edge)
+            clockwise: false
         )
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
+
         return path
     }
 } 

@@ -65,7 +65,8 @@ struct NotchRecorderView: View {
     private var menuBarHeight: CGFloat {
         if let screen = NSScreen.main {
             if screen.safeAreaInsets.top > 0 {
-                return screen.safeAreaInsets.top
+                // Extend slightly below the notch to fill the full header
+                return screen.safeAreaInsets.top + 4
             }
             return NSApplication.shared.mainMenu?.menuBarHeight ?? NSStatusBar.system.thickness
         }

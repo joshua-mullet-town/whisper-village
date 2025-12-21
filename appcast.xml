@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.2</title>
+            <pubDate>Sun, 21 Dec 2025 03:01:10 -0500</pubDate>
+            <sparkle:version>94</sparkle:version>
+            <sparkle:shortVersionString>1.9.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.2</h3>
+                <ul>
+                    <li>Notch Recorder UI refresh: Reversed ear curves to point inward toward the physical notch, increased corner rounding, and extended height to fill the full menu bar.</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.2/WhisperVillage-1.9.2.dmg" length="254336173" type="application/octet-stream" sparkle:edSignature="4dZ+F7qCUGPJ8Ji/7pWm1y/G3a33x7mQWHucpgMxLXL0Q55XHawoINP6p2sU/avc9zAdfQ5I3qJC2S2CiUJYDw=="/>
+        </item>
+        <item>
             <title>1.9.1</title>
             <pubDate>Sun, 21 Dec 2025 02:26:38 -0500</pubDate>
             <sparkle:version>93</sparkle:version>

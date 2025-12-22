@@ -466,7 +466,7 @@ struct NotchRecorderView: View {
     }
     
     /// Live preview style: "ticker" (horizontal scrolling) or "box" (draggable floating box)
-    @AppStorage("LivePreviewStyle") private var livePreviewStyle = "ticker"
+    @AppStorage("LivePreviewStyle") private var livePreviewStyle = "box"
 
     /// Whether to show live transcription ticker (streaming mode + live preview enabled + ticker mode)
     private var shouldShowTicker: Bool {

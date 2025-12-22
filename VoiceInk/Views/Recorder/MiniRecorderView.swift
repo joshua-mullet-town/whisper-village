@@ -39,7 +39,7 @@ struct MiniRecorderView: View {
     @AppStorage("StreamingPreviewVisible") private var isPreviewVisible: Bool = true
 
     /// Live preview style: "ticker" (horizontal scrolling) or "box" (draggable floating box)
-    @AppStorage("LivePreviewStyle") private var livePreviewStyle = "ticker"
+    @AppStorage("LivePreviewStyle") private var livePreviewStyle = "box"
 
     /// Preview box opacity (persisted)
     @AppStorage("StreamingPreviewOpacity") private var previewOpacity: Double = 0.85

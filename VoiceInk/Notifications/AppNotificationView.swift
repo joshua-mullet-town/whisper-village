@@ -6,9 +6,26 @@ struct AppNotificationView: View {
     let duration: TimeInterval
     let onClose: () -> Void
     let onTap: (() -> Void)?
-    
+    let actionButton: (title: String, action: () -> Void)?
+
     @State private var progress: Double = 1.0
     @State private var timer: Timer?
+
+    init(
+        title: String,
+        type: NotificationType,
+        duration: TimeInterval = 5.0,
+        onClose: @escaping () -> Void,
+        onTap: (() -> Void)? = nil,
+        actionButton: (title: String, action: () -> Void)? = nil
+    ) {
+        self.title = title
+        self.type = type
+        self.duration = duration
+        self.onClose = onClose
+        self.onTap = onTap
+        self.actionButton = actionButton
+    }
 
     enum NotificationType {
         case error
@@ -51,9 +68,28 @@ struct AppNotificationView: View {
                     .foregroundColor(.white)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                
+
                 Spacer()
-                
+
+                // Optional action button
+                if let actionButton = actionButton {
+                    Button(action: {
+                        actionButton.action()
+                        onClose()
+                    }) {
+                        Text(actionButton.title)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color.accentColor)
+                            )
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+
                 Button(action: onClose) {
                     Image(systemName: "xmark")
                         .font(.system(size: 10, weight: .medium))

@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.3</title>
+            <pubDate>Mon, 22 Dec 2025 08:57:09 -0500</pubDate>
+            <sparkle:version>95</sparkle:version>
+            <sparkle:shortVersionString>1.9.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.3</h3>
+                <ul>
+                    <li>Command Mode improvements: auto-recovery for GPU errors, helpful setup guidance with one-click fixes. Settings migration: enables Live Preview Box mode and auto-formatting for all users. Onboarding now uses Parakeet V3 model.</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.3/WhisperVillage-1.9.3.dmg" length="254368417" type="application/octet-stream" sparkle:edSignature="A+4TZ068ScHWk0r4Caa5X1pglzdfx548QVqd/v9rb/ia69lhi08y4Ncy0xQC7miC+QkDMolCK5SqhkeuoXPPAw=="/>
+        </item>
+        <item>
             <title>1.9.2</title>
             <pubDate>Sun, 21 Dec 2025 03:01:10 -0500</pubDate>
             <sparkle:version>94</sparkle:version>

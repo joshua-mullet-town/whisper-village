@@ -14,7 +14,8 @@ class NotificationManager {
         title: String,
         type: AppNotificationView.NotificationType,
         duration: TimeInterval = 5.0,
-        onTap: (() -> Void)? = nil
+        onTap: (() -> Void)? = nil,
+        actionButton: (title: String, action: () -> Void)? = nil
     ) {
         dismissTimer?.invalidate()
         dismissTimer = nil
@@ -23,12 +24,12 @@ class NotificationManager {
             existingWindow.close()
             notificationWindow = nil
         }
-        
+
         // Play esc sound for error notifications
         if type == .error {
             SoundManager.shared.playEscSound()
         }
-        
+
         let notificationView = AppNotificationView(
             title: title,
             type: type,
@@ -38,7 +39,8 @@ class NotificationManager {
                     self?.dismissNotification()
                 }
             },
-            onTap: onTap
+            onTap: onTap,
+            actionButton: actionButton
         )
         let hostingController = NSHostingController(rootView: notificationView)
         let size = hostingController.view.fittingSize

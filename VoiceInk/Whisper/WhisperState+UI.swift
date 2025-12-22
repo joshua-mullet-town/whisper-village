@@ -494,11 +494,68 @@ extension WhisperState {
             return
         }
 
-        // Check if Ollama is running
-        let ollamaRunning = await OllamaClient.shared.healthCheck()
-        guard ollamaRunning else {
-            StreamingLogger.shared.log("⌘ Ollama not running")
+        // Check dependencies first - give helpful guidance if something's missing
+        let deps = await OllamaClient.shared.checkDependencies()
+        if !deps.isReady {
+            StreamingLogger.shared.log("⌘ Dependencies not ready: \(deps.userMessage ?? "unknown")")
             SoundManager.shared.playEscSound()
+
+            // Show helpful notification with action button when possible
+            await MainActor.run {
+                let message = deps.userMessage ?? "Command Mode is not ready"
+
+                // Determine if we can offer a one-click fix
+                if deps.ollamaInstalled && !deps.ollamaRunning {
+                    // Ollama installed but not running - offer to start it
+                    NotificationManager.shared.showNotification(
+                        title: message,
+                        type: .warning,
+                        duration: 8.0,
+                        actionButton: (title: "Start Ollama", action: {
+                            OllamaClient.shared.startOllama()
+                        })
+                    )
+                } else if deps.ollamaRunning && !deps.modelAvailable {
+                    // Ollama running but model missing - offer to download it
+                    NotificationManager.shared.showNotification(
+                        title: message,
+                        type: .warning,
+                        duration: 8.0,
+                        actionButton: (title: "Download Model", action: {
+                            OllamaClient.shared.pullModel(deps.modelName)
+                        })
+                    )
+                } else {
+                    // Ollama not installed - they need to install it manually
+                    let command = deps.terminalCommand ?? ""
+                    if !command.isEmpty {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(command, forType: .string)
+                    }
+                    NotificationManager.shared.showNotification(
+                        title: "\(message). Paste '\(command)' in Terminal.",
+                        type: .warning
+                    )
+                }
+            }
+            return
+        }
+
+        // Dependencies OK - now check if Ollama is actually healthy (catches GPU errors)
+        let healthResult = await OllamaClient.shared.ensureHealthy()
+        switch healthResult {
+        case .success:
+            break // Continue with command execution
+        case .failure(let error):
+            StreamingLogger.shared.log("⌘ Ollama health check failed: \(error.localizedDescription)")
+            SoundManager.shared.playEscSound()
+
+            await MainActor.run {
+                NotificationManager.shared.showNotification(
+                    title: error.localizedDescription,
+                    type: .error
+                )
+            }
             return
         }
 

@@ -125,7 +125,7 @@ struct RecordingFeedbackSection: View {
 
 struct LivePreviewSection: View {
     @AppStorage("LivePreviewEnabled") private var isLivePreviewEnabled = true
-    @AppStorage("LivePreviewStyle") private var livePreviewStyle = "ticker"
+    @AppStorage("LivePreviewStyle") private var livePreviewStyle = "box"
 
     var body: some View {
         SettingsSection(

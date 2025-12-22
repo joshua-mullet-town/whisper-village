@@ -9,6 +9,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         updateActivationPolicy()
         cleanupLegacyUserDefaults()
+        runSettingsMigrations()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -61,6 +62,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Force notch recorder for all users (deprecating mini recorder)
         // This ensures users who had "mini" saved are migrated to "notch"
         defaults.set("notch", forKey: "RecorderType")
+    }
+
+    /// One-time settings migrations that run on app update
+    private func runSettingsMigrations() {
+        let defaults = UserDefaults.standard
+        let migrationKey = "SettingsMigration_v1.9.3_LivePreviewBox"
+
+        // Only run this migration once
+        guard !defaults.bool(forKey: migrationKey) else { return }
+
+        // v1.9.3: Enable Live Preview Box mode and auto-formatting for all users
+        // These are the recommended settings for the best experience
+
+        // Live Preview: enabled with box style
+        defaults.set(true, forKey: "LivePreviewEnabled")
+        defaults.set("box", forKey: "LivePreviewStyle")
+
+        // Auto-formatting features
+        defaults.set(true, forKey: "SmartCapitalizationEnabled")
+        defaults.set(true, forKey: "AutoEndPunctuationEnabled")
+
+        // Mark migration as complete
+        defaults.set(true, forKey: migrationKey)
+
+        StreamingLogger.shared.log("✅ Settings migration v1.9.3 complete: Live Preview Box + Auto-formatting enabled")
     }
     
     // Stash URL when app cold-starts to avoid spawning a new window/tab

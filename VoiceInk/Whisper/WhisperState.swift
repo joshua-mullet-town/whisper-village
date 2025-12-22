@@ -125,7 +125,7 @@ class WhisperState: NSObject, ObservableObject {
 
     /// Live preview style: "ticker" (horizontal scrolling) or "box" (draggable floating box)
     var livePreviewStyle: String {
-        UserDefaults.standard.string(forKey: "LivePreviewStyle") ?? "ticker"
+        UserDefaults.standard.string(forKey: "LivePreviewStyle") ?? "box"
     }
 
     /// Whether live preview is in box mode (floating draggable box)

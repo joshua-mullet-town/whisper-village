@@ -4,6 +4,114 @@
 
 ---
 
+## [2025-12-23 ~15:00] Dashboard Feedback Section
+
+**Achievement:** Replaced single debug logs button with full feedback section.
+
+### New Feedback Section
+- **Report a Bug** - Opens email with bug template (auto-fills app version + macOS)
+- **Request Feature** - Opens email with feature request template
+- **Send Debug Logs** - Sends settings + logs to Slack (with optional email)
+- **Email contact** - Visible joshua@mullet.town with click-to-copy
+
+### Design
+- "HELP US IMPROVE" header
+- Three cards with hover effects
+- Color-coded icons (red bug, yellow lightbulb, blue docs)
+- Sits below the "time saved" metric
+
+### Files Modified
+- `VoiceInk/Views/Metrics/TimeEfficiencyView.swift` - Complete redesign of feedback UI
+- Added `FeedbackCard` component
+
+---
+
+## [2025-12-22 ~14:00] Debug Logs Feature - Remote Troubleshooting
+
+**Achievement:** Added "Send Debug Logs to Joshua" button in Settings for remote user troubleshooting.
+
+### What It Does
+- Collects app version, macOS version, RAM, processor info
+- Captures all relevant UserDefaults settings
+- Grabs last 100 lines from streaming.log
+- Posts to #debug-logs Slack channel with user's name (optional)
+- Fallback: Copy to clipboard button
+
+### Files Created
+- `VoiceInk/Services/DebugLogCollector.swift` - Collector service with Slack webhook posting
+- `VoiceInk/Views/Settings/SendDebugLogsSection.swift` - UI in Settings
+
+### Location in App
+Settings → scroll to "Having Issues?" section (above Data & Privacy)
+
+---
+
+## [2025-12-22 ~11:30] Settings Consolidation - Voice Engine Killed
+
+**Achievement:** Removed Voice Engine sidebar item, consolidated all settings into one place. Added fast AI providers (Groq, Cerebras).
+
+### What Changed
+- **Killed Voice Engine page** - Was overly complex with Local/Cloud/Custom tabs
+- **Added TranscriptionModelSection** - Simple dropdown in Settings for model selection
+- **Enhanced AI Polish** - Now supports multiple providers (Groq, Cerebras, OpenAI)
+- **Groq is default** - 15-25x faster than OpenAI for AI Polish
+
+### New Settings Structure
+```
+Settings
+├── Transcription (NEW - model dropdown + language)
+├── Shortcuts
+├── AI Polish (ENHANCED - multi-provider)
+├── Command Mode
+├── Recording Feedback
+├── Live Preview
+├── Auto Formatting
+├── Visual
+├── General
+└── Data & Privacy
+```
+
+### Files Changed
+- `VoiceInk/Views/Settings/TranscriptionModelSection.swift` - NEW: Simple model selector
+- `VoiceInk/Views/Settings/FormatWithAISection.swift` - Added AIPolishProvider enum, Groq/Cerebras support
+- `VoiceInk/Services/LLMFormattingService.swift` - Now uses selected provider/model
+- `VoiceInk/Views/Settings/SettingsView.swift` - Added TranscriptionModelSection
+- `VoiceInk/Views/ContentView.swift` - Removed Voice Engine from ViewType enum
+
+### AI Polish Providers
+| Provider | Speed | Default Model |
+|----------|-------|---------------|
+| Groq (default) | Fast | llama-3.3-70b-versatile |
+| Cerebras | Fastest | llama-3.3-70b |
+| OpenAI | Standard | gpt-5-mini |
+
+---
+
+## [2025-12-22 ~10:30] Install Script - POLISHED
+
+**Achievement:** Redesigned install.sh to be visually exciting and professional.
+
+### Features
+- ASCII art header with Whisper Village logo
+- Random fun taglines on each run
+- Feature highlight box showing value props
+- Step-by-step progress with clear indicators (STEP 1, STEP 2, STEP 3)
+- Animated spinner with rotating fun messages during download
+- Graceful error handling for permission issues (shows sudo command)
+- Celebration animation on success
+- Pro tips and next steps box
+
+### Technical Fixes
+- Color codes: Changed from `RED='\033[...'` to `RED=$(printf '\033[...')` for curl pipe compatibility
+- Changed all `echo -e` to `printf` with `\n` for cross-shell compatibility
+- Escaped `%` as `%%` in printf strings ("100% private")
+- Handles old app owned by different user gracefully
+
+### File
+- `install.sh` - Complete rewrite for better UX
+
+---
+
 ## [2025-12-21 ~15:30] Command Mode - COMPLETE
 
 **Achievement:** Voice-activated system navigation. Start recording, say a command, hit Command Mode shortcut → immediately stops and executes.

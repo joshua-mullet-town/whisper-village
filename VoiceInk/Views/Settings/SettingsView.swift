@@ -23,10 +23,13 @@ struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
+                // Transcription Model - Simple dropdown (moved from Voice Engine)
+                TranscriptionModelSection()
+
                 // Shortcuts - Main hotkey + quick actions
                 ShortcutsSection()
 
-                // AI Polish - Dedicated exciting section
+                // AI Polish - Dedicated exciting section with provider selection
                 FormatWithAISection()
 
                 // Command Mode - Voice-activated navigation
@@ -56,6 +59,9 @@ struct SettingsView: View {
                     showResetOnboardingAlert: $showResetOnboardingAlert,
                     updaterViewModel: updaterViewModel
                 )
+
+                // Debug Logs - Help us fix issues
+                SendDebugLogsSection()
 
                 // Data & Privacy - Collapsible at bottom
                 DataPrivacySection(

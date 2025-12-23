@@ -1,15 +1,110 @@
 import SwiftUI
 import KeyboardShortcuts
 
+/// AI Polish provider options - fast providers recommended
+enum AIPolishProvider: String, CaseIterable, Identifiable {
+    case groq = "Groq"
+    case cerebras = "Cerebras"
+    case openAI = "OpenAI"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .groq: return "Groq"
+        case .cerebras: return "Cerebras"
+        case .openAI: return "OpenAI"
+        }
+    }
+
+    var speedBadge: String {
+        switch self {
+        case .groq: return "Fast"
+        case .cerebras: return "Fastest"
+        case .openAI: return ""
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .groq: return "15-25x faster than GPT-4 • Great quality"
+        case .cerebras: return "Fastest inference available • Premium"
+        case .openAI: return "GPT-5 models • Reliable"
+        }
+    }
+
+    var baseURL: String {
+        switch self {
+        case .groq: return "https://api.groq.com/openai/v1/chat/completions"
+        case .cerebras: return "https://api.cerebras.ai/v1/chat/completions"
+        case .openAI: return "https://api.openai.com/v1/chat/completions"
+        }
+    }
+
+    var defaultModel: String {
+        switch self {
+        case .groq: return "llama-3.3-70b-versatile"
+        case .cerebras: return "llama-3.3-70b"
+        case .openAI: return "gpt-5-mini"
+        }
+    }
+
+    var availableModels: [String] {
+        switch self {
+        case .groq: return ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"]
+        case .cerebras: return ["llama-3.3-70b", "llama-3.1-8b"]
+        case .openAI: return ["gpt-5", "gpt-5-mini", "gpt-5-nano"]
+        }
+    }
+
+    var apiKeyUserDefaultsKey: String {
+        switch self {
+        case .groq: return "GroqAPIKey"
+        case .cerebras: return "CerebrasAPIKey"
+        case .openAI: return "OpenAIAPIKey"
+        }
+    }
+
+    var apiKeyURL: String {
+        switch self {
+        case .groq: return "https://console.groq.com/keys"
+        case .cerebras: return "https://cloud.cerebras.ai/platform"
+        case .openAI: return "https://platform.openai.com/api-keys"
+        }
+    }
+}
+
 /// Dedicated settings section for Format with AI feature
 struct FormatWithAISection: View {
-    @State private var openAIAPIKey: String = UserDefaults.standard.string(forKey: "OpenAIAPIKey") ?? ""
+    @State private var selectedProvider: AIPolishProvider = {
+        if let saved = UserDefaults.standard.string(forKey: "AIPolishProvider"),
+           let provider = AIPolishProvider(rawValue: saved) {
+            return provider
+        }
+        return .groq // Default to Groq (fastest)
+    }()
+    @State private var apiKey: String = ""
+    @State private var selectedModel: String = ""
     @State private var isKeyVisible: Bool = false
-    @State private var selectedModel: GPT5Model = LLMFormattingService.shared.selectedModel
     @ObservedObject private var costTracker = FormattingCostTracker.shared
 
     private var hasAPIKey: Bool {
-        !openAIAPIKey.isEmpty
+        !apiKey.isEmpty
+    }
+
+    private func loadAPIKey() {
+        apiKey = UserDefaults.standard.string(forKey: selectedProvider.apiKeyUserDefaultsKey) ?? ""
+        let modelKey = "\(selectedProvider.rawValue)PolishModel"
+        selectedModel = UserDefaults.standard.string(forKey: modelKey) ?? selectedProvider.defaultModel
+    }
+
+    private func saveAPIKey() {
+        UserDefaults.standard.set(apiKey, forKey: selectedProvider.apiKeyUserDefaultsKey)
+    }
+
+    private func saveModel() {
+        let modelKey = "\(selectedProvider.rawValue)PolishModel"
+        UserDefaults.standard.set(selectedModel, forKey: modelKey)
     }
 
     var body: some View {
@@ -103,6 +198,67 @@ struct FormatWithAISection: View {
 
                 Divider()
 
+                // Provider Selection
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "bolt.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondary)
+                            .frame(width: 20)
+
+                        Text("Provider")
+                            .font(.system(size: 13, weight: .medium))
+
+                        Spacer()
+                    }
+
+                    // Provider picker with speed badges
+                    HStack(spacing: 8) {
+                        ForEach(AIPolishProvider.allCases) { provider in
+                            Button(action: {
+                                selectedProvider = provider
+                                UserDefaults.standard.set(provider.rawValue, forKey: "AIPolishProvider")
+                                loadAPIKey()
+                            }) {
+                                VStack(spacing: 4) {
+                                    HStack(spacing: 4) {
+                                        Text(provider.displayName)
+                                            .font(.system(size: 12, weight: selectedProvider == provider ? .semibold : .medium))
+                                        if !provider.speedBadge.isEmpty {
+                                            Text(provider.speedBadge)
+                                                .font(.system(size: 8, weight: .bold))
+                                                .padding(.horizontal, 4)
+                                                .padding(.vertical, 2)
+                                                .background(provider == .cerebras ? Color.orange : Color.green)
+                                                .foregroundColor(.white)
+                                                .cornerRadius(4)
+                                        }
+                                    }
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(selectedProvider == provider ? Color.accentColor.opacity(0.15) : Color.clear)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(selectedProvider == provider ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    // Provider description
+                    Text(selectedProvider.description)
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                        .padding(.top, 2)
+                }
+
+                Divider()
+
                 // Model Selection
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 12) {
@@ -115,34 +271,18 @@ struct FormatWithAISection: View {
                             .font(.system(size: 13, weight: .medium))
 
                         Spacer()
-                    }
 
-                    Picker("", selection: $selectedModel) {
-                        ForEach(GPT5Model.allCases) { model in
-                            Text("\(model.displayName) \(model.costIndicator)")
-                                .tag(model)
+                        Picker("", selection: $selectedModel) {
+                            ForEach(selectedProvider.availableModels, id: \.self) { model in
+                                Text(model).tag(model)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .frame(width: 200)
+                        .onChange(of: selectedModel) { _, _ in
+                            saveModel()
                         }
                     }
-                    .pickerStyle(.segmented)
-                    .onChange(of: selectedModel) { _, newValue in
-                        LLMFormattingService.shared.selectedModel = newValue
-                    }
-
-                    // Model details
-                    HStack(spacing: 16) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(selectedModel.description)
-                                .font(.system(size: 11))
-                                .foregroundColor(.primary.opacity(0.8))
-                            Text(selectedModel.formattedPricing)
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(.secondary)
-                        }
-                        Spacer()
-                    }
-                    .padding(10)
-                    .background(Color.secondary.opacity(0.08))
-                    .cornerRadius(8)
                 }
 
                 Divider()
@@ -173,7 +313,7 @@ struct FormatWithAISection: View {
                             .foregroundColor(.secondary)
                             .frame(width: 20)
 
-                        Text("OpenAI API Key")
+                        Text("\(selectedProvider.displayName) API Key")
                             .font(.system(size: 13, weight: .medium))
 
                         Spacer()
@@ -191,14 +331,14 @@ struct FormatWithAISection: View {
                     HStack(spacing: 10) {
                         Group {
                             if isKeyVisible {
-                                TextField("sk-...", text: $openAIAPIKey)
+                                TextField("Enter API key...", text: $apiKey)
                             } else {
-                                SecureField("sk-...", text: $openAIAPIKey)
+                                SecureField("Enter API key...", text: $apiKey)
                             }
                         }
                         .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .onChange(of: openAIAPIKey) { _, newValue in
-                            UserDefaults.standard.set(newValue, forKey: "OpenAIAPIKey")
+                        .onChange(of: apiKey) { _, _ in
+                            saveAPIKey()
                         }
 
                         if hasAPIKey {
@@ -214,15 +354,15 @@ struct FormatWithAISection: View {
                                 .font(.system(size: 11))
                             Text("Get your API key from")
                                 .font(.system(size: 11))
-                            Link("platform.openai.com", destination: URL(string: "https://platform.openai.com/api-keys")!)
+                            Link(selectedProvider.apiKeyURL.replacingOccurrences(of: "https://", with: ""), destination: URL(string: selectedProvider.apiKeyURL)!)
                                 .font(.system(size: 11, weight: .medium))
                         }
                         .foregroundColor(.secondary)
                     }
                 }
 
-                // Cost Tracking (only show if there's usage)
-                if hasAPIKey {
+                // Cost Tracking (only show if there's usage and OpenAI)
+                if hasAPIKey && selectedProvider == .openAI && costTracker.requestCountAllTime > 0 {
                     Divider()
 
                     VStack(alignment: .leading, spacing: 10) {
@@ -232,36 +372,25 @@ struct FormatWithAISection: View {
                                 .foregroundColor(.secondary)
                                 .frame(width: 20)
 
-                            Text("Formatting Costs")
+                            Text("Usage Stats")
                                 .font(.system(size: 13, weight: .medium))
 
                             Spacer()
 
-                            if costTracker.requestCountAllTime > 0 {
-                                Text("\(costTracker.requestCountAllTime) requests")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.secondary)
-                            }
+                            Text("\(costTracker.requestCountAllTime) requests")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
                         }
 
-                        if costTracker.requestCountAllTime == 0 {
-                            Text("No usage yet")
-                                .font(.system(size: 11))
-                                .foregroundColor(.secondary)
-                                .padding(.vertical, 8)
-                        } else {
-                            VStack(spacing: 6) {
-                                costRow(label: "Last hour", cost: costTracker.costLastHour)
-                                costRow(label: "Last 24 hours", cost: costTracker.costLastDay)
-                                costRow(label: "Last 7 days", cost: costTracker.costLastWeek)
-                                costRow(label: "Last 30 days", cost: costTracker.costLastMonth)
-                                Divider()
-                                costRow(label: "All time", cost: costTracker.costAllTime, bold: true)
-                            }
-                            .padding(10)
-                            .background(Color.secondary.opacity(0.08))
-                            .cornerRadius(8)
+                        VStack(spacing: 6) {
+                            costRow(label: "Last hour", cost: costTracker.costLastHour)
+                            costRow(label: "Last 24 hours", cost: costTracker.costLastDay)
+                            costRow(label: "Last 7 days", cost: costTracker.costLastWeek)
+                            costRow(label: "All time", cost: costTracker.costAllTime, bold: true)
                         }
+                        .padding(10)
+                        .background(Color.secondary.opacity(0.08))
+                        .cornerRadius(8)
                     }
                 }
 
@@ -287,6 +416,9 @@ struct FormatWithAISection: View {
                 }
             }
             .padding(16)
+            .onAppear {
+                loadAPIKey()
+            }
         }
         .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(12)

@@ -3,6 +3,34 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.4</title>
+            <pubDate>Tue, 23 Dec 2025 08:52:53 -0500</pubDate>
+            <sparkle:version>97</sparkle:version>
+            <sparkle:shortVersionString>1.9.4</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.4</h3>
+                <ul>
+                    <li>New Dashboard feedback section: Report bugs, request features, and send debug logs directly to the developer. Improved diagnostics with comprehensive settings capture for faster troubleshooting.</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.4/WhisperVillage-1.9.4.dmg" length="254222800" type="application/octet-stream" sparkle:edSignature="1W9OPNdWGjyawIPMhKqK6i18JdJI8MxHvcCbfe57E7kmJOaZOzcB3oaUyv3E2Ki4mqyTgee2M/3AxfAka7nxBg=="/>
+        </item>
+        <item>
+            <title>1.9.4</title>
+            <pubDate>Tue, 23 Dec 2025 08:37:39 -0500</pubDate>
+            <sparkle:version>96</sparkle:version>
+            <sparkle:shortVersionString>1.9.4</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.4</h3>
+                <ul>
+                    <li>Debug logs & feedback: Send debug reports directly to developer. Bug reports, feature requests, and debug log sending from Dashboard. Enhanced debug collection with permissions status and all settings.</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.4/WhisperVillage-1.9.4.dmg" length="254198622" type="application/octet-stream" sparkle:edSignature="8oYtAqnddDoBx31usivPb5R5jt0rkKyGVNMO4UMNMyQXut8fQ2syQ7n0LQ+bUEUruJ4+fY14bMONA0UrJD+MDg=="/>
+        </item>
+        <item>
             <title>1.9.3</title>
             <pubDate>Mon, 22 Dec 2025 08:57:09 -0500</pubDate>
             <sparkle:version>95</sparkle:version>

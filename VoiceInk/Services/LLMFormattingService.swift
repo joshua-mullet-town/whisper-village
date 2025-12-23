@@ -189,16 +189,41 @@ class LLMFormattingService: ObservableObject {
     @Published var lastError: String?
 
     // MARK: - Configuration
-    private let baseURL = "https://api.openai.com/v1/chat/completions"
     private let timeout: TimeInterval = 30
 
+    /// Get the currently selected provider
+    var selectedProvider: AIPolishProvider {
+        if let saved = UserDefaults.standard.string(forKey: "AIPolishProvider"),
+           let provider = AIPolishProvider(rawValue: saved) {
+            return provider
+        }
+        return .groq // Default to Groq (fastest)
+    }
+
+    /// Get the base URL for the selected provider
+    private var baseURL: String {
+        selectedProvider.baseURL
+    }
+
+    /// Get the API key for the selected provider
+    private var apiKey: String? {
+        UserDefaults.standard.string(forKey: selectedProvider.apiKeyUserDefaultsKey)
+    }
+
+    /// Get the selected model for the current provider
+    var currentModel: String {
+        let modelKey = "\(selectedProvider.rawValue)PolishModel"
+        return UserDefaults.standard.string(forKey: modelKey) ?? selectedProvider.defaultModel
+    }
+
+    // Legacy GPT5Model support for backward compatibility
     var selectedModel: GPT5Model {
         get {
             if let rawValue = UserDefaults.standard.string(forKey: "FormatWithAIModel"),
                let model = GPT5Model(rawValue: rawValue) {
                 return model
             }
-            return .gpt5Mini  // Default to Mini for balance of cost/quality
+            return .gpt5Mini
         }
         set {
             UserDefaults.standard.set(newValue.rawValue, forKey: "FormatWithAIModel")
@@ -222,21 +247,31 @@ class LLMFormattingService: ObservableObject {
     6. Remove false starts and stutters: "I I I think" → "I think"
     7. Remove verbal corrections: "Tuesday, no wait, Wednesday" → "Wednesday"
 
+    CRITICAL - DO NOT:
+    - Add new content, ideas, or information that wasn't in the original
+    - Expand or elaborate on what the user said
+    - Add examples, explanations, or embellishments
+    - Be creative or "helpful" by adding more than what was spoken
+    - Change the length significantly (cleaned text should be similar length to original)
+
     PRESERVE (never change unless explicitly asked):
     - The user's voice, tone, and style
     - Word choices and phrasing (except for errors above)
     - The meaning and intent
     - Sentence structure (unless grammatically wrong)
+    - The original scope and length of the content
 
     USER INSTRUCTIONS:
     The user may provide additional instructions. These ADD TO or OVERRIDE the baseline rules.
     - If they say "keep filler words" → don't remove them
     - If they say "make it professional" → adjust tone while keeping meaning
     - If they say "translate to X" → translate the entire content
+    - If they say "expand on this" or "add more detail" → ONLY THEN add content
     - If they give no instructions or minimal instructions → apply baseline rules only
 
     OUTPUT:
     Return ONLY the cleaned text. No explanations, no commentary, no quotes around the output.
+    Work with what was given. Don't add, don't embellish, just clean.
     """
 
     // MARK: - Public Methods
@@ -258,13 +293,8 @@ class LLMFormattingService: ObservableObject {
             StreamingLogger.shared.log("🎨 AI Polish: Baseline + user instructions: \(userInstructions.prefix(50))...")
         }
 
-        // Get API key - try multiple sources
-        let apiKey: String
-        if let key = UserDefaults.standard.string(forKey: "OpenAIAPIKey"), !key.isEmpty {
-            apiKey = key
-        } else if let key = UserDefaults.standard.string(forKey: "openai_api_key"), !key.isEmpty {
-            apiKey = key
-        } else {
+        // Get API key for the selected provider
+        guard let providerApiKey = self.apiKey, !providerApiKey.isEmpty else {
             throw FormattingError.missingAPIKey
         }
 
@@ -298,7 +328,8 @@ class LLMFormattingService: ObservableObject {
             """
         }
 
-        logger.notice("LLM Formatting - Model: \(self.selectedModel.rawValue, privacy: .public)")
+        logger.notice("LLM Formatting - Provider: \(self.selectedProvider.rawValue, privacy: .public)")
+        logger.notice("LLM Formatting - Model: \(self.currentModel, privacy: .public)")
         logger.notice("LLM Formatting - Content: \(content.prefix(100), privacy: .public)...")
         logger.notice("LLM Formatting - User instructions: \(userInstructions.isEmpty ? "(none)" : userInstructions, privacy: .public)")
 
@@ -306,7 +337,7 @@ class LLMFormattingService: ObservableObject {
         var request = URLRequest(url: URL(string: baseURL)!)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.addValue("Bearer \(providerApiKey)", forHTTPHeaderField: "Authorization")
         request.timeoutInterval = timeout
 
         let messages: [[String: Any]] = [
@@ -314,12 +345,17 @@ class LLMFormattingService: ObservableObject {
             ["role": "user", "content": userMessage]
         ]
 
-        // GPT-5 models only support default temperature (1), so we omit it
-        let requestBody: [String: Any] = [
-            "model": selectedModel.rawValue,
+        // Build request body - all providers use OpenAI-compatible format
+        var requestBody: [String: Any] = [
+            "model": currentModel,
             "messages": messages,
             "stream": false
         ]
+
+        // Add temperature for non-GPT-5 models (Groq, Cerebras work better with lower temp)
+        if selectedProvider != .openAI {
+            requestBody["temperature"] = 0.3
+        }
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: requestBody)
 

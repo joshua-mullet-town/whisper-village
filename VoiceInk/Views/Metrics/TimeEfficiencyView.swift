@@ -3,10 +3,9 @@ import AppKit
 
 struct TimeEfficiencyView: View {
     // MARK: - Properties
-    
+
     private let totalRecordedTime: TimeInterval
     private let estimatedTypingTime: TimeInterval
-    @State private var showCopiedMessage = false
     
     // Computed properties for efficiency metrics
     private var timeSaved: TimeInterval {
@@ -36,23 +35,6 @@ struct TimeEfficiencyView: View {
         VStack(spacing: 0) {
             mainContent
         }
-        .overlay(
-            // Toast notification
-            VStack {
-                if showCopiedMessage {
-                    Text("Copied email to clipboard!")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Color.green)
-                        .cornerRadius(8)
-                        .transition(.opacity.combined(with: .scale))
-                }
-                Spacer()
-            }
-            .animation(.easeInOut(duration: 0.3), value: showCopiedMessage)
-        )
     }
     
     // MARK: - Main Content View
@@ -113,7 +95,6 @@ struct TimeEfficiencyView: View {
         HStack {
             timeSavedView
             Spacer()
-            reportIssueButton
         }
         .padding(.horizontal, 24)
     }
@@ -124,48 +105,13 @@ struct TimeEfficiencyView: View {
                 .font(.system(size: 13, weight: .heavy))
                 .tracking(4)
                 .foregroundColor(.secondary)
-            
+
             Text(formatDuration(timeSaved))
                 .font(.system(size: 32, weight: .black, design: .rounded))
                 .foregroundStyle(accentGradient)
         }
     }
-    
-    private var reportIssueButton: some View {
-        Button(action: {
-            copyEmailToClipboard()
-        }) {
-            HStack(alignment: .center, spacing: 12) {
-                // Left icon
-                Image(systemName: "exclamationmark.bubble.fill")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(.white)
-                
-                // Center text
-                Text("Feedback or Issues?")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.white)
-                
-                Spacer(minLength: 8)
-                
-                // Right button  
-                Text("Email Joshua")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Color.accentColor)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 4)
-                    .background(Capsule().fill(.white))
-            }
-            .padding(.vertical, 10)
-            .padding(.horizontal, 12)
-            .background(accentGradient)
-            .cornerRadius(10)
-        }
-        .buttonStyle(.plain)
-        .shadow(color: Color.accentColor.opacity(0.2), radius: 3, y: 1)
-        .frame(maxWidth: 280)
-    }
-    
+
     private var efficiencyGradient: LinearGradient {
         LinearGradient(
             colors: [
@@ -189,30 +135,12 @@ struct TimeEfficiencyView: View {
     }
     
     // MARK: - Utility Methods
-    
+
     private func formatDuration(_ duration: TimeInterval) -> String {
         let formatter = DateComponentsFormatter()
         formatter.allowedUnits = [.hour, .minute, .second]
         formatter.unitsStyle = .abbreviated
         return formatter.string(from: duration) ?? ""
-    }
-    
-    private func copyEmailToClipboard() {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString("joshua@mullet.town", forType: .string)
-        
-        // Show success message
-        withAnimation {
-            showCopiedMessage = true
-        }
-        
-        // Hide message after 2 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            withAnimation {
-                showCopiedMessage = false
-            }
-        }
     }
 }
 

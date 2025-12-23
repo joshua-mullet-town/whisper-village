@@ -3,23 +3,22 @@ import SwiftData
 import KeyboardShortcuts
 
 // ViewType enum with all cases
+// Note: Voice Engine removed - transcription model selection now in Settings
 enum ViewType: String, CaseIterable {
     case dashboard = "Dashboard"
     case transcribeAudio = "Record"
     case history = "History"
-    case models = "Voice Engine"
     case permissions = "Permissions"
     case audioInput = "Audio Setup"
     case dictionary = "Custom Words"
     case settings = "Settings"
     case about = "About"
-    
+
     var icon: String {
         switch self {
         case .dashboard: return "gauge.medium"
         case .transcribeAudio: return "waveform.circle.fill"
         case .history: return "doc.text.fill"
-        case .models: return "brain.head.profile"
         case .permissions: return "shield.fill"
         case .audioInput: return "mic.fill"
         case .dictionary: return "character.book.closed.fill"
@@ -193,8 +192,9 @@ struct ContentView: View {
                     print("ContentView: Navigating to Settings")
                     selectedView = .settings
                 case "AI Models":
-                    print("ContentView: Navigating to AI Models")
-                    selectedView = .models
+                    // Legacy support - redirect to Settings (Voice Engine is now in Settings)
+                    print("ContentView: AI Models requested, redirecting to Settings")
+                    selectedView = .settings
                 case "About":
                     print("ContentView: Navigating to About")
                     selectedView = .about
@@ -233,8 +233,6 @@ struct ContentView: View {
             AudioTranscribeView()
         case .history:
             TranscriptionHistoryView()
-        case .models:
-            ModelManagementView(whisperState: whisperState)
         case .permissions:
             PermissionsView()
         case .audioInput:

@@ -10,6 +10,51 @@ Dashboard Feedback Section complete. See STATE.md.
 
 ---
 
+## BACKLOG: Append Box - Attach Links/Logs to Transcription
+
+**Problem:** After transcribing, user often needs to add extra content (links, error logs, code snippets). Current workflow: wait for paste → add spaces → paste additional content manually.
+
+**Goal:** Provide an optional box/field where user can tack on additional content to the transcription before it pastes.
+
+**Open Questions:**
+- Where does this UI live? In the Live Preview Box? Separate popover?
+- Keyboard shortcut to open the append field?
+- Does it concat with newlines, spaces, or configurable separator?
+
+---
+
+## BACKLOG: Preview Button Visibility Fix
+
+**Problem:** The peek/preview button in the notch recorder only shows when preview style is "ticker". But it's useful in other cases too.
+
+**Current Logic:** Show preview button only if `previewStyle == ticker`
+
+**Correct Logic:** Show preview button UNLESS (`livePreviewEnabled == true` AND `previewStyle == box`)
+
+| Live Preview | Style  | Show Preview Button |
+|--------------|--------|---------------------|
+| OFF          | any    | YES                 |
+| ON           | ticker | YES                 |
+| ON           | box    | NO (redundant)      |
+
+---
+
+## BACKLOG: Send to Terminal Mode
+
+**Problem:** User is often viewing something (docs, browser) but wants to send voice commands to terminal. Current workflow: transcribe → navigate to terminal → paste → send → navigate back.
+
+**Goal:** A mode where transcription automatically sends to the last active terminal window without requiring user to navigate there.
+
+**Implementation Ideas:**
+- Track "last focused terminal" (Terminal.app, iTerm, Warp, etc.)
+- AppleScript/Accessibility API to send text to that window
+- Maybe a dedicated hotkey or toggle for "terminal mode"
+- Could auto-press Enter after paste (since terminal commands need execution)
+
+**Use Case:** 90%+ of user's Whisper Village usage is terminal commands
+
+---
+
 ## BACKLOG: Command Mode Phase 2 (Future)
 
 **Ideas explored but deferred:**

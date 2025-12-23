@@ -4,25 +4,55 @@
 
 ---
 
+## [2025-12-23 13:55] v1.9.4 Shipped - Feedback to Slack
+
+**Achievement:** Shipped v1.9.4 with full feedback-to-Slack integration.
+
+### What Changed
+- **Bug reports** → Slack #feedback channel (was email)
+- **Feature requests** → Slack #feedback channel (was email)
+- **Debug logs** → Slack #debug-logs channel (unchanged)
+- All webhook URLs moved to `secrets.plist` (gitignored)
+
+### Secrets Pattern
+All Slack webhooks now loaded from `secrets.plist`:
+- `CrashWebhookURL` - crash reports
+- `DebugLogsWebhookURL` - debug logs
+- `FeedbackWebhookURL` - bug reports + feature requests
+
+Pattern: `Bundle.main.path(forResource: "secrets", ofType: "plist")`
+
+### GitHub Secret Scanning Fix
+Had to `git reset --soft` to remove old commit with hardcoded webhook URL. GitHub push protection blocked until secret was removed from history.
+
+### Files
+- `VoiceInk/secrets.plist` - actual webhooks (gitignored)
+- `VoiceInk/secrets.plist.example` - template with placeholders
+- `VoiceInk/Views/Metrics/FeedbackSectionView.swift` - standalone component
+- `VoiceInk/Services/DebugLogCollector.swift` - loads from secrets.plist
+
+---
+
 ## [2025-12-23 ~15:00] Dashboard Feedback Section
 
-**Achievement:** Replaced single debug logs button with full feedback section.
+**Achievement:** Replaced single debug logs button with full feedback section at bottom of Dashboard.
 
 ### New Feedback Section
-- **Report a Bug** - Opens email with bug template (auto-fills app version + macOS)
-- **Request Feature** - Opens email with feature request template
-- **Send Debug Logs** - Sends settings + logs to Slack (with optional email)
+- **Report a Bug** - Popover with text editor → Slack
+- **Request Feature** - Popover with text editor → Slack
+- **Send Debug Logs** - Popover with optional email → Slack
 - **Email contact** - Visible joshua@mullet.town with click-to-copy
 
 ### Design
 - "HELP US IMPROVE" header
 - Three cards with hover effects
 - Color-coded icons (red bug, yellow lightbulb, blue docs)
-- Sits below the "time saved" metric
+- Moved to bottom of Dashboard (was in TimeEfficiencyView)
 
-### Files Modified
-- `VoiceInk/Views/Metrics/TimeEfficiencyView.swift` - Complete redesign of feedback UI
-- Added `FeedbackCard` component
+### Files
+- `VoiceInk/Views/Metrics/FeedbackSectionView.swift` - Standalone component
+- `VoiceInk/Views/Metrics/MetricsContent.swift` - Added FeedbackSectionView at bottom
+- `VoiceInk/Views/Metrics/TimeEfficiencyView.swift` - Cleaned up, removed feedback code
 
 ---
 

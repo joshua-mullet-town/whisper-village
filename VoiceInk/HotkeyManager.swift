@@ -102,6 +102,19 @@ class HotkeyManager: ObservableObject {
             case .custom: return "Custom"
             }
         }
+
+        /// Short symbol for display in compact UI (like notch)
+        var symbol: String {
+            switch self {
+            case .none: return ""
+            case .rightOption, .leftOption: return "⌥"
+            case .leftControl, .rightControl: return "⌃"
+            case .fn: return "fn"
+            case .rightCommand: return "⌘"
+            case .rightShift: return "⇧"
+            case .custom: return "⌨"
+            }
+        }
         
         var keyCode: CGKeyCode? {
             switch self {

@@ -19,6 +19,17 @@ struct NotchRecorderView: View {
     @AppStorage("LivePreviewEnabled") private var isLivePreviewEnabled = true
     @AppStorage("NotchAlwaysVisible") private var isAlwaysVisible = false
     @AppStorage("OpenAIAPIKey") private var openAIAPIKey = ""
+    @AppStorage("selectedHotkey1") private var selectedHotkey1Raw = "rightOption"
+
+    /// Whether this is the Dev build (bundle ID ends with .debug)
+    private var isDevBuild: Bool {
+        Bundle.main.bundleIdentifier?.hasSuffix(".debug") ?? false
+    }
+
+    /// Current hotkey symbol for display
+    private var hotkeySymbol: String {
+        HotkeyManager.HotkeyOption(rawValue: selectedHotkey1Raw)?.symbol ?? "⌥"
+    }
 
     /// Whether we're in format mode (recording formatting instructions)
     private var isInFormatMode: Bool {
@@ -96,7 +107,7 @@ struct NotchRecorderView: View {
     }
 
     private var leftSection: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             // Cancel button - hide when idle
             if !isIdleState {
                 NotchIconButton(
@@ -122,6 +133,18 @@ struct NotchRecorderView: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
 
+            Spacer()
+                .frame(width: 6)
+
+            // Hotkey indicator - between X and timer
+            if !isIdleState && !hotkeySymbol.isEmpty {
+                Text(hotkeySymbol)
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundColor(.white.opacity(0.6))
+                    .frame(minWidth: 14)
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
+            }
+
             // Command Mode indicator
             if isInCommandMode {
                 Image(systemName: "command")
@@ -135,13 +158,13 @@ struct NotchRecorderView: View {
                 Text(formatTime(displayDuration))
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundColor(.white)
-                    .frame(width: 35)
+                    .frame(width: 35, alignment: .trailing)
                     .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
 
             Spacer()
         }
-        .padding(.leading, 12)
+        .padding(.leading, 6)
         .frame(width: sectionWidth)
         .clipped()
     }
@@ -225,8 +248,9 @@ struct NotchRecorderView: View {
 
             // Hide preview buttons when in format mode
             if !isInFormatMode {
-                // Peek button - show full transcription toast (only in ticker mode, not box mode)
-                if isStreamingModeEnabled && !isIdleState && whisperState.recordingState == .recording && livePreviewStyle == "ticker" {
+                // Peek button - show full transcription toast
+                // Show UNLESS (live preview is enabled AND style is box) - in that case it's redundant
+                if isStreamingModeEnabled && !isIdleState && whisperState.recordingState == .recording && !(isLivePreviewEnabled && livePreviewStyle == "box") {
                     NotchIconButton(
                         icon: "doc.text.magnifyingglass",
                         color: .white.opacity(0.9),
@@ -284,6 +308,7 @@ struct NotchRecorderView: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.8)))
                 }
             }
+
         }
         .padding(.trailing, 8)
         .frame(width: sectionWidth)
@@ -510,6 +535,21 @@ struct NotchRecorderView: View {
                         // Subtle constant border for definition
                         NotchShape(cornerRadius: 10)
                             .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                    }
+                    .overlay(alignment: .topLeading) {
+                        // DEV badge - small corner indicator for dev builds
+                        if isDevBuild {
+                            Text("DEV")
+                                .font(.system(size: 7, weight: .black))
+                                .foregroundColor(.black)
+                                .padding(.horizontal, 3)
+                                .padding(.vertical, 1)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .fill(Color.yellow)
+                                )
+                                .offset(x: 2, y: 2)
+                        }
                     }
                     .clipped()
                     .contentShape(NotchShape(cornerRadius: 10))

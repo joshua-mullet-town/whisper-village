@@ -23,22 +23,6 @@ Dashboard Feedback Section complete. See STATE.md.
 
 ---
 
-## BACKLOG: Preview Button Visibility Fix
-
-**Problem:** The peek/preview button in the notch recorder only shows when preview style is "ticker". But it's useful in other cases too.
-
-**Current Logic:** Show preview button only if `previewStyle == ticker`
-
-**Correct Logic:** Show preview button UNLESS (`livePreviewEnabled == true` AND `previewStyle == box`)
-
-| Live Preview | Style  | Show Preview Button |
-|--------------|--------|---------------------|
-| OFF          | any    | YES                 |
-| ON           | ticker | YES                 |
-| ON           | box    | NO (redundant)      |
-
----
-
 ## BACKLOG: Send to Terminal Mode
 
 **Problem:** User is often viewing something (docs, browser) but wants to send voice commands to terminal. Current workflow: transcribe → navigate to terminal → paste → send → navigate back.

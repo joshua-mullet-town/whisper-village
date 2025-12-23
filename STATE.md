@@ -4,6 +4,36 @@
 
 ---
 
+## [2025-12-23 14:45] Notch UI Improvements
+
+**Achievement:** Added visual indicators to notch recorder for better UX.
+
+### DEV Badge
+- Small yellow "DEV" badge in upper-left corner of notch
+- Only shows in dev builds (bundle ID ends with `.debug`)
+- Helps distinguish which app started the recording
+
+### Hotkey Symbol
+- Shows current hotkey symbol (⌥, ⌃, ⌘, fn, ⇧) between X button and timer
+- Reminds user which key to press to end recording
+- Added `symbol` property to `HotkeyManager.HotkeyOption`
+
+### Peek Button Visibility Fix
+- **Old logic:** Only show when `previewStyle == "ticker"`
+- **New logic:** Show UNLESS `(livePreviewEnabled && previewStyle == "box")`
+
+| Live Preview | Style  | Peek Button |
+|--------------|--------|-------------|
+| OFF          | any    | YES         |
+| ON           | ticker | YES         |
+| ON           | box    | NO          |
+
+### Files Modified
+- `VoiceInk/HotkeyManager.swift` - Added `symbol` property to HotkeyOption
+- `VoiceInk/Views/Recorder/NotchRecorderView.swift` - DEV badge, hotkey display, peek button fix
+
+---
+
 ## [2025-12-23 13:55] v1.9.4 Shipped - Feedback to Slack
 
 **Achievement:** Shipped v1.9.4 with full feedback-to-Slack integration.

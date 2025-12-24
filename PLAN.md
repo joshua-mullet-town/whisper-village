@@ -53,14 +53,16 @@
 
 ### Implementation Steps
 1. ✅ Research complete - iTerm2 Python API confirmed viable
-2. 🔄 Install `iterm2` Python package
-3. 🔄 Create connection script, test session listing
-4. Auto-detect Claude Code sessions (filter by name/content)
-5. Stream session content via `get_screen_streamer()`
-6. Send input via `async_send_text()`
-7. SwiftTerm overlay panel with opacity control
-8. Tab/swipe UI for switching between sessions
-9. Hotkey to show/hide overlay
+2. ✅ Install `iterm2` Python package
+3. ✅ Create connection script, test session listing
+4. ✅ Auto-detect Claude Code sessions (filter by ✳ prefix)
+5. ✅ Stream session content via `async_get_contents()`
+6. ✅ Send input via `async_send_text()`
+7. ✅ Floating NSPanel overlay with content view
+8. ✅ Tab UI for switching between sessions
+9. 🔄 Hotkey to show/hide overlay
+10. 🔄 Opacity control
+11. 🔄 Improve styling (terminal fonts, colors)
 
 ### Key APIs
 ```python

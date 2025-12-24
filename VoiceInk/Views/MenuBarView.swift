@@ -184,7 +184,11 @@ struct MenuBarView: View {
             Button("History") {
                 menuBarManager.openMainWindowAndNavigate(to: "History")
             }
-            
+
+            Button("Terminal Overlay") {
+                TerminalOverlayManager.shared.toggle()
+            }
+
             Button("Settings") {
                 menuBarManager.openMainWindowAndNavigate(to: "Settings")
             }

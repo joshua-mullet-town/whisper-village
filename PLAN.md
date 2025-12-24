@@ -39,6 +39,30 @@ Dashboard Feedback Section complete. See STATE.md.
 
 ---
 
+## BACKLOG: Floating Terminal Overlay Mode
+
+**Problem:** User wants to view docs/browser while still having terminal visible and accessible. Currently must switch between windows.
+
+**Goal:** A mode where Whisper Village hosts/mirrors a terminal that floats on top of all windows with adjustable opacity.
+
+**Concept:**
+- Terminal window that follows you across all spaces/apps
+- Adjustable opacity (see through to content underneath)
+- Can hide/show with hotkey
+- Always-on-top behavior
+- Transcriptions could paste directly into this overlay terminal
+
+**Implementation Ideas:**
+- Could embed a terminal view (pseudo-terminal) in a floating NSPanel
+- Or mirror/control an existing terminal window
+- Opacity slider in settings or quick-toggle
+- Hotkey to show/hide the overlay
+- Position: corner, side, or user-draggable
+
+**Use Case:** Claude Code open in terminal, want to see docs while still having terminal accessible
+
+---
+
 ## BACKLOG: Command Mode Phase 2 (Future)
 
 **Ideas explored but deferred:**

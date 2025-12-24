@@ -26,3 +26,4 @@ ml/coreml/**/*.bin
 
 # Secrets (webhook URLs, API keys, etc.)
 VoiceInk/secrets.plist
+scripts/iterm2-bridge/venv/

@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.5</title>
+            <pubDate>Sat, 03 Jan 2026 16:49:21 -0500</pubDate>
+            <sparkle:version>98</sparkle:version>
+            <sparkle:shortVersionString>1.9.5</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.5</h3>
+                <ul>
+                    <li>Claude Summary Hooks, Worktree Management, Button Feedback, Settings Performance</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.5/WhisperVillage-1.9.5.dmg" length="254470261" type="application/octet-stream" sparkle:edSignature="94ZETouYJa379qX/PnqS19wOADOpI5qaQ+FG99d1ybbq7icR5i5FNuPVx1X0Nw807Q+iqOwPzD3vLEGDy9dCCg=="/>
+        </item>
+        <item>
             <title>1.9.4</title>
             <pubDate>Tue, 23 Dec 2025 08:52:53 -0500</pubDate>
             <sparkle:version>97</sparkle:version>

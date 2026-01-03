@@ -47,6 +47,9 @@ struct SettingsView: View {
                 // Experimental - Beta features
                 ExperimentalFeaturesSection()
 
+                // Claude Code - Developer tools
+                ClaudeCodeSection()
+
                 // Visual - Appearance settings
                 VisualSection(
                     notchAlwaysVisible: $notchAlwaysVisible,

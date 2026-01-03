@@ -29,8 +29,8 @@ class NotchRecorderPanel: KeyablePanel {
             let baseNotchWidth: CGFloat = safeAreaInsets.left > 0 ? safeAreaInsets.left * 2 : 200
             
             // Calculate total width including side sections
-            // Must match sectionWidth (100px) in NotchRecorderView for each side
-            let sectionWidth: CGFloat = 100
+            // Must match sectionWidth (130px when active) in NotchRecorderView for each side
+            let sectionWidth: CGFloat = 130  // Increased to match NotchRecorderView
             let totalWidth = baseNotchWidth + sectionWidth * 2
             
             return (totalWidth, notchHeight)
@@ -49,7 +49,11 @@ class NotchRecorderPanel: KeyablePanel {
         )
         
         self.isFloatingPanel = true
-        self.level = .statusBar + 3
+        
+        // Higher z-index for dev build so it appears above production
+        let isDevBuild = Bundle.main.bundleIdentifier?.hasSuffix(".debug") ?? false
+        self.level = isDevBuild ? .statusBar + 5 : .statusBar + 3
+        
         self.backgroundColor = .clear
         self.isOpaque = false
         self.alphaValue = 1.0
@@ -105,8 +109,8 @@ class NotchRecorderPanel: KeyablePanel {
         let baseNotchWidth: CGFloat = safeAreaInsets.left > 0 ? safeAreaInsets.left * 2 : 200
 
         // Calculate total width including side sections
-        // Must match sectionWidth (100px) in NotchRecorderView for each side
-        let sectionWidth: CGFloat = 100
+        // Must match sectionWidth logic in NotchRecorderView for each side
+        let sectionWidth: CGFloat = 130  // Max width when active (increased from 100)
         let totalWidth = baseNotchWidth + sectionWidth * 2
 
         // Total height includes notch + ticker area below

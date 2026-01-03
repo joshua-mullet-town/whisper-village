@@ -27,3 +27,6 @@ ml/coreml/**/*.bin
 # Secrets (webhook URLs, API keys, etc.)
 VoiceInk/secrets.plist
 scripts/iterm2-bridge/venv/
+
+# Worktree metadata files (should never be committed)
+.worktree-meta.json

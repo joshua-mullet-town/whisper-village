@@ -8,6 +8,7 @@ struct MenuBarView: View {
     @EnvironmentObject var updaterViewModel: UpdaterViewModel
     @EnvironmentObject var enhancementService: AIEnhancementService
     @EnvironmentObject var aiService: AIService
+    @StateObject private var worktreeManager = WorktreeManager.shared
     @State private var launchAtLoginEnabled = LaunchAtLogin.isEnabled
     @State private var menuRefreshTrigger = false  // Added to force menu updates
     @State private var isHovered = false
@@ -185,12 +186,59 @@ struct MenuBarView: View {
                 menuBarManager.openMainWindowAndNavigate(to: "History")
             }
 
-            Button("Terminal Overlay") {
-                TerminalOverlayManager.shared.toggle()
-            }
-
             Button("Settings") {
                 menuBarManager.openMainWindowAndNavigate(to: "Settings")
+            }
+
+            // Worktrees menu - only show if worktrees exist
+            if worktreeManager.hasWorktrees {
+                Divider()
+
+                Menu {
+                    ForEach(Array(worktreeManager.worktrees.keys.sorted()), id: \.self) { project in
+                        if let projectWorktrees = worktreeManager.worktrees[project] {
+                            Section(project) {
+                                ForEach(projectWorktrees) { worktree in
+                                    Menu {
+                                        Button("Copy Path") {
+                                            worktreeManager.copyPath(worktree)
+                                        }
+
+                                        Button("Open in Finder") {
+                                            worktreeManager.openInFinder(worktree)
+                                        }
+
+                                        Divider()
+
+                                        Button("Delete Worktree") {
+                                            Task {
+                                                try? await worktreeManager.delete(worktree)
+                                            }
+                                        }
+                                    } label: {
+                                        HStack {
+                                            Text(worktree.status.icon)
+                                            Text(worktree.branch)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Divider()
+
+                    Button("Refresh") {
+                        Task {
+                            await worktreeManager.scan()
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "arrow.triangle.branch")
+                        Text("Worktrees (\(worktreeManager.totalCount))")
+                    }
+                }
             }
             
             Button(menuBarManager.isMenuBarOnly ? "Show Dock Icon" : "Hide Dock Icon") {

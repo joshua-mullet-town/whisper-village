@@ -201,3 +201,33 @@ This separation exists because:
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless absolutely necessary.
 ALWAYS prefer editing existing files over creating new ones.
+
+---
+
+## Product Direction: The Developer's Voice Tool
+
+**Positioning:** Whisper Village is the ultimate voice-to-text tool for developers. Not general dictation - this is for people who live in the terminal.
+
+### Target User
+- Developers using CLI daily (Claude Code, vim, git, npm, docker)
+- Power users who want voice without leaving their workflow
+- People who think in commands, not paragraphs
+
+### Why Developers?
+- We're building features no general dictation app has:
+  - Send to Terminal (voice → CLI without switching windows)
+  - Append Box (attach logs/code to transcriptions)
+  - Command Mode (voice navigation)
+- Developers appreciate keyboard-first, customizable tools
+- Terminal integration is a moat - consumer apps won't build this
+
+### What This Means
+- **Features:** Prioritize CLI/terminal integration over prose dictation
+- **UX:** Power-user friendly (hotkeys, modes, customization)
+- **Marketing:** Dev communities, CLI tool lists, "for developers" messaging
+- **Pricing:** Can charge more for specialized tool vs commodity dictation
+
+### Open Questions
+- Where do we market? (HN, Reddit r/commandline, X dev community?)
+- What's the tagline? "Voice for the terminal"? "Dictation for developers"?
+- Do we build integrations? (VS Code extension, CLI tool, raycast?)

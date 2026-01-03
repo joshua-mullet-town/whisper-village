@@ -206,7 +206,7 @@ class HotkeyManager: ObservableObject {
     
     private func setupHotkeyMonitoring() {
         removeAllMonitoring()
-        
+
         setupModifierKeyMonitoring()
         setupCustomShortcutMonitoring()
         setupMiddleClickMonitoring()
@@ -286,18 +286,18 @@ class HotkeyManager: ObservableObject {
             }
         }
     }
-    
+
     private func removeAllMonitoring() {
         if let monitor = globalEventMonitor {
             NSEvent.removeMonitor(monitor)
             globalEventMonitor = nil
         }
-        
+
         if let monitor = localEventMonitor {
             NSEvent.removeMonitor(monitor)
             localEventMonitor = nil
         }
-        
+
         for monitor in middleClickMonitors {
             if let monitor = monitor {
                 NSEvent.removeMonitor(monitor)
@@ -305,7 +305,7 @@ class HotkeyManager: ObservableObject {
         }
         middleClickMonitors = []
         middleClickTask?.cancel()
-        
+
         resetKeyStates()
     }
     

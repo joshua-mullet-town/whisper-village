@@ -5,6 +5,7 @@ struct NotchRecorderView: View {
     @ObservedObject var recorder: Recorder
     @ObservedObject var streamingRecorder: StreamingRecorder
     @EnvironmentObject var windowManager: NotchWindowManager
+    @StateObject private var worktreeManager = WorktreeManager.shared
     @State private var isHovering = false
     @State private var recordingDuration: TimeInterval = 0
     @State private var formatModeDuration: TimeInterval = 0
@@ -13,6 +14,7 @@ struct NotchRecorderView: View {
     @State private var retryPulse = false
     @State private var shimmerPhase: CGFloat = 0
     @State private var wasInFormatMode = false
+    @State private var showingWorktrees = false
 
     // Settings for eyeball button behavior
     @AppStorage("StreamingModeEnabled") private var isStreamingModeEnabled = false
@@ -95,9 +97,12 @@ struct NotchRecorderView: View {
     }
     
     /// Total width for each side section (content + padding)
-    /// Animates to 20 (20%) when idle for minimal footprint, 100 when active
+    /// Animates to 20 when idle for minimal footprint, 130 when active to accommodate worktree icon
     private var sectionWidth: CGFloat {
-        isIdleState ? 20 : 100
+        if isIdleState {
+            return 20  // Keep minimal width when idle
+        }
+        return 130  // Increased from 100 to accommodate worktree icon during recording
     }
 
     /// Total width of the entire notch bar
@@ -136,13 +141,28 @@ struct NotchRecorderView: View {
             Spacer()
                 .frame(width: 6)
 
-            // Hotkey indicator - between X and timer
+            // Hotkey indicator - between X and worktree
             if !isIdleState && !hotkeySymbol.isEmpty {
                 Text(hotkeySymbol)
                     .font(.system(size: 10, weight: .medium, design: .rounded))
                     .foregroundColor(.white.opacity(0.6))
                     .frame(minWidth: 14)
                     .transition(.opacity.combined(with: .scale(scale: 0.8)))
+            }
+            
+            // Worktree button - always visible when worktrees exist
+            if worktreeManager.hasWorktrees {
+                NotchIconButton(
+                    icon: "arrow.triangle.branch",
+                    color: .white.opacity(0.8),
+                    tooltip: "Worktrees (\(worktreeManager.totalCount))"
+                ) {
+                    showingWorktrees.toggle()
+                }
+                .popover(isPresented: $showingWorktrees, arrowEdge: .top) {
+                    WorktreeNotchPanel(worktreeManager: worktreeManager)
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
 
             // Command Mode indicator
@@ -657,6 +677,176 @@ private struct NotchIconButton: View {
                 NSCursor.pop()
             }
         }
+    }
+}
+
+// MARK: - Worktree Notch Panel
+
+/// Panel showing all worktrees grouped by project, displayed from the notch
+struct WorktreeNotchPanel: View {
+    @ObservedObject var worktreeManager: WorktreeManager
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Worktrees")
+                .font(.headline)
+                .padding(.bottom, 4)
+            
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(worktreeManager.worktrees.keys.sorted()), id: \.self) { project in
+                        if let projectWorktrees = worktreeManager.worktrees[project] {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(project)
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.primary)
+                                
+                                ForEach(projectWorktrees, id: \.branch) { worktree in
+                                    WorktreeNotchRow(worktree: worktree, worktreeManager: worktreeManager)
+                                }
+                            }
+                            .padding(.bottom, 8)
+                        }
+                    }
+                }
+            }
+            .frame(maxHeight: 300)
+        }
+        .padding()
+        .frame(width: 350)
+        .background(Color(NSColor.windowBackgroundColor))
+        .cornerRadius(8)
+        .shadow(radius: 4)
+        .onAppear {
+            Task {
+                await worktreeManager.scan()
+            }
+        }
+    }
+}
+
+/// Individual worktree row with copy path and delete actions
+struct WorktreeNotchRow: View {
+    let worktree: Worktree
+    let worktreeManager: WorktreeManager
+    @State private var showingDeleteConfirm = false
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(worktree.branch)
+                    .font(.system(.body, design: .monospaced))
+                    .foregroundColor(.primary)
+                
+                Text(worktree.path.path)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            
+            Spacer()
+            
+            HStack(spacing: 8) {
+                WorktreeActionButton(
+                    icon: "doc.on.doc",
+                    color: .primary,
+                    tooltip: "Copy path"
+                ) {
+                    worktreeManager.copyPath(worktree)
+                }
+                
+                WorktreeActionButton(
+                    icon: "chevron.left.forwardslash.chevron.right",
+                    color: .blue,
+                    tooltip: "Open in VS Code"
+                ) {
+                    worktreeManager.openInVSCode(worktree)
+                }
+                
+                WorktreeActionButton(
+                    icon: "trash",
+                    color: .red,
+                    tooltip: "Delete worktree"
+                ) {
+                    showingDeleteConfirm = true
+                }
+            }
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(6)
+        .alert("Delete Worktree", isPresented: $showingDeleteConfirm) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                Task {
+                    try? await worktreeManager.delete(worktree)
+                    await worktreeManager.scan()
+                }
+            }
+        } message: {
+            Text("Are you sure you want to delete the worktree for '\(worktree.branch)'? This will remove the directory and all its contents.")
+        }
+    }
+}
+
+/// Interactive button for worktree actions with hover and click feedback
+struct WorktreeActionButton: View {
+    let icon: String
+    let color: Color
+    let tooltip: String
+    let action: () -> Void
+    
+    @State private var isHovered = false
+    @State private var isPressed = false
+    
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 12))
+                .foregroundColor(isPressed ? color.opacity(0.6) : color)
+                .frame(width: 24, height: 24)
+                .background(
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(isHovered ? Color.primary.opacity(0.1) : Color.clear)
+                )
+                .scaleEffect(isPressed ? 0.95 : 1.0)
+                .animation(.easeInOut(duration: 0.1), value: isHovered)
+                .animation(.easeInOut(duration: 0.05), value: isPressed)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .help(tooltip)
+        .onHover { hovering in
+            isHovered = hovering
+        }
+        .onContinuousHover { phase in
+            switch phase {
+            case .active(_):
+                NSCursor.pointingHand.set()
+            case .ended:
+                NSCursor.arrow.set()
+            }
+        }
+        .pressEvents(
+            onPress: { isPressed = true },
+            onRelease: { isPressed = false }
+        )
+    }
+}
+
+extension View {
+    func pressEvents(onPress: @escaping () -> Void, onRelease: @escaping () -> Void) -> some View {
+        self
+            .onTapGesture {
+                // Tap gesture is handled by the button itself
+            }
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in onPress() }
+                    .onEnded { _ in onRelease() }
+            )
     }
 }
 

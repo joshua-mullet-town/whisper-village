@@ -4,6 +4,37 @@
 
 ---
 
+## CURRENT: Spec Browser HUD (`/hud spec`)
+
+**Goal:** Terminal-based navigator for spec-driven projects. Replaces PLAN.md + STATE.md with a visual interface for browsing spec files.
+
+**Tech Stack:**
+- **Ink** (React for terminal) - component-based TUI
+- Global Claude Code command: `/hud spec`
+
+**Features:**
+- Directory tree navigation (collapse/expand `specs/journeys/`, `specs/system/`)
+- Click into JSON files to see individual stories
+- Expand/collapse JSON objects within files
+- Visual status indicators computed from timestamps:
+  - 🔴 Needs work (`story_updated_at > agent_verified_at` or `agent_verified_at` is null)
+  - 🟡 Agent verified, awaiting human (`agent_verified_at > story_updated_at > human_verified_at`)
+  - 🟢 Fully verified
+- Story counts per file (e.g., "3/7 complete")
+
+**Why This Replaces PLAN + STATE:**
+- Stories with `agent_verified_at = null` = planned/future work (was PLAN.md)
+- Stories with timestamps filled = completed work (was STATE.md)
+- System specs = reference knowledge/facts
+- One source of truth: the specs themselves
+
+**Open Questions:**
+- Should it support editing (mark as verified, add notes)?
+- Keyboard shortcuts for navigation?
+- Filter views (show only incomplete, only ready for review)?
+
+---
+
 ## FUTURE: Worktree + GitHub Issue Integration
 
 **Goal:** Describe an issue → auto-create GitHub issue → create branch from issue number.

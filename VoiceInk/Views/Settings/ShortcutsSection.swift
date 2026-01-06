@@ -179,6 +179,13 @@ struct ShortcutsSection: View {
                 shortcut: .peekTranscription,
                 icon: "eye"
             )
+
+            ShortcutRow(
+                name: "Cancel",
+                description: "Discard recording (default: double-tap Escape)",
+                shortcut: .cancelRecorder,
+                icon: "xmark.circle"
+            )
         }
     }
 }

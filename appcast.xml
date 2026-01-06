@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.6</title>
+            <pubDate>Tue, 06 Jan 2026 13:39:54 -0500</pubDate>
+            <sparkle:version>99</sparkle:version>
+            <sparkle:shortVersionString>1.9.6</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.6</h3>
+                <ul>
+                    <li>Add Cancel shortcut to Settings - users can now set a custom hotkey to cancel recording instead of double-tap Escape</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.6/WhisperVillage-1.9.6.dmg" length="254477562" type="application/octet-stream" sparkle:edSignature="uouXfsPkHqWZ57JgxahM72zt+faKC3QVwfJg8Ad9f9lXzhZhBVrWPjItsdvlu9E+WuT4Q5VxlJ0uWIzO0M29AA=="/>
+        </item>
+        <item>
             <title>1.9.5</title>
             <pubDate>Sat, 03 Jan 2026 16:49:21 -0500</pubDate>
             <sparkle:version>98</sparkle:version>

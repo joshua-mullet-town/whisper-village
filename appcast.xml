@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.8</title>
+            <pubDate>Mon, 12 Jan 2026 12:55:14 -0500</pubDate>
+            <sparkle:version>101</sparkle:version>
+            <sparkle:shortVersionString>1.9.8</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.8</h3>
+                <ul>
+                    <li>Lazy model download: App size reduced from 285MB to ~60MB. AI cleanup models now download on-demand from Settings.</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.8/WhisperVillage-1.9.8.dmg" length="13055030" type="application/octet-stream" sparkle:edSignature="4WiMsT2XbLbg7fQC6bWK6RZ6tK/w5vhBG/ya9linuFgtp1AB2sd0NEUUhMl4knw77hAocIGVfjV4VGS4er1KDA=="/>
+        </item>
+        <item>
             <title>1.9.7</title>
             <pubDate>Mon, 12 Jan 2026 07:44:17 -0500</pubDate>
             <sparkle:version>100</sparkle:version>

@@ -4,7 +4,52 @@
 
 ---
 
-## CURRENT: Spec Browser HUD (`/hud spec`)
+## CURRENT: Lazy Model Download (Reduce App Size 285MB → 35MB)
+
+**Goal:** Ship a lightweight app without ML models bundled. Download models on-demand.
+
+**Why:**
+- Current app: 285MB (88% is ML models)
+- ML models: `filler_remover.mlpackage` (126MB) + `repetition_remover.mlpackage` (126MB)
+- Actual code/UI: ~35MB
+- Faster downloads, faster updates, better UX
+
+**Implementation:**
+
+### Step 1: Model Storage Location
+- Models stored in: `~/Library/Application Support/Whisper Village/Models/`
+- Check this location on app launch
+
+### Step 2: ModelDownloadManager
+- Download from GitHub Releases (separate assets, not in DMG)
+- Show progress UI during download
+- Handle errors gracefully (retry, offline mode)
+
+### Step 3: Migration for Existing Users
+- On first launch after update, check if models exist in Application Support
+- If not, copy from app bundle to Application Support (one-time)
+- Future updates ship without bundled models
+
+### Step 4: Update ML Model Loading
+- Change model loading code to look in Application Support instead of bundle
+- Graceful fallback if models missing (disable filler/repetition removal)
+
+### Step 5: Settings UI
+- Show model status: "AI Cleanup Models: Downloaded ✓" or "Download (250MB)"
+- Allow re-download if corrupted
+
+### Step 6: Remove Models from Xcode Bundle
+- Remove mlpackage files from bundle
+- Upload as separate GitHub Release assets
+
+**Files to Modify:**
+- Model loading code (find where mlpackage is loaded)
+- Settings UI (add model status section)
+- New: `ModelDownloadManager.swift`
+
+---
+
+## NEXT: Spec Browser HUD (`/hud spec`)
 
 **Goal:** Terminal-based navigator for spec-driven projects. Replaces PLAN.md + STATE.md with a visual interface for browsing spec files.
 

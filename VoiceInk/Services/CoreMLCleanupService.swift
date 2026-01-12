@@ -7,8 +7,8 @@ import CoreML
 class CoreMLCleanupService {
     static let shared = CoreMLCleanupService()
 
-    private var fillerModel: filler_remover?
-    private var repetitionModel: repetition_remover?
+    private var fillerModel: MLModel?
+    private var repetitionModel: MLModel?
     private var tokenizer: BertTokenizer?
 
     private let maxSeqLen = 128
@@ -18,28 +18,83 @@ class CoreMLCleanupService {
     }
 
     private func loadModels() {
-        // Load vocab for tokenizer
-        guard let vocabURL = Bundle.main.url(forResource: "vocab", withExtension: "txt") else {
-            print("[CoreMLCleanup] vocab.txt not found in bundle")
-            return
+        // Try to load from CleanupModelManager first (Application Support)
+        Task { @MainActor in
+            let manager = CleanupModelManager.shared
+            await manager.checkAndLoadModels()
+
+            if let vocabPath = manager.vocabPath {
+                self.tokenizer = BertTokenizer(vocabPath: vocabPath, maxSeqLen: self.maxSeqLen)
+            }
+
+            self.fillerModel = manager.fillerModel
+            self.repetitionModel = manager.repetitionModel
+
+            if self.fillerModel != nil {
+                print("[CoreMLCleanup] Loaded filler model from Application Support")
+            }
+            if self.repetitionModel != nil {
+                print("[CoreMLCleanup] Loaded repetition model from Application Support")
+            }
+
+            // Fall back to bundle if not in Application Support
+            if self.tokenizer == nil, let vocabURL = Bundle.main.url(forResource: "vocab", withExtension: "txt") {
+                self.tokenizer = BertTokenizer(vocabPath: vocabURL.path, maxSeqLen: self.maxSeqLen)
+            }
+
+            if self.fillerModel == nil {
+                self.loadBundleModel(name: "filler_remover") { model in
+                    self.fillerModel = model
+                    if model != nil {
+                        print("[CoreMLCleanup] Loaded filler model from bundle")
+                    }
+                }
+            }
+
+            if self.repetitionModel == nil {
+                self.loadBundleModel(name: "repetition_remover") { model in
+                    self.repetitionModel = model
+                    if model != nil {
+                        print("[CoreMLCleanup] Loaded repetition model from bundle")
+                    }
+                }
+            }
+        }
+    }
+
+    /// Load model from bundle as fallback
+    private func loadBundleModel(name: String, completion: @escaping (MLModel?) -> Void) {
+        // Try compiled model first
+        if let url = Bundle.main.url(forResource: name, withExtension: "mlmodelc") {
+            do {
+                let model = try MLModel(contentsOf: url)
+                completion(model)
+                return
+            } catch {
+                print("[CoreMLCleanup] Failed to load \(name).mlmodelc: \(error)")
+            }
         }
 
-        tokenizer = BertTokenizer(vocabPath: vocabURL.path, maxSeqLen: maxSeqLen)
-
-        // Load models using Xcode-generated classes
-        do {
-            fillerModel = try filler_remover(configuration: MLModelConfiguration())
-            print("[CoreMLCleanup] Loaded filler model")
-        } catch {
-            print("[CoreMLCleanup] Failed to load filler model: \(error)")
+        // Try mlpackage
+        if let url = Bundle.main.url(forResource: name, withExtension: "mlpackage") {
+            Task {
+                do {
+                    let compiled = try await MLModel.compileModel(at: url)
+                    let model = try MLModel(contentsOf: compiled)
+                    completion(model)
+                } catch {
+                    print("[CoreMLCleanup] Failed to compile \(name).mlpackage: \(error)")
+                    completion(nil)
+                }
+            }
+        } else {
+            completion(nil)
         }
+    }
 
-        do {
-            repetitionModel = try repetition_remover(configuration: MLModelConfiguration())
-            print("[CoreMLCleanup] Loaded repetition model")
-        } catch {
-            print("[CoreMLCleanup] Failed to load repetition model: \(error)")
-        }
+    /// Reload models (call after download completes)
+    func reloadModels() {
+        loadModels()
     }
 
     /// Check if CoreML models are available
@@ -88,8 +143,8 @@ class CoreMLCleanupService {
         return cleanedText
     }
 
-    /// Run filler model inference
-    private func runFillerInference(model: filler_remover, text: String, tokenizer: BertTokenizer) -> [Bool] {
+    /// Run model inference (generic for both filler and repetition models)
+    private func runInference(model: MLModel, text: String, tokenizer: BertTokenizer, modelName: String) -> [Bool] {
         let words = text.split(separator: " ").map(String.init)
         var shouldRemove = [Bool](repeating: false, count: words.count)
 
@@ -107,47 +162,31 @@ class CoreMLCleanupService {
             attentionMaskArray[i] = NSNumber(value: attentionMask[i])
         }
 
-        // Run inference
-        let input = filler_removerInput(input_ids: inputIdsArray, attention_mask: attentionMaskArray)
+        // Create feature provider with input arrays
+        let inputFeatures = try? MLDictionaryFeatureProvider(dictionary: [
+            "input_ids": MLFeatureValue(multiArray: inputIdsArray),
+            "attention_mask": MLFeatureValue(multiArray: attentionMaskArray)
+        ])
 
-        guard let output = try? model.prediction(input: input) else {
-            print("[CoreMLCleanup] Filler inference failed")
+        guard let input = inputFeatures,
+              let output = try? model.prediction(from: input),
+              let logits = output.featureValue(for: "logits")?.multiArrayValue else {
+            print("[CoreMLCleanup] \(modelName) inference failed")
             return shouldRemove
         }
 
         // Process logits
-        return processLogits(logits: output.logits, wordIds: wordIds, numWords: words.count)
+        return processLogits(logits: logits, wordIds: wordIds, numWords: words.count)
+    }
+
+    /// Run filler model inference
+    private func runFillerInference(model: MLModel, text: String, tokenizer: BertTokenizer) -> [Bool] {
+        return runInference(model: model, text: text, tokenizer: tokenizer, modelName: "Filler")
     }
 
     /// Run repetition model inference
-    private func runRepetitionInference(model: repetition_remover, text: String, tokenizer: BertTokenizer) -> [Bool] {
-        let words = text.split(separator: " ").map(String.init)
-        var shouldRemove = [Bool](repeating: false, count: words.count)
-
-        // Tokenize
-        let (inputIds, attentionMask, wordIds) = tokenizer.encode(text: text)
-
-        // Create MLMultiArray inputs
-        guard let inputIdsArray = try? MLMultiArray(shape: [1, NSNumber(value: maxSeqLen)], dataType: .int32),
-              let attentionMaskArray = try? MLMultiArray(shape: [1, NSNumber(value: maxSeqLen)], dataType: .int32) else {
-            return shouldRemove
-        }
-
-        for i in 0..<maxSeqLen {
-            inputIdsArray[i] = NSNumber(value: inputIds[i])
-            attentionMaskArray[i] = NSNumber(value: attentionMask[i])
-        }
-
-        // Run inference
-        let input = repetition_removerInput(input_ids: inputIdsArray, attention_mask: attentionMaskArray)
-
-        guard let output = try? model.prediction(input: input) else {
-            print("[CoreMLCleanup] Repetition inference failed")
-            return shouldRemove
-        }
-
-        // Process logits
-        return processLogits(logits: output.logits, wordIds: wordIds, numWords: words.count)
+    private func runRepetitionInference(model: MLModel, text: String, tokenizer: BertTokenizer) -> [Bool] {
+        return runInference(model: model, text: text, tokenizer: tokenizer, modelName: "Repetition")
     }
 
     /// Process logits to determine which words to remove

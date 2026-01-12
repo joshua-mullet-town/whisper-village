@@ -44,6 +44,9 @@ struct SettingsView: View {
                 // Auto Formatting - Text cleanup and formatting
                 AutoFormattingSection()
 
+                // AI Cleanup Models - Filler/repetition removal
+                AICleanupModelsSection()
+
                 // Experimental - Beta features
                 ExperimentalFeaturesSection()
 

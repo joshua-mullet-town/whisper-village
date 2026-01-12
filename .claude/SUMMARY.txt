@@ -1,1 +1,1 @@
-User requested a full-screen Spec Browser HUD and an inline view of stories without clicking into JSON files. Agent implemented these features for improved UX navigation in terminal-based spec browsing tool.
+User wants to see if worktree detection works for nested directories. Agent fixed and tested it; Dev app now shows icons in real-time even with nested folders.

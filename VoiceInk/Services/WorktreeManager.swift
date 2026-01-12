@@ -9,6 +9,9 @@ class WorktreeManager: ObservableObject {
     /// All discovered worktrees, grouped by project
     @Published var worktrees: [String: [Worktree]] = [:]
 
+    /// Worktrees currently being deleted (for UI state)
+    @Published var deletingWorktrees: Set<String> = []
+
     /// Whether we have any worktrees
     var hasWorktrees: Bool {
         !worktrees.isEmpty
@@ -21,14 +24,32 @@ class WorktreeManager: ObservableObject {
 
     private let worktreesDir: URL
 
+    // File system watcher (nonisolated for thread safety)
+    private let fileWatcher: WorktreeFileWatcher
+
     init() {
         worktreesDir = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".worktrees")
+
+        // Create file watcher
+        fileWatcher = WorktreeFileWatcher(directory: worktreesDir)
 
         // Initial scan
         Task {
             await scan()
         }
+
+        // Start watching for changes
+        fileWatcher.startWatching { [weak self] in
+            Task { @MainActor in
+                await self?.scan()
+            }
+        }
+    }
+
+    /// Force a manual refresh
+    func refresh() async {
+        await scan()
     }
 
     /// Scan ~/.worktrees/ for all worktrees
@@ -125,31 +146,55 @@ class WorktreeManager: ObservableObject {
         }
     }
 
-    /// Delete a worktree
-    func delete(_ worktree: Worktree) async throws {
-        // First, remove the git worktree reference from the main repo
-        if let mainRepoPath = worktree.mainRepoPath {
-            let mainRepo = URL(fileURLWithPath: mainRepoPath)
-            do {
-                _ = try await runGitCommand(["worktree", "remove", "--force", worktree.path.path], at: mainRepo)
-            } catch {
-                // If that fails, try to remove just the directory
-                print("WorktreeManager: git worktree remove failed, removing directory directly")
-            }
+    /// Delete a worktree (non-blocking, runs on background thread)
+    func delete(_ worktree: Worktree) {
+        // Mark as deleting for UI feedback
+        deletingWorktrees.insert(worktree.id)
 
-            // Delete the branch
+        // Run deletion on background thread to avoid blocking UI
+        Task.detached(priority: .userInitiated) { [weak self] in
             do {
-                _ = try await runGitCommand(["branch", "-D", worktree.branch], at: mainRepo)
+                // First, remove the git worktree reference from the main repo
+                if let mainRepoPath = worktree.mainRepoPath {
+                    let mainRepo = URL(fileURLWithPath: mainRepoPath)
+                    do {
+                        _ = try await self?.runGitCommandBackground(["worktree", "remove", "--force", worktree.path.path], at: mainRepo)
+                    } catch {
+                        // If that fails, try to remove just the directory
+                        print("WorktreeManager: git worktree remove failed, removing directory directly")
+                    }
+
+                    // Delete the branch
+                    do {
+                        _ = try await self?.runGitCommandBackground(["branch", "-D", worktree.branch], at: mainRepo)
+                    } catch {
+                        print("WorktreeManager: Could not delete branch \(worktree.branch)")
+                    }
+                }
+
+                // Remove the directory (this is the slow part for large worktrees)
+                try FileManager.default.removeItem(at: worktree.path)
+
+                // Update UI on main thread
+                await MainActor.run {
+                    self?.deletingWorktrees.remove(worktree.id)
+                    Task {
+                        await self?.scan()
+                    }
+                }
             } catch {
-                print("WorktreeManager: Could not delete branch \(worktree.branch)")
+                print("WorktreeManager: Error deleting worktree: \(error)")
+                // Remove from deleting state even on error
+                await MainActor.run {
+                    self?.deletingWorktrees.remove(worktree.id)
+                }
             }
         }
+    }
 
-        // Remove the directory
-        try FileManager.default.removeItem(at: worktree.path)
-
-        // Rescan
-        await scan()
+    /// Check if a worktree is being deleted
+    func isDeleting(_ worktree: Worktree) -> Bool {
+        deletingWorktrees.contains(worktree.id)
     }
 
     /// Copy the cd command to clipboard
@@ -178,8 +223,13 @@ class WorktreeManager: ObservableObject {
         NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: worktree.path.path)
     }
 
-    /// Run a git command and return the output
+    /// Run a git command and return the output (MainActor version)
     private func runGitCommand(_ arguments: [String], at directory: URL) async throws -> String {
+        return try await runGitCommandBackground(arguments, at: directory)
+    }
+
+    /// Run a git command on background thread (safe to call from Task.detached)
+    private nonisolated func runGitCommandBackground(_ arguments: [String], at directory: URL) async throws -> String {
         return try await withCheckedThrowingContinuation { continuation in
             let task = Process()
             task.executableURL = URL(fileURLWithPath: "/usr/bin/git")
@@ -255,4 +305,112 @@ struct WorktreeMetadata: Codable {
     let baseBranch: String?
     let mainRepoPath: String?
     let created: Date?
+}
+
+// MARK: - File System Watcher
+
+/// Watches ~/.worktrees/ and all project subdirectories for changes
+/// Structure: ~/.worktrees/project/branch/ - need to watch both levels
+final class WorktreeFileWatcher: @unchecked Sendable {
+    private let rootDirectory: URL
+    private var watchers: [(fd: Int32, source: DispatchSourceFileSystemObject)] = []
+    private var onChange: (() -> Void)?
+    private let lock = NSLock()
+    private var debounceWorkItem: DispatchWorkItem?
+
+    init(directory: URL) {
+        self.rootDirectory = directory
+    }
+
+    deinit {
+        stopWatching()
+    }
+
+    func startWatching(onChange: @escaping () -> Void) {
+        self.onChange = onChange
+        setupWatchers()
+    }
+
+    private func setupWatchers() {
+        lock.lock()
+        defer { lock.unlock() }
+
+        // Stop existing watchers
+        for watcher in watchers {
+            watcher.source.cancel()
+        }
+        watchers.removeAll()
+
+        let fm = FileManager.default
+
+        // Create root directory if it doesn't exist
+        if !fm.fileExists(atPath: rootDirectory.path) {
+            try? fm.createDirectory(at: rootDirectory, withIntermediateDirectories: true)
+        }
+
+        // Watch the root directory
+        if let watcher = createWatcher(for: rootDirectory) {
+            watchers.append(watcher)
+        }
+
+        // Watch each project directory (one level deep)
+        if let projects = try? fm.contentsOfDirectory(atPath: rootDirectory.path) {
+            for project in projects {
+                if project.hasPrefix(".") { continue }
+                let projectPath = rootDirectory.appendingPathComponent(project)
+                var isDir: ObjCBool = false
+                if fm.fileExists(atPath: projectPath.path, isDirectory: &isDir), isDir.boolValue {
+                    if let watcher = createWatcher(for: projectPath) {
+                        watchers.append(watcher)
+                    }
+                }
+            }
+        }
+    }
+
+    private func createWatcher(for directory: URL) -> (fd: Int32, source: DispatchSourceFileSystemObject)? {
+        let fd = open(directory.path, O_EVTONLY)
+        guard fd >= 0 else {
+            print("WorktreeFileWatcher: Could not open \(directory.path) for watching")
+            return nil
+        }
+
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
+            eventMask: [.write, .delete, .rename, .link],
+            queue: DispatchQueue.global(qos: .utility)
+        )
+
+        source.setEventHandler { [weak self] in
+            self?.handleChange()
+        }
+
+        source.setCancelHandler {
+            close(fd)
+        }
+
+        source.resume()
+        return (fd, source)
+    }
+
+    private func handleChange() {
+        // Debounce multiple rapid changes
+        debounceWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            // Re-setup watchers in case new project directories were added
+            self?.setupWatchers()
+            self?.onChange?()
+        }
+        debounceWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: workItem)
+    }
+
+    func stopWatching() {
+        lock.lock()
+        defer { lock.unlock() }
+        for watcher in watchers {
+            watcher.source.cancel()
+        }
+        watchers.removeAll()
+    }
 }

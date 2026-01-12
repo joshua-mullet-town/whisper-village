@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.7</title>
+            <pubDate>Mon, 12 Jan 2026 07:44:17 -0500</pubDate>
+            <sparkle:version>100</sparkle:version>
+            <sparkle:shortVersionString>1.9.7</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.7</h3>
+                <ul>
+                    <li>Worktree Manager improvements: real-time detection of new worktrees without restart, non-blocking deletion with progress indicator</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.7/WhisperVillage-1.9.7.dmg" length="254500364" type="application/octet-stream" sparkle:edSignature="76gPVLx/B1JTM4L6aZPm374gJikrMLjObETjkxpOS/NwG7PTqQkqipHbQZc7SyDrRy1FbDgDFaIVLrTsWJorBw=="/>
+        </item>
+        <item>
             <title>1.9.6</title>
             <pubDate>Tue, 06 Jan 2026 13:39:54 -0500</pubDate>
             <sparkle:version>99</sparkle:version>

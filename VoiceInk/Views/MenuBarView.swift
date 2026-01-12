@@ -211,13 +211,17 @@ struct MenuBarView: View {
                                         Divider()
 
                                         Button("Delete Worktree") {
-                                            Task {
-                                                try? await worktreeManager.delete(worktree)
-                                            }
+                                            worktreeManager.delete(worktree)
                                         }
+                                        .disabled(worktreeManager.isDeleting(worktree))
                                     } label: {
                                         HStack {
-                                            Text(worktree.status.icon)
+                                            if worktreeManager.isDeleting(worktree) {
+                                                ProgressView()
+                                                    .controlSize(.small)
+                                            } else {
+                                                Text(worktree.status.icon)
+                                            }
                                             Text(worktree.branch)
                                         }
                                     }

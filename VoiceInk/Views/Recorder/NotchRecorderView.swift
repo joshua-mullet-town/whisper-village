@@ -729,48 +729,61 @@ struct WorktreeNotchPanel: View {
 /// Individual worktree row with copy path and delete actions
 struct WorktreeNotchRow: View {
     let worktree: Worktree
-    let worktreeManager: WorktreeManager
+    @ObservedObject var worktreeManager: WorktreeManager
     @State private var showingDeleteConfirm = false
-    
+
+    private var isDeleting: Bool {
+        worktreeManager.isDeleting(worktree)
+    }
+
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(worktree.branch)
-                    .font(.system(.body, design: .monospaced))
-                    .foregroundColor(.primary)
-                
+                HStack(spacing: 6) {
+                    Text(worktree.branch)
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundColor(isDeleting ? .secondary : .primary)
+
+                    if isDeleting {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                }
+
                 Text(worktree.path.path)
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
-            
+
             Spacer()
-            
-            HStack(spacing: 8) {
-                WorktreeActionButton(
-                    icon: "doc.on.doc",
-                    color: .primary,
-                    tooltip: "Copy path"
-                ) {
-                    worktreeManager.copyPath(worktree)
-                }
-                
-                WorktreeActionButton(
-                    icon: "chevron.left.forwardslash.chevron.right",
-                    color: .blue,
-                    tooltip: "Open in VS Code"
-                ) {
-                    worktreeManager.openInVSCode(worktree)
-                }
-                
-                WorktreeActionButton(
-                    icon: "trash",
-                    color: .red,
-                    tooltip: "Delete worktree"
-                ) {
-                    showingDeleteConfirm = true
+
+            if !isDeleting {
+                HStack(spacing: 8) {
+                    WorktreeActionButton(
+                        icon: "doc.on.doc",
+                        color: .primary,
+                        tooltip: "Copy path"
+                    ) {
+                        worktreeManager.copyPath(worktree)
+                    }
+
+                    WorktreeActionButton(
+                        icon: "chevron.left.forwardslash.chevron.right",
+                        color: .blue,
+                        tooltip: "Open in VS Code"
+                    ) {
+                        worktreeManager.openInVSCode(worktree)
+                    }
+
+                    WorktreeActionButton(
+                        icon: "trash",
+                        color: .red,
+                        tooltip: "Delete worktree"
+                    ) {
+                        showingDeleteConfirm = true
+                    }
                 }
             }
         }
@@ -778,13 +791,11 @@ struct WorktreeNotchRow: View {
         .padding(.horizontal, 8)
         .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(6)
+        .opacity(isDeleting ? 0.6 : 1.0)
         .alert("Delete Worktree", isPresented: $showingDeleteConfirm) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
-                Task {
-                    try? await worktreeManager.delete(worktree)
-                    await worktreeManager.scan()
-                }
+                worktreeManager.delete(worktree)
             }
         } message: {
             Text("Are you sure you want to delete the worktree for '\(worktree.branch)'? This will remove the directory and all its contents.")

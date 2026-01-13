@@ -157,11 +157,14 @@ class WorktreeManager: ObservableObject {
                 // First, remove the git worktree reference from the main repo
                 if let mainRepoPath = worktree.mainRepoPath {
                     let mainRepo = URL(fileURLWithPath: mainRepoPath)
+
+                    // Try to remove the worktree properly
                     do {
                         _ = try await self?.runGitCommandBackground(["worktree", "remove", "--force", worktree.path.path], at: mainRepo)
                     } catch {
-                        // If that fails, try to remove just the directory
-                        print("WorktreeManager: git worktree remove failed, removing directory directly")
+                        // If that fails, the directory might already be gone - prune stale entries
+                        print("WorktreeManager: git worktree remove failed, pruning stale entries")
+                        _ = try? await self?.runGitCommandBackground(["worktree", "prune"], at: mainRepo)
                     }
 
                     // Delete the branch
@@ -172,8 +175,10 @@ class WorktreeManager: ObservableObject {
                     }
                 }
 
-                // Remove the directory (this is the slow part for large worktrees)
-                try FileManager.default.removeItem(at: worktree.path)
+                // Remove the directory if it still exists (this is the slow part for large worktrees)
+                if FileManager.default.fileExists(atPath: worktree.path.path) {
+                    try FileManager.default.removeItem(at: worktree.path)
+                }
 
                 // Update UI on main thread
                 await MainActor.run {

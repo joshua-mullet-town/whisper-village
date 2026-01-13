@@ -4,6 +4,69 @@
 
 ---
 
+## [2026-01-13 14:30] Project-Specific Worktree Automation - Complete
+
+**Achievement:** Worktrees now run project-specific setup scripts after creation.
+
+**Implementation:**
+- **`~/.local/bin/worktree`** - Fast bash script (not prompt-based) for instant worktree creation
+- **`.claude/worktree-setup.sh`** - Per-project setup script (runs after npm install)
+- **`~/.claude/commands/worktree.md`** - Updated to call setup script in Step 7
+- **WorktreeManager.swift** - Added `git worktree prune` on delete failure to prevent stale references
+
+**Features:**
+- Auto-detects package manager (npm/yarn/pnpm)
+- Copies .env files from main repo
+- Runs project-specific setup (e.g., Playwright browser install)
+- Shows elapsed time, copies cd command to clipboard
+- Prunes stale worktree references automatically
+
+**Guinea Pig:** crowne-vault with `.claude/worktree-setup.sh` for Playwright + env setup
+
+---
+
+## [2026-01-12 12:50] Lazy Model Download - Complete (v1.9.8)
+
+**Achievement:** Reduced app size from 285MB to 13MB DMG (95% reduction) by moving ML models to on-demand download.
+
+**Key Changes:**
+- **CleanupModelManager.swift** - Downloads models from GitHub Releases to `~/Library/Application Support/Whisper Village/Models/`
+- **CoreMLCleanupService.swift** - Refactored to use generic `MLModel` with `MLDictionaryFeatureProvider` instead of Xcode-generated typed classes
+- **AICleanupModelsSection.swift** - Settings UI showing model status (Ready/Not Downloaded/Downloading)
+- **Migration logic** - Existing users' models auto-copied from bundle to Application Support
+
+**Technical Notes:**
+- Models hosted at `https://github.com/joshua-mullet-town/whisper-village/releases/download/models-v1`
+- Uses `URLSession.shared.download()` + `/usr/bin/unzip` for extraction
+- Inference changed from typed `filler_remover().prediction()` to generic `model.prediction(from: MLDictionaryFeatureProvider)`
+
+---
+
+## [2026-01-12 12:30] Worktree Manager Fixes - Complete (v1.9.7)
+
+**Achievement:** Fixed two issues from GitHub Issue #3:
+1. Real-time worktree detection without restart
+2. Non-blocking deletion with progress indicator
+
+**Implementation:**
+- **WorktreeFileWatcher** - GCD DispatchSource watches `~/.worktrees/` and project subdirectories
+- **Background deletion** - `Task.detached` prevents UI freeze, `deletingWorktrees` set tracks state
+- **UI feedback** - Spinner shows during deletion, button disabled
+
+---
+
+## [2026-01-12 07:35] Cancel Shortcut Exposed - Complete (v1.9.6)
+
+**Achievement:** Added Cancel shortcut to Settings UI (was hidden code, never exposed).
+
+**Change:** Added `ShortcutRow` for `.cancelRecorder` in `ShortcutsSection.swift`
+
+**Behavior:**
+- Default: Double-tap Escape to cancel
+- Custom: Set any shortcut for instant cancel (no double-tap)
+
+---
+
 ## [2026-01-03 15:30] Claude Summary Hooks - Complete
 
 **Achievement:** Built session summary system that auto-generates 2-line summaries after each Claude Code response using local Ollama (Phi-3).

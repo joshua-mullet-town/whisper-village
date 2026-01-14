@@ -4,6 +4,34 @@
 
 ---
 
+## [2026-01-14 08:35] VoiceInk → WhisperVillage Rename Complete (v1.9.9)
+
+**Achievement:** Full project rename from VoiceInk to WhisperVillage with automatic data migration for existing users.
+
+**Changes:**
+- Renamed Xcode project `VoiceInk.xcodeproj` → `WhisperVillage.xcodeproj`
+- Renamed source folder `VoiceInk/` → `WhisperVillage/`
+- Updated scheme name to `WhisperVillage`
+- Added `DataPathMigrationService.swift` for legacy data migration
+- Updated `ship-it.sh` script for new project paths
+- Added `WhisperVillage/secrets.plist` to `.gitignore`
+
+**Data Migration:**
+- Old path: `~/Library/Application Support/com.prakashjoshipax.VoiceInk/`
+- New path: `~/Library/Application Support/town.mullet.WhisperVillage/`
+- Migration runs once on app launch, copies all data (models, history, settings files)
+- Parakeet model stored directly in app support root (not in subfolder)
+
+**Lesson Learned:**
+- FluidAudio's `AsrModels` API expects model folder at app support root level
+- Adding a `ParakeetModels/` subfolder broke the path logic and caused slow redownloads
+- Keep model paths simple: `[appSupport]/parakeet-tdt-0.6b-v3-coreml/`
+
+**Files Added:**
+- `WhisperVillage/Services/DataPathMigrationService.swift` - One-time migration service
+
+---
+
 ## [2026-01-13 14:30] Project-Specific Worktree Automation - Complete
 
 **Achievement:** Worktrees now run project-specific setup scripts after creation.

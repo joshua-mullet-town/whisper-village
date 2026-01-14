@@ -1,1 +1,2 @@
-User wants AGENT to implement and test a lazy model download system for Whisper Village app. Agent successfully builds infrastructure for on-demand downloading, tests it with existing users' data, and prepares models as separate GitHub assets; the user confirms functionality before proceeding to ship version 1.9.8 of the application.
+USER asked: (see conversation)
+AGENT: (Ollama not available)

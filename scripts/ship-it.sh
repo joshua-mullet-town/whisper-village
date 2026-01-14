@@ -29,7 +29,7 @@ echo "=================================="
 # Step 1: Get current build number and increment
 echo ""
 echo "📝 Step 1: Reading current build number..."
-CURRENT_BUILD=$(grep -A1 'CURRENT_PROJECT_VERSION' "$PROJECT_DIR/VoiceInk.xcodeproj/project.pbxproj" | grep -o '[0-9]*' | head -1)
+CURRENT_BUILD=$(grep -A1 'CURRENT_PROJECT_VERSION' "$PROJECT_DIR/WhisperVillage.xcodeproj/project.pbxproj" | grep -o '[0-9]*' | head -1)
 NEW_BUILD=$((CURRENT_BUILD + 1))
 echo "   Current: $CURRENT_BUILD → New: $NEW_BUILD"
 
@@ -37,15 +37,15 @@ echo "   Current: $CURRENT_BUILD → New: $NEW_BUILD"
 echo ""
 echo "📝 Step 2: Updating version numbers..."
 # This is tricky with sed on macOS, so we'll use perl
-perl -i -pe "s/CURRENT_PROJECT_VERSION = [0-9]+;/CURRENT_PROJECT_VERSION = $NEW_BUILD;/g" "$PROJECT_DIR/VoiceInk.xcodeproj/project.pbxproj"
-perl -i -pe "s/MARKETING_VERSION = [0-9.]+;/MARKETING_VERSION = $VERSION;/g" "$PROJECT_DIR/VoiceInk.xcodeproj/project.pbxproj"
+perl -i -pe "s/CURRENT_PROJECT_VERSION = [0-9]+;/CURRENT_PROJECT_VERSION = $NEW_BUILD;/g" "$PROJECT_DIR/WhisperVillage.xcodeproj/project.pbxproj"
+perl -i -pe "s/MARKETING_VERSION = [0-9.]+;/MARKETING_VERSION = $VERSION;/g" "$PROJECT_DIR/WhisperVillage.xcodeproj/project.pbxproj"
 echo "   Build: $NEW_BUILD, Marketing: $VERSION"
 
 # Step 3: Build with ad-hoc signing
 echo ""
 echo "🔨 Step 3: Building Release (ad-hoc signing)..."
-xcodebuild -scheme VoiceInk \
-    -project "$PROJECT_DIR/VoiceInk.xcodeproj" \
+xcodebuild -scheme WhisperVillage \
+    -project "$PROJECT_DIR/WhisperVillage.xcodeproj" \
     -configuration Release \
     -derivedDataPath "$BUILD_DIR" \
     clean build \

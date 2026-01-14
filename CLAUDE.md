@@ -70,19 +70,19 @@ User doesn't need to know these. Claude runs them.
 
 ```bash
 # Build Dev
-xcodebuild -scheme VoiceInk -project /Users/joshuamullet/code/whisper-village/VoiceInk.xcodeproj -configuration Debug -allowProvisioningUpdates build
+xcodebuild -scheme WhisperVillage -project /Users/joshuamullet/code/whisper-village/WhisperVillage.xcodeproj -configuration Debug -allowProvisioningUpdates build
 
 # Run Dev
-open "/Users/joshuamullet/Library/Developer/Xcode/DerivedData/VoiceInk-gqtdhjqfugpinvguwravwbwwibyw/Build/Products/Debug/Whisper Village Dev.app"
+open "/Users/joshuamullet/Library/Developer/Xcode/DerivedData/WhisperVillage-adepclzyfrgthjclfduvkuhixsrz/Build/Products/Debug/Whisper Village Dev.app"
 
 # Kill Dev
 pkill -f "Whisper Village Dev"
 
 # Full Cycle
-pkill -f "Whisper Village Dev"; xcodebuild -scheme VoiceInk -project /Users/joshuamullet/code/whisper-village/VoiceInk.xcodeproj -configuration Debug -allowProvisioningUpdates build && open "/Users/joshuamullet/Library/Developer/Xcode/DerivedData/VoiceInk-gqtdhjqfugpinvguwravwbwwibyw/Build/Products/Debug/Whisper Village Dev.app"
+pkill -f "Whisper Village Dev"; xcodebuild -scheme WhisperVillage -project /Users/joshuamullet/code/whisper-village/WhisperVillage.xcodeproj -configuration Debug -allowProvisioningUpdates build && open "/Users/joshuamullet/Library/Developer/Xcode/DerivedData/WhisperVillage-adepclzyfrgthjclfduvkuhixsrz/Build/Products/Debug/Whisper Village Dev.app"
 
 # Build Release (for testing locally only)
-xcodebuild -scheme VoiceInk -project /Users/joshuamullet/code/whisper-village/VoiceInk.xcodeproj -configuration Release -allowProvisioningUpdates clean archive
+xcodebuild -scheme WhisperVillage -project /Users/joshuamullet/code/whisper-village/WhisperVillage.xcodeproj -configuration Release -allowProvisioningUpdates clean archive
 ```
 
 ---
@@ -170,10 +170,10 @@ security add-trusted-cert -d -r trustRoot -p codeSign -k ~/Library/Keychains/log
 
 ## Key Directories
 
-- `VoiceInk/` - Main source code (legacy name)
-- `VoiceInk/Services/` - Transcription, word replacement, AI enhancement
-- `VoiceInk/Views/` - SwiftUI views
-- `VoiceInk/Whisper/` - Local Whisper integration
+- `WhisperVillage/` - Main source code
+- `WhisperVillage/Services/` - Transcription, word replacement, AI enhancement
+- `WhisperVillage/Views/` - SwiftUI views
+- `WhisperVillage/Whisper/` - Local Whisper integration
 
 ---
 

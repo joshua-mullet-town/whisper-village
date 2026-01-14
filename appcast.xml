@@ -3,6 +3,34 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.9</title>
+            <pubDate>Wed, 14 Jan 2026 08:31:19 -0500</pubDate>
+            <sparkle:version>102</sparkle:version>
+            <sparkle:shortVersionString>1.9.9</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.9</h3>
+                <ul>
+                    <li>Complete VoiceInk → WhisperVillage rename with automatic data migration for existing users</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.9/WhisperVillage-1.9.9.dmg" length="13048877" type="application/octet-stream" sparkle:edSignature="F9Cy+i8M7+7bK/3W7CDL/oc40/ysS03RQcTZGWEO0PjubuLi9tGv28/LSPpshOPMBkoSYfir/W8C+gstj5+cDg=="/>
+        </item>
+        <item>
+            <title>1.9.9</title>
+            <pubDate>Wed, 14 Jan 2026 08:28:16 -0500</pubDate>
+            <sparkle:version>1</sparkle:version>
+            <sparkle:shortVersionString>1.9.9</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.9</h3>
+                <ul>
+                    <li>Complete VoiceInk → WhisperVillage rename with automatic data migration for existing users</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.9/WhisperVillage-1.9.9.dmg" length="13055055" type="application/octet-stream" sparkle:edSignature="kAtY44pQ5Q/OypI/Oi0/HxJJ26BUcED8St+KgGITItk7PQi8MOsbU+pm/VCO0DO5U/+m2G+bhHV6K1r0TJIrDg=="/>
+        </item>
+        <item>
             <title>1.9.8</title>
             <pubDate>Mon, 12 Jan 2026 12:55:14 -0500</pubDate>
             <sparkle:version>101</sparkle:version>

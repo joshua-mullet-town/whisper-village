@@ -30,3 +30,4 @@ scripts/iterm2-bridge/venv/
 
 # Worktree metadata files (should never be committed)
 .worktree-meta.json
+WhisperVillage/secrets.plist

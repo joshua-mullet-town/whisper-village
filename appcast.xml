@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.10</title>
+            <pubDate>Fri, 16 Jan 2026 09:01:26 -0500</pubDate>
+            <sparkle:version>104</sparkle:version>
+            <sparkle:shortVersionString>1.9.10</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.10</h3>
+                <ul>
+                    <li>Enhanced debug logging for live preview troubleshooting</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.10/WhisperVillage-1.9.10.dmg" length="13044928" type="application/octet-stream" sparkle:edSignature="gjxCgJFfaM3vHNoDD9/g3Eh23BWSD8OpG6k8W1j8HKQbGAtgNKW9FTI0kNLrQJv2VILIwD1+wegBtr4epWIxDw=="/>
+        </item>
+        <item>
             <title>1.9.9</title>
             <pubDate>Wed, 14 Jan 2026 08:31:19 -0500</pubDate>
             <sparkle:version>102</sparkle:version>

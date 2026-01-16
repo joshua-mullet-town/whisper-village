@@ -621,8 +621,16 @@ class WhisperState: NSObject, ObservableObject {
                                 StreamingLogger.shared.log("=== RECORDING START COMPLETE ===")
 
                                 // Show live preview box if in box mode
+                                StreamingLogger.shared.log("📦 Live Preview Check:")
+                                StreamingLogger.shared.log("  isLivePreviewEnabled: \(self.isLivePreviewEnabled)")
+                                StreamingLogger.shared.log("  livePreviewStyle: \(self.livePreviewStyle)")
+                                StreamingLogger.shared.log("  isLivePreviewBoxMode: \(self.isLivePreviewBoxMode)")
                                 if self.isLivePreviewBoxMode {
+                                    StreamingLogger.shared.log("📦 Showing live box...")
                                     NotificationManager.shared.showLiveBox()
+                                    StreamingLogger.shared.log("📦 showLiveBox() called")
+                                } else {
+                                    StreamingLogger.shared.log("📦 NOT showing live box (mode is ticker or preview disabled)")
                                 }
                             }
 

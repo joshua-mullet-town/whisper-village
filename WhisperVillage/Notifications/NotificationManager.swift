@@ -214,8 +214,11 @@ class NotificationManager {
 
     @MainActor
     func showLiveBox() {
+        StreamingLogger.shared.log("📦 showLiveBox() ENTER")
+
         // Close any existing live box
         if let existingWindow = liveBoxWindow {
+            StreamingLogger.shared.log("📦 Closing existing live box window")
             existingWindow.close()
             liveBoxWindow = nil
             liveBoxHostingController = nil
@@ -242,6 +245,7 @@ class NotificationManager {
 
         let hostingController = ClickThroughHostingController(rootView: liveBoxView)
         let size = hostingController.view.fittingSize
+        StreamingLogger.shared.log("📦 LiveBox fittingSize: \(size.width)x\(size.height)")
 
         // Use our custom LiveBoxPanel that properly handles mouse events
         let panel = LiveBoxPanel()
@@ -250,6 +254,9 @@ class NotificationManager {
 
         // Position centered, near bottom of screen
         positionLiveBoxWindow(panel)
+        let frame = panel.frame
+        StreamingLogger.shared.log("📦 LiveBox positioned at: (\(Int(frame.origin.x)), \(Int(frame.origin.y))) size: \(Int(frame.width))x\(Int(frame.height))")
+
         panel.alphaValue = 0
         panel.orderFrontRegardless()
 
@@ -259,12 +266,15 @@ class NotificationManager {
         // Get saved opacity (default 0.95)
         let savedOpacity = UserDefaults.standard.double(forKey: "LiveBoxOpacity")
         let targetOpacity = savedOpacity > 0 ? savedOpacity : 0.95
+        StreamingLogger.shared.log("📦 LiveBox animating to opacity: \(targetOpacity)")
 
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.25
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             panel.animator().alphaValue = CGFloat(targetOpacity)
         })
+
+        StreamingLogger.shared.log("📦 showLiveBox() EXIT - window created: \(liveBoxWindow != nil)")
     }
 
     @MainActor

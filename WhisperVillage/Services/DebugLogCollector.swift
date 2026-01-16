@@ -99,6 +99,40 @@ class DebugLogCollector {
         info.append("SettingsMigration_v1.9.3: \(defaults.bool(forKey: "SettingsMigration_v1.9.3_LivePreviewBox"))")
         info.append("SettingsMigration_v1.9.4: \(defaults.bool(forKey: "SettingsMigration_v1.9.4_StreamingMode"))")
 
+        // Live Preview Box State
+        info.append("")
+        info.append("── LIVE PREVIEW STATE ──")
+        info.append("LiveBoxPositionX: \(defaults.double(forKey: "LiveBoxPositionX"))")
+        info.append("LiveBoxPositionY: \(defaults.double(forKey: "LiveBoxPositionY"))")
+        info.append("LiveBoxOpacity: \(defaults.double(forKey: "LiveBoxOpacity"))")
+
+        // Display Info
+        info.append("")
+        info.append("── DISPLAY INFO ──")
+        info.append("NumberOfScreens: \(NSScreen.screens.count)")
+        if let mainScreen = NSScreen.main {
+            let frame = mainScreen.frame
+            let visibleFrame = mainScreen.visibleFrame
+            info.append("MainScreenSize: \(Int(frame.width))x\(Int(frame.height))")
+            info.append("MainScreenVisibleFrame: \(Int(visibleFrame.width))x\(Int(visibleFrame.height))")
+            // Check for notch (top safe area inset)
+            let topInset = frame.height - visibleFrame.height - visibleFrame.origin.y
+            info.append("TopInset (notch indicator): \(Int(topInset))")
+        }
+        for (index, screen) in NSScreen.screens.enumerated() {
+            info.append("Screen\(index): \(Int(screen.frame.width))x\(Int(screen.frame.height)) at (\(Int(screen.frame.origin.x)),\(Int(screen.frame.origin.y)))")
+        }
+
+        // Current Transcription Model (from UserDefaults JSON)
+        info.append("")
+        info.append("── CURRENT MODEL ──")
+        if let modelData = defaults.data(forKey: "CurrentTranscriptionModel"),
+           let modelDict = try? JSONSerialization.jsonObject(with: modelData) as? [String: Any] {
+            info.append("CurrentModel: \(modelDict["name"] ?? "unknown") (\(modelDict["provider"] ?? "unknown"))")
+        } else {
+            info.append("CurrentModel: not set or invalid")
+        }
+
         // Recent Streaming Logs (last 100 lines)
         info.append("")
         info.append("── STREAMING LOGS (last 100 lines) ──")

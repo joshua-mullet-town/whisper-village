@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.11</title>
+            <pubDate>Fri, 16 Jan 2026 17:05:33 -0500</pubDate>
+            <sparkle:version>106</sparkle:version>
+            <sparkle:shortVersionString>1.9.11</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.11</h3>
+                <ul>
+                    <li>Fix live preview box appearing off-screen on multi-monitor setups; restore feedback button functionality</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.11/WhisperVillage-1.9.11.dmg" length="13049872" type="application/octet-stream" sparkle:edSignature="1YTXkZtay1EtkcKaOluDtQGXVQMdeOeUt7/aIxXLinwB9AYk79S/FNNrKwYy8Mi/6yKmvyHSNRiy3xu4F21qDQ=="/>
+        </item>
+        <item>
             <title>1.9.10</title>
             <pubDate>Fri, 16 Jan 2026 09:01:26 -0500</pubDate>
             <sparkle:version>104</sparkle:version>

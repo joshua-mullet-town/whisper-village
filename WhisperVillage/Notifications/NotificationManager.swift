@@ -358,7 +358,11 @@ class NotificationManager {
             // Convert saved top edge to origin (bottom edge)
             // origin.y = maxY - height
             let originY = savedTopY - window.frame.height
-            window.setFrameOrigin(NSPoint(x: savedX, y: originY))
+            var proposedOrigin = NSPoint(x: savedX, y: originY)
+
+            // Bounds check: ensure window is visible on at least one screen
+            proposedOrigin = clampToVisibleScreen(origin: proposedOrigin, windowSize: window.frame.size)
+            window.setFrameOrigin(proposedOrigin)
         } else {
             // Default: center horizontally, 150px from bottom
             let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
@@ -370,6 +374,47 @@ class NotificationManager {
 
             window.setFrameOrigin(NSPoint(x: x, y: y))
         }
+    }
+
+    /// Clamp window origin to ensure it's visible on at least one screen
+    private func clampToVisibleScreen(origin: NSPoint, windowSize: NSSize) -> NSPoint {
+        // Find the screen that contains the most of this window, or the main screen
+        let windowRect = NSRect(origin: origin, size: windowSize)
+
+        // Check if window is at least partially visible on any screen
+        var bestScreen: NSScreen?
+        var bestOverlap: CGFloat = 0
+
+        for screen in NSScreen.screens {
+            let intersection = screen.visibleFrame.intersection(windowRect)
+            if !intersection.isNull {
+                let overlap = intersection.width * intersection.height
+                if overlap > bestOverlap {
+                    bestOverlap = overlap
+                    bestScreen = screen
+                }
+            }
+        }
+
+        // If window is visible on a screen, use saved position
+        if bestOverlap > 0 {
+            return origin
+        }
+
+        // Window is completely off-screen - reset to center of main screen
+        StreamingLogger.shared.log("📦 LiveBox position was off-screen (\(Int(origin.x)), \(Int(origin.y))), resetting to center")
+
+        let screen = NSScreen.main ?? NSScreen.screens.first ?? NSScreen.screens[0]
+        let screenRect = screen.visibleFrame
+
+        let x = screenRect.midX - (windowSize.width / 2)
+        let y = screenRect.minY + 150
+
+        // Clear the invalid saved position
+        UserDefaults.standard.removeObject(forKey: liveBoxPositionXKey)
+        UserDefaults.standard.removeObject(forKey: liveBoxPositionYKey)
+
+        return NSPoint(x: x, y: y)
     }
 
     @MainActor

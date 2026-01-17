@@ -4,6 +4,69 @@
 
 ---
 
+## [2026-01-17 10:30] Live Preview Box Off-Screen Fix (v1.9.11)
+
+**Achievement:** Fixed live preview box not appearing on multi-monitor setups.
+
+**Root Cause:** User (Dylan) had saved LiveBox position at Y=-34 from a previous monitor arrangement. When monitor layout changed, the box was positioned off-screen at Y=-216.
+
+**Fix:**
+- Added `clampToVisibleScreen()` function in `NotificationManager.swift`
+- Checks if window overlaps ANY screen's visible frame
+- If completely off-screen, resets to center of main screen and clears invalid saved position
+- Logs when position reset occurs for debugging
+
+**Also Fixed:** Restored `secrets.plist` which was lost during VoiceInk→WhisperVillage rename (was gitignored, not in repo). Feedback buttons now work again.
+
+---
+
+## [2026-01-17 09:45] Enhanced Debug Logging for Live Preview (v1.9.10)
+
+**Achievement:** Added comprehensive debug logging to diagnose live preview issues.
+
+**New Debug Sections:**
+- **LIVE PREVIEW STATE** - Saved position (X, Y), opacity
+- **DISPLAY INFO** - Screen count, sizes, visible frames, top inset (notch indicator)
+- **CURRENT MODEL** - Actual transcription model in use
+
+**New Streaming Logs:**
+- `📦 Live Preview Check:` at recording start (shows isLivePreviewEnabled, livePreviewStyle, isLivePreviewBoxMode)
+- `📦 showLiveBox() ENTER/EXIT` with fittingSize, positioned coordinates, opacity
+
+**Lesson Learned:** When debugging UI issues, log the actual computed positions and screen geometry - settings alone don't tell the full story.
+
+---
+
+## [2026-01-16 14:00] HUD Go Command - Multi-Pane Dev Environment Setup
+
+**Achievement:** Created `hud go` workflow for GiveGrove that sets up entire dev environment with one command.
+
+**How It Works:**
+- `.hud/go.sh` script in repo root
+- Uses AppleScript to control iTerm2 pane splits
+- Signal file pattern (`/tmp/givegrove-reauth-done`) for blocking commands
+
+**Critical Gotcha Documented:**
+- All pane splits MUST happen in ONE `osascript` call
+- Multiple osascript calls lose pane references → splits from wrong pane
+- Solution: Create all panes at once, use signal file for blocking auth
+
+**GiveGrove Layout:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│                          HUD                                 │
+├──────────────┬──────────────┬──────────────┬────────────────┤
+│   Reauth     │  GiveGrove   │  GiveGrove   │  Ticketing API │
+│  (auxiliary) │   Frontend   │  Functions   │   Functions    │
+└──────────────┴──────────────┴──────────────┴────────────────┘
+```
+
+**Files:**
+- `/Users/joshuamullet/code/hud/README.md` - Updated with signal file pattern docs
+- `/Users/joshuamullet/code/GiveGrove/.hud/go.sh` - GiveGrove dev setup script
+
+---
+
 ## [2026-01-14 08:35] VoiceInk → WhisperVillage Rename Complete (v1.9.9)
 
 **Achievement:** Full project rename from VoiceInk to WhisperVillage with automatic data migration for existing users.

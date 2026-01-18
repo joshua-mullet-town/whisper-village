@@ -74,9 +74,18 @@ class HotkeyManager: ObservableObject {
     private var lastShortcutTriggerTime: Date?
     private let shortcutCooldownInterval: TimeInterval = 0.5
 
-    // Double-tap to send detection - STATIC so shared across all instances
-    private static var lastStopTime: Date? = nil
-    private let doubleTapSendThreshold: TimeInterval = 1.0 // 1000ms window for double-tap
+    // Double-tap and triple-tap detection (Magnet-style: detect on KEY RELEASE)
+    // - lastReleaseTime: when the modifier key was last released
+    // - releaseCount: how many releases within the time window
+    // - 1 release after recording stop = normal stop
+    // - 2 releases within window = double-tap (paste + enter)
+    // - 3 releases within window = triple-tap (terminal + enter)
+    private static var lastReleaseTime: Date? = nil
+    private static var releaseCount: Int = 0
+    private static var lastEventTimestamp: TimeInterval = 0  // Dedupe events (like Magnet)
+    private let multiTapThreshold: TimeInterval = 0.5  // 500ms window between releases
+    private var multiTapDecisionTask: Task<Void, Never>? = nil
+    private let multiTapDecisionDelay: UInt64 = 150_000_000  // 150ms wait before committing
 
     enum HotkeyOption: String, CaseIterable {
         case none = "none"
@@ -319,9 +328,17 @@ class HotkeyManager: ObservableObject {
     }
     
     private func handleModifierKeyEvent(_ event: NSEvent) async {
+        // Deduplicate events using timestamp (like Magnet does)
+        let timestamp = event.timestamp
+        guard Self.lastEventTimestamp != timestamp else {
+            StreamingLogger.shared.log("🔑 DEDUPE: ignoring duplicate event")
+            return
+        }
+        Self.lastEventTimestamp = timestamp
+
         let keycode = event.keyCode
         let flags = event.modifierFlags
-        
+
         // Determine which hotkey (if any) is being triggered
         let activeHotkey: HotkeyOption?
         if selectedHotkey1.isModifierKey && selectedHotkey1.keyCode == keycode {
@@ -331,11 +348,11 @@ class HotkeyManager: ObservableObject {
         } else {
             activeHotkey = nil
         }
-        
+
         guard let hotkey = activeHotkey else { return }
-        
+
         var isKeyPressed = false
-        
+
         switch hotkey {
         case .rightOption, .leftOption:
             isKeyPressed = flags.contains(.option)
@@ -362,47 +379,34 @@ class HotkeyManager: ObservableObject {
         case .custom, .none:
             return // Should not reach here
         }
-        
+
+        StreamingLogger.shared.log("🔑 MODIFIER EVENT: key=\(hotkey), pressed=\(isKeyPressed)")
         processKeyPress(isKeyPressed: isKeyPressed)
     }
     
-    // MARK: - Clean Hotkey Logic (with Debug Logging)
+    // MARK: - Clean Hotkey Logic (Magnet-style: detect multi-tap on RELEASE)
     //
-    // States: .idle (can start), .recording (can stop), .transcribing (BUSY - ignore)
+    // KEY DOWN: Start/stop recording based on state
+    // KEY UP: Count releases within time window for double/triple tap detection
     //
-    // KEY DOWN:
-    //   1. If BUSY (transcribing) → IGNORE
-    //   2. If recording → STOP, record stop time
-    //   3. If idle:
-    //      a. If within 500ms of last stop → DOUBLE-TAP SEND
-    //      b. Else → START recording
-    //
-    // KEY UP:
-    //   - If we started recording AND brief press → hands-free
-    //   - If we started recording AND long press → stop (push-to-talk)
+    // Release counting (within 500ms window):
+    //   - Release 1: Normal release (start or stop recording)
+    //   - Release 2: Double-tap → paste + enter
+    //   - Release 3: Triple-tap → terminal + enter
 
     private var startedRecordingThisPress = false
-    private var doubleTapHandled = false
 
     private func processKeyPress(isKeyPressed: Bool) {
         guard isKeyPressed != currentKeyState else { return }
         currentKeyState = isKeyPressed
 
         if isKeyPressed {
+            // KEY DOWN
             keyPressStartTime = Date()
             startedRecordingThisPress = false
-            doubleTapHandled = false
-
-            // CHECK DOUBLE-TAP FIRST (before state) - state may lag behind
-            if isWithinDoubleTapWindow() {
-                doubleTapHandled = true
-                Self.lastStopTime = nil
-                // Set flag - WhisperState will press Enter AFTER paste completes
-                whisperState.doubleTapSendPending = true
-                return
-            }
 
             let state = whisperState.recordingState
+            StreamingLogger.shared.log("🔑 KEY DOWN: state=\(state)")
 
             switch state {
             case .transcribing, .enhancing, .busy:
@@ -410,7 +414,7 @@ class HotkeyManager: ObservableObject {
                 return
 
             case .error:
-                // In error state - dismiss error and allow starting new recording
+                // In error state - dismiss error
                 Task { @MainActor in
                     whisperState.dismissError()
                 }
@@ -419,7 +423,6 @@ class HotkeyManager: ObservableObject {
             case .recording:
                 // STOP recording
                 isHandsFreeMode = false
-                recordStopTime()  // Record IMMEDIATELY, before async work
                 Task { @MainActor in
                     guard canProcessHotkeyAction else { return }
                     await whisperState.handleToggleMiniRecorder()
@@ -434,13 +437,52 @@ class HotkeyManager: ObservableObject {
                 }
             }
         } else {
-            // KEY UP
+            // KEY UP - This is where we detect multi-tap (Magnet-style)
             defer { keyPressStartTime = nil }
 
-            if doubleTapHandled {
+            // Check if this release is within the multi-tap window
+            let inWindow = isWithinMultiTapWindow()
+            if inWindow {
+                Self.releaseCount += 1
+            } else {
+                Self.releaseCount = 1  // First release of a new sequence
+            }
+            Self.lastReleaseTime = Date()
+
+            let currentReleaseCount = Self.releaseCount
+            StreamingLogger.shared.log("🔑 KEY UP: releaseCount=\(currentReleaseCount), inWindow=\(inWindow)")
+
+            // For multi-tap (2+), wait briefly to see if more taps are coming
+            if currentReleaseCount >= 2 {
+                // Cancel any pending decision
+                multiTapDecisionTask?.cancel()
+
+                // Wait 150ms, then commit to action based on final release count
+                multiTapDecisionTask = Task { @MainActor in
+                    do {
+                        try await Task.sleep(nanoseconds: multiTapDecisionDelay)
+
+                        // Check current release count after waiting
+                        let finalCount = Self.releaseCount
+                        StreamingLogger.shared.log("🔑 DECISION: finalReleaseCount=\(finalCount)")
+
+                        if finalCount >= 3 {
+                            // Triple-tap: terminal + enter
+                            whisperState.tripleTapTerminalPending = true
+                            StreamingLogger.shared.log("🔑 TRIPLE-TAP committed → terminal mode")
+                        } else if finalCount == 2 {
+                            // Double-tap: paste + enter
+                            whisperState.doubleTapSendPending = true
+                            StreamingLogger.shared.log("🔑 DOUBLE-TAP committed → send mode")
+                        }
+                    } catch {
+                        // Task was cancelled (more taps came in)
+                    }
+                }
                 return
             }
 
+            // Normal release handling (release count == 1)
             if startedRecordingThisPress, let startTime = keyPressStartTime {
                 let pressDuration = Date().timeIntervalSince(startTime)
 
@@ -448,7 +490,6 @@ class HotkeyManager: ObservableObject {
                     isHandsFreeMode = true
                 } else {
                     isHandsFreeMode = false
-                    recordStopTime()  // Record IMMEDIATELY, before async work
                     Task { @MainActor in
                         guard canProcessHotkeyAction else { return }
                         await whisperState.handleToggleMiniRecorder()
@@ -458,14 +499,13 @@ class HotkeyManager: ObservableObject {
         }
     }
 
-    private func isWithinDoubleTapWindow() -> Bool {
-        guard let stopTime = Self.lastStopTime else { return false }
-        return Date().timeIntervalSince(stopTime) <= doubleTapSendThreshold
+    private func isWithinMultiTapWindow() -> Bool {
+        guard let lastRelease = Self.lastReleaseTime else { return false }
+        return Date().timeIntervalSince(lastRelease) <= multiTapThreshold
     }
     
     // Custom shortcut state tracking
     private var shortcutStartedRecordingThisPress = false
-    private var shortcutDoubleTapHandled = false
 
     private func handleCustomShortcutKeyDown() async {
         if let lastTrigger = lastShortcutTriggerTime,
@@ -478,18 +518,9 @@ class HotkeyManager: ObservableObject {
         lastShortcutTriggerTime = Date()
         shortcutKeyPressStartTime = Date()
         shortcutStartedRecordingThisPress = false
-        shortcutDoubleTapHandled = false
-
-        // CHECK DOUBLE-TAP FIRST (before state) - state may lag behind
-        if isWithinDoubleTapWindow() {
-            shortcutDoubleTapHandled = true
-            Self.lastStopTime = nil
-            // Set flag - WhisperState will press Enter AFTER paste completes
-            whisperState.doubleTapSendPending = true
-            return
-        }
 
         let state = whisperState.recordingState
+        StreamingLogger.shared.log("🔑 SHORTCUT KEY DOWN: state=\(state)")
 
         switch state {
         case .transcribing, .enhancing, .busy:
@@ -506,7 +537,6 @@ class HotkeyManager: ObservableObject {
             isShortcutHandsFreeMode = false
             guard canProcessHotkeyAction else { return }
             await whisperState.handleToggleMiniRecorder()
-            recordStopTime()
 
         case .idle:
             // Start new recording
@@ -521,10 +551,30 @@ class HotkeyManager: ObservableObject {
         shortcutCurrentKeyState = false
         defer { shortcutKeyPressStartTime = nil }
 
-        // If double-tap was handled, nothing to do
-        if shortcutDoubleTapHandled { return }
+        // Count releases for multi-tap detection (Magnet-style)
+        let inWindow = isWithinMultiTapWindow()
+        if inWindow {
+            Self.releaseCount += 1
+        } else {
+            Self.releaseCount = 1
+        }
+        Self.lastReleaseTime = Date()
 
-        // If we started recording this press, handle push-to-talk
+        StreamingLogger.shared.log("🔑 SHORTCUT KEY UP: releaseCount=\(Self.releaseCount), inWindow=\(inWindow)")
+
+        // Handle multi-tap based on release count
+        if Self.releaseCount == 2 {
+            whisperState.doubleTapSendPending = true
+            StreamingLogger.shared.log("🔑 DOUBLE-TAP shortcut (release \(Self.releaseCount)) → send mode")
+            return
+        } else if Self.releaseCount >= 3 {
+            whisperState.doubleTapSendPending = false
+            whisperState.tripleTapTerminalPending = true
+            StreamingLogger.shared.log("🔑 TRIPLE-TAP shortcut (release \(Self.releaseCount)) → terminal mode")
+            return
+        }
+
+        // Normal release handling (release count == 1)
         if shortcutStartedRecordingThisPress, let startTime = shortcutKeyPressStartTime {
             let pressDuration = Date().timeIntervalSince(startTime)
 
@@ -536,14 +586,8 @@ class HotkeyManager: ObservableObject {
                 isShortcutHandsFreeMode = false
                 guard canProcessHotkeyAction else { return }
                 await whisperState.handleToggleMiniRecorder()
-                recordStopTime()
             }
         }
-    }
-    
-    /// Record that recording just stopped (for double-tap detection)
-    private func recordStopTime() {
-        Self.lastStopTime = Date()
     }
 
     // Computed property for backward compatibility with UI

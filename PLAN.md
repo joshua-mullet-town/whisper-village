@@ -4,9 +4,19 @@
 
 ---
 
-## CURRENT: Nothing Active
+## CURRENT: Send to Terminal Mode
 
-All recent work completed and documented in STATE.md.
+**Goal:** New mode that sends transcribed text directly to the last-focused terminal window.
+
+**Why:**
+- Developers live in the terminal (Claude Code, vim, git, npm, docker)
+- Currently have to transcribe → copy → switch to terminal → paste
+- This makes voice → CLI a single action
+
+**Implementation Ideas:**
+- Track last-focused terminal app (iTerm2, Terminal.app, etc.)
+- New hotkey or mode toggle for "Send to Terminal"
+- Possibly integrate with Command Mode for voice-driven CLI
 
 ---
 

@@ -53,6 +53,9 @@ struct SettingsView: View {
                 // Claude Code - Developer tools
                 ClaudeCodeSection()
 
+                // Space-Tab Linking - Developer workflow
+                SpaceTabLinkingSection()
+
                 // Visual - Appearance settings
                 VisualSection(
                     notchAlwaysVisible: $notchAlwaysVisible,
@@ -657,5 +660,155 @@ extension Text {
             .font(.system(size: 13))
             .foregroundColor(.secondary)
             .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+// MARK: - Space-Tab Linking Section
+
+struct SpaceTabLinkingSection: View {
+    @StateObject private var spaceTabManager = SpaceTabManager.shared
+
+    var body: some View {
+        SettingsSection(
+            icon: "link",
+            title: "Space \u{2192} iTerm Tab",
+            subtitle: "Auto-switch terminal tabs when changing Spaces"
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
+                // Explanation
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Link your macOS Spaces to iTerm2 tabs for seamless project switching.")
+                        .font(.callout)
+                        .foregroundColor(.secondary)
+
+                    HStack(spacing: 8) {
+                        Image(systemName: "hand.point.up.left.fill")
+                            .foregroundColor(.blue)
+                        Text("Swipe to a Space \u{2192} iTerm switches to the linked tab")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Divider()
+
+                // Enable toggle
+                Toggle(isOn: $spaceTabManager.isEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Enable Auto-Switch")
+                        Text("Automatically switch iTerm tabs when you change Spaces")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .toggleStyle(.switch)
+
+                // Current bindings
+                if !spaceTabManager.bindings.isEmpty {
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Linked Spaces")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+
+                            Spacer()
+
+                            Button(action: {
+                                spaceTabManager.resetAllBindings()
+                            }) {
+                                Text("Reset All")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .tint(.red)
+                        }
+
+                        ForEach(spaceTabManager.bindings.values.sorted(by: { $0.spaceID < $1.spaceID })) { binding in
+                            HStack(spacing: 8) {
+                                HStack(spacing: 4) {
+                                    if binding.spaceID == spaceTabManager.currentSpaceID {
+                                        Circle()
+                                            .fill(Color.green)
+                                            .frame(width: 6, height: 6)
+                                    }
+                                    Text("Space \(binding.spaceID)")
+                                        .font(.system(.caption, design: .monospaced))
+                                        .fontWeight(binding.spaceID == spaceTabManager.currentSpaceID ? .semibold : .regular)
+                                }
+                                .frame(width: 80, alignment: .leading)
+
+                                Image(systemName: "arrow.right")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+
+                                Text(binding.tabName)
+                                    .font(.caption)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+
+                                Spacer()
+
+                                Button(action: {
+                                    spaceTabManager.removeBinding(spaceID: binding.spaceID)
+                                }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(binding.spaceID == spaceTabManager.currentSpaceID
+                                          ? Color.accentColor.opacity(0.1)
+                                          : Color.primary.opacity(0.05))
+                            )
+                        }
+                    }
+                }
+
+                Divider()
+
+                // How to use
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("How to link:")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
+
+                    HStack(alignment: .top, spacing: 6) {
+                        Text("1.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("Go to a Space and focus the iTerm tab you want linked")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    HStack(alignment: .top, spacing: 6) {
+                        Text("2.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("Click the link icon in the notch recorder \u{2192} \"Link Current Space + Tab\"")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    HStack(alignment: .top, spacing: 6) {
+                        Text("3.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("Repeat for each Space/project")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+        }
     }
 }

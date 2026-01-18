@@ -6,6 +6,7 @@ struct NotchRecorderView: View {
     @ObservedObject var streamingRecorder: StreamingRecorder
     @EnvironmentObject var windowManager: NotchWindowManager
     @StateObject private var worktreeManager = WorktreeManager.shared
+    @StateObject private var spaceTabManager = SpaceTabManager.shared
     @State private var isHovering = false
     @State private var recordingDuration: TimeInterval = 0
     @State private var formatModeDuration: TimeInterval = 0
@@ -15,6 +16,7 @@ struct NotchRecorderView: View {
     @State private var shimmerPhase: CGFloat = 0
     @State private var wasInFormatMode = false
     @State private var showingWorktrees = false
+    @State private var showingSpaceTabs = false
 
     // Settings for eyeball button behavior
     @AppStorage("StreamingModeEnabled") private var isStreamingModeEnabled = false
@@ -164,6 +166,19 @@ struct NotchRecorderView: View {
                 }
                 .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
+
+            // Space-Tab link button - always visible
+            NotchIconButton(
+                icon: spaceTabManager.hasBindingForCurrentSpace ? "link.circle.fill" : "link",
+                color: spaceTabManager.isEnabled ? .white : .white.opacity(0.5),
+                tooltip: spaceTabManager.isEnabled ? "Space \u{2192} Tab (\(spaceTabManager.bindings.count))" : "Space \u{2192} Tab (off)"
+            ) {
+                showingSpaceTabs.toggle()
+            }
+            .popover(isPresented: $showingSpaceTabs, arrowEdge: .top) {
+                SpaceTabPopover(spaceTabManager: spaceTabManager)
+            }
+            .transition(.opacity.combined(with: .scale(scale: 0.8)))
 
             // Command Mode indicator
             if isInCommandMode {

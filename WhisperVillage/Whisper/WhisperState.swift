@@ -62,6 +62,9 @@ class WhisperState: NSObject, ObservableObject {
     /// When true, the next paste operation should also press Enter (for double-tap send)
     var doubleTapSendPending = false
 
+    /// When true, the next transcription should be sent to terminal instead of pasting (for triple-tap)
+    var tripleTapTerminalPending = false
+
     // MARK: - Two-Stage LLM Formatting
     /// Tracks whether we're in LLM formatting mode (two-stage transcription)
     @Published var isLLMFormattingMode = false
@@ -387,16 +390,32 @@ class WhisperState: NSObject, ObservableObject {
 
                     let shouldSend = self.doubleTapSendPending
                     self.doubleTapSendPending = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                        CursorPaster.pasteAtCursor(finalText)
+                    self.tripleTapTerminalPending = false  // No longer used, but clear it
 
-                        // If double-tap send was pending, play sound and press Enter
-                        // Delay needs to be long enough for paste to complete, especially for long transcriptions
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                         if shouldSend {
-                            SoundManager.shared.playSendSound()
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                CursorPaster.pressEnter()
+                            // Double-tap "smart send": check if we can paste, otherwise send to terminal
+                            let canPaste = PasteEligibilityService.isPastePossible()
+                            StreamingLogger.shared.log("📋 SMART SEND: canPaste=\(canPaste)")
+
+                            if canPaste {
+                                // Paste at cursor + Enter
+                                StreamingLogger.shared.log("📋 -> Pasting at cursor + Enter")
+                                CursorPaster.pasteAtCursor(finalText)
+                                SoundManager.shared.playSendSound()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                    CursorPaster.pressEnter()
+                                }
+                            } else {
+                                // No text input focused - send to terminal instead
+                                StreamingLogger.shared.log("📋 -> No text input, sending to TERMINAL")
+                                SoundManager.shared.playSendSound()
+                                TerminalSender.shared.sendToTerminal(finalText.trimmingCharacters(in: .whitespacesAndNewlines), pressEnter: true)
                             }
+                        } else {
+                            // Normal paste at cursor (single tap stop)
+                            StreamingLogger.shared.log("📋 -> Normal paste at cursor")
+                            CursorPaster.pasteAtCursor(finalText)
                         }
                     }
 
@@ -517,22 +536,39 @@ class WhisperState: NSObject, ObservableObject {
                     // Delete placeholder if we pasted one, then paste real text
                     let shouldSend = self.doubleTapSendPending
                     self.doubleTapSendPending = false // Reset flag
+                    self.tripleTapTerminalPending = false // No longer used, but clear it
+
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
+                        // Always delete placeholder first if present
                         if placeholderLength > 0 {
                             CursorPaster.deleteCharacters(count: placeholderLength)
                         }
-                        CursorPaster.pasteAtCursor(finalText)
 
-                        // If double-tap send was pending, play sound and press Enter
-                        // Delay needs to be long enough for paste to complete, especially for long transcriptions
                         if shouldSend {
-                            SoundManager.shared.playSendSound()
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                CursorPaster.pressEnter()
+                            // Double-tap "smart send": check if we can paste, otherwise send to terminal
+                            let canPaste = PasteEligibilityService.isPastePossible()
+                            StreamingLogger.shared.log("📋 SMART SEND (Streaming): canPaste=\(canPaste)")
+
+                            if canPaste {
+                                // Paste at cursor + Enter
+                                StreamingLogger.shared.log("📋 -> Pasting at cursor + Enter")
+                                CursorPaster.pasteAtCursor(finalText)
+                                SoundManager.shared.playSendSound()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                    CursorPaster.pressEnter()
+                                }
+                            } else {
+                                // No text input focused - send to terminal instead
+                                StreamingLogger.shared.log("📋 -> No text input, sending to TERMINAL")
+                                SoundManager.shared.playSendSound()
+                                TerminalSender.shared.sendToTerminal(finalText.trimmingCharacters(in: .whitespacesAndNewlines), pressEnter: true)
                             }
+                        } else {
+                            // Normal paste at cursor (single tap stop)
+                            StreamingLogger.shared.log("📋 -> Normal paste at cursor")
+                            CursorPaster.pasteAtCursor(finalText)
                         }
                     }
-                    StreamingLogger.shared.log("Replaced placeholder with final text (\(finalText.count) chars), send=\(shouldSend)")
 
                     await cleanupAfterSend()
                 }

@@ -99,10 +99,10 @@ struct NotchRecorderView: View {
     }
     
     /// Total width for each side section (content + padding)
-    /// Animates to 20 when idle for minimal footprint, 130 when active to accommodate worktree icon
+    /// Animates to 34 when idle (enough for icon + padding), 130 when active
     private var sectionWidth: CGFloat {
         if isIdleState {
-            return 20  // Keep minimal width when idle
+            return 34  // Enough for 24px icon + padding to be fully visible
         }
         return 130  // Increased from 100 to accommodate worktree icon during recording
     }
@@ -166,19 +166,6 @@ struct NotchRecorderView: View {
                 }
                 .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
-
-            // Space-Tab link button - always visible
-            NotchIconButton(
-                icon: spaceTabManager.hasBindingForCurrentSpace ? "link.circle.fill" : "link",
-                color: spaceTabManager.isEnabled ? .white : .white.opacity(0.5),
-                tooltip: spaceTabManager.isEnabled ? "Space \u{2192} Tab (\(spaceTabManager.bindings.count))" : "Space \u{2192} Tab (off)"
-            ) {
-                showingSpaceTabs.toggle()
-            }
-            .popover(isPresented: $showingSpaceTabs, arrowEdge: .top) {
-                SpaceTabPopover(spaceTabManager: spaceTabManager)
-            }
-            .transition(.opacity.combined(with: .scale(scale: 0.8)))
 
             // Command Mode indicator
             if isInCommandMode {
@@ -279,6 +266,19 @@ struct NotchRecorderView: View {
 
     private var rightSection: some View {
         HStack(spacing: 4) {
+            // Space-Tab link button - always visible, positioned closest to notch
+            NotchIconButton(
+                icon: spaceTabManager.hasBindingForCurrentSpace ? "link.circle.fill" : "link.circle",
+                color: .white.opacity(0.8),
+                tooltip: spaceTabManager.hasBindingForCurrentSpace ? "Space linked to iTerm tab" : "Link Space to iTerm tab"
+            ) {
+                showingSpaceTabs.toggle()
+            }
+            .popover(isPresented: $showingSpaceTabs, arrowEdge: .top) {
+                SpaceTabPopover(spaceTabManager: spaceTabManager)
+            }
+            .transition(.opacity.combined(with: .scale(scale: 0.8)))
+
             Spacer()
 
             // Hide preview buttons when in format mode

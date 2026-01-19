@@ -461,7 +461,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 113;
+				CURRENT_PROJECT_VERSION = 114;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"WhisperVillage/Preview Content\"";
 				DEVELOPMENT_TEAM = P6R6JB9TFJ;
@@ -480,7 +480,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.9.18;
+				MARKETING_VERSION = 1.9.19;
 				PRODUCT_BUNDLE_IDENTIFIER = town.mullet.WhisperVillage.debug;
 				PRODUCT_NAME = "Whisper Village Dev";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
@@ -499,7 +499,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 113;
+				CURRENT_PROJECT_VERSION = 114;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"WhisperVillage/Preview Content\"";
 				DEVELOPMENT_TEAM = P6R6JB9TFJ;
@@ -518,7 +518,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.9.18;
+				MARKETING_VERSION = 1.9.19;
 				PRODUCT_BUNDLE_IDENTIFIER = town.mullet.WhisperVillage;
 				PRODUCT_NAME = "Whisper Village";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
@@ -532,12 +532,12 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 113;
+				CURRENT_PROJECT_VERSION = 114;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = V6J6A3VWY2;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.9.18;
+				MARKETING_VERSION = 1.9.19;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mullettown.WhisperVillageTests;
 				PRODUCT_NAME = "Whisper Village";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -551,12 +551,12 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 113;
+				CURRENT_PROJECT_VERSION = 114;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = V6J6A3VWY2;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.9.18;
+				MARKETING_VERSION = 1.9.19;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mullettown.WhisperVillageTests;
 				PRODUCT_NAME = "Whisper Village";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -569,11 +569,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 113;
+				CURRENT_PROJECT_VERSION = 114;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = V6J6A3VWY2;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.9.18;
+				MARKETING_VERSION = 1.9.19;
 				PRODUCT_BUNDLE_IDENTIFIER = com.prakashjoshipax.WhisperVillageUITests;
 				PRODUCT_NAME = "Whisper Village";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -586,11 +586,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 113;
+				CURRENT_PROJECT_VERSION = 114;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = V6J6A3VWY2;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.9.18;
+				MARKETING_VERSION = 1.9.19;
 				PRODUCT_BUNDLE_IDENTIFIER = com.prakashjoshipax.WhisperVillageUITests;
 				PRODUCT_NAME = "Whisper Village";
 				SWIFT_EMIT_LOC_STRINGS = NO;

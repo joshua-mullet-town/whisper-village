@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.19</title>
+            <pubDate>Mon, 19 Jan 2026 12:52:34 -0500</pubDate>
+            <sparkle:version>114</sparkle:version>
+            <sparkle:shortVersionString>1.9.19</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.19</h3>
+                <ul>
+                    <li>Space-Tab link icon always visible in notch; improved iTerm2 window detection with detailed diagnostics (no longer auto-creates windows)</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.19/WhisperVillage-1.9.19.dmg" length="13135750" type="application/octet-stream" sparkle:edSignature="ODoDuWE+KT/mP3Li+EscXwz82SbQTjA4q4cRCa8Ijs4oyZ6l/IXTn2Q3rW9iJWtjtq6eTt11q9hPMZKu/cI5AQ=="/>
+        </item>
+        <item>
             <title>1.9.18</title>
             <pubDate>Mon, 19 Jan 2026 12:15:37 -0500</pubDate>
             <sparkle:version>113</sparkle:version>

@@ -230,52 +230,84 @@ class SpaceTabManager: ObservableObject {
     }
 
     /// Get current iTerm2 tab info with detailed error reporting
-    /// More robust: activates iTerm first, handles edge cases
+    /// Never creates windows - only works with existing ones
     private func getCurrentiTermTabWithError() -> (index: Int, name: String)? {
-        // First, get diagnostic info about iTerm state
+        // Log current Space ID for context
+        let spaceID = getCurrentSpaceID()
+        StreamingLogger.shared.log("SpaceTabManager: Attempting link on Space \(spaceID)")
+
+        // Check if iTerm is frontmost (might affect "current window" behavior)
+        let iTermFrontmost = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.googlecode.iterm2"
+        StreamingLogger.shared.log("SpaceTabManager: iTerm2 is frontmost: \(iTermFrontmost)")
+
+        // Diagnostic: log detailed iTerm state including window IDs and visibility
         let diagScript = """
         tell application "iTerm2"
             set winCount to count of windows
-            set isRunning to running
-            return "windows:" & winCount & ",running:" & isRunning
+            set isFront to frontmost
+            set allWinInfo to ""
+            repeat with i from 1 to winCount
+                set w to item i of windows
+                try
+                    set wID to id of w
+                    set wVisible to visible of w
+                    set wMini to miniaturized of w
+                    set tabCount to count of tabs of w
+                    set allWinInfo to allWinInfo & "win" & i & "[id=" & wID & ",vis=" & wVisible & ",mini=" & wMini & ",tabs=" & tabCount & "];"
+                on error
+                    set allWinInfo to allWinInfo & "win" & i & "[error];"
+                end try
+            end repeat
+            return "windows:" & winCount & ",frontmost:" & isFront & ",details:" & allWinInfo
         end tell
         """
 
         if let diag = runAppleScriptWithError(diagScript).result {
             StreamingLogger.shared.log("SpaceTabManager: iTerm diagnostic: \(diag)")
+        } else {
+            StreamingLogger.shared.log("SpaceTabManager: iTerm diagnostic script failed!")
         }
 
-        // More robust script that:
-        // 1. Activates iTerm to ensure it has focus context
-        // 2. Creates a window if none exist
-        // 3. Gets the frontmost window (not just "current window")
+        // Try multiple approaches to find a window:
+        // 1. First try "current window" (window with most recent keyboard focus)
+        // 2. If that fails, try "first window" (first in the windows list)
+        // 3. Never create a new window - just report the error
         let script = """
         tell application "iTerm2"
-            -- Check if any windows exist
             set winCount to count of windows
 
             if winCount = 0 then
-                -- Try to create a new window
+                return "NO_WINDOW:count=0"
+            end if
+
+            -- Try current window first (most recently focused)
+            set targetWin to missing value
+            set winSource to ""
+
+            try
+                set targetWin to current window
+                set winSource to "current"
+            on error errMsg
+                -- current window failed, try first window
                 try
-                    create window with default profile
-                    delay 0.5
-                    set winCount to count of windows
+                    set targetWin to first window
+                    set winSource to "first"
+                on error errMsg2
+                    return "NO_WINDOW:current_err=" & errMsg & ",first_err=" & errMsg2
                 end try
+            end try
+
+            if targetWin is missing value then
+                return "NO_WINDOW:targetWin=missing"
             end if
 
-            if winCount = 0 then
-                return "NO_WINDOW"
-            end if
-
-            -- Get the front window (most reliable across spaces)
-            set frontWin to front window
-
-            tell frontWin
+            -- Now get tab info from the window we found
+            tell targetWin
                 set tabList to tabs
                 set tabCount to count of tabList
 
                 if tabCount = 0 then
-                    return "NO_TABS"
+                    return "NO_TABS:winSource=" & winSource
                 end if
 
                 set currentT to current tab
@@ -288,13 +320,12 @@ class SpaceTabManager: ObservableObject {
                 end repeat
 
                 -- Get session name safely
+                set sessionName to "Tab " & tabIdx
                 try
                     set sessionName to name of current session of currentT
-                on error
-                    set sessionName to "Tab " & tabIdx
                 end try
 
-                return (tabIdx as string) & "|" & sessionName
+                return (tabIdx as string) & "|" & sessionName & "|" & winSource
             end tell
         end tell
         """
@@ -302,37 +333,44 @@ class SpaceTabManager: ObservableObject {
         let (resultString, errorMsg) = runAppleScriptWithError(script)
 
         if let errorMsg = errorMsg {
-            lastLinkError = LinkError.appleScriptFailed(errorMsg).message
+            lastLinkError = "AppleScript error: \(errorMsg)"
             StreamingLogger.shared.log("SpaceTabManager: \(lastLinkError!)")
             return nil
         }
 
         guard let resultString = resultString else {
-            lastLinkError = LinkError.parseError("No result from AppleScript").message
+            lastLinkError = "No result from AppleScript"
             StreamingLogger.shared.log("SpaceTabManager: \(lastLinkError!)")
             return nil
         }
 
-        if resultString == "NO_WINDOW" {
-            lastLinkError = LinkError.noiTermWindow.message
+        // Check for various error conditions with detailed info
+        if resultString.hasPrefix("NO_WINDOW:") {
+            let detail = resultString.replacingOccurrences(of: "NO_WINDOW:", with: "")
+            lastLinkError = "No iTerm2 window found (\(detail))"
             StreamingLogger.shared.log("SpaceTabManager: \(lastLinkError!)")
             return nil
         }
 
-        if resultString == "NO_TABS" {
-            lastLinkError = "iTerm2 window has no tabs"
+        if resultString.hasPrefix("NO_TABS:") {
+            let detail = resultString.replacingOccurrences(of: "NO_TABS:", with: "")
+            lastLinkError = "iTerm2 window has no tabs (\(detail))"
             StreamingLogger.shared.log("SpaceTabManager: \(lastLinkError!)")
             return nil
         }
 
-        let parts = resultString.split(separator: "|", maxSplits: 1)
+        // Parse success result: "tabIdx|sessionName|winSource"
+        let parts = resultString.split(separator: "|", maxSplits: 2)
         guard parts.count >= 1, let index = Int(parts[0]), index > 0 else {
-            lastLinkError = LinkError.parseError(resultString).message
+            lastLinkError = "Failed to parse iTerm response: \(resultString)"
             StreamingLogger.shared.log("SpaceTabManager: \(lastLinkError!)")
             return nil
         }
 
         let name = parts.count > 1 ? String(parts[1]) : "Tab \(index)"
+        let winSource = parts.count > 2 ? String(parts[2]) : "unknown"
+        StreamingLogger.shared.log("SpaceTabManager: Found tab \(index) '\(name)' via \(winSource) window")
+
         return (index, name)
     }
 

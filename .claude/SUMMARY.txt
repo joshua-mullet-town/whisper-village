@@ -1,2 +1,3 @@
-USER asked for iTerm linking to be more adaptable across different machines instead of being hardcoded to one setup
-AGENT shipped v1.9.17 with smarter iTerm detection using front window, diagnostic logging, auto-window creation, and better edge case handling
+USER asked to fix the notch UI layout by moving the linking button to always be visible on the right side, and to improve iTerm window detection to stop creating unnecessary new windows.
+
+AGENT moved the link button to the right of the notch (always visible), increased idle section width so the icon isn't hidden, removed auto-create window behavior, and added diagnostic logging to improve iTerm detection.

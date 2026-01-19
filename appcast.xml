@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.13</title>
+            <pubDate>Mon, 19 Jan 2026 08:04:29 -0500</pubDate>
+            <sparkle:version>108</sparkle:version>
+            <sparkle:shortVersionString>1.9.13</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.13</h3>
+                <ul>
+                    <li>Fix double-tap send: Increased detection window from 400ms to 600ms and improved detection during transcription state</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.13/WhisperVillage-1.9.13.dmg" length="13137661" type="application/octet-stream" sparkle:edSignature="SUn8xSUSTnb+jcwOxqpB49HyP810m4Lfuo4j0B9PKXpYEDWDZ9Z6IqKevDM3jVX7RoVly5w1RyxvnIgL8GXvBg=="/>
+        </item>
+        <item>
             <title>1.9.12</title>
             <pubDate>Sun, 18 Jan 2026 17:29:59 -0500</pubDate>
             <sparkle:version>107</sparkle:version>

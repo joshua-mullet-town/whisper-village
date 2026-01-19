@@ -1,3 +1,2 @@
-USER asked to fix the double-tap send functionality by restoring the original v1.9.0 logic with a 1000ms detection window, then ship the release and investigate GitHub issues.
-
-AGENT restored the double-tap detection to check first at keypress start with early return, shipped v1.9.15, and identified four open issues with #5 (iTerm linking error messages) as the next target.
+USER asked for iTerm linking to be more adaptable across different machines instead of being hardcoded to one setup
+AGENT shipped v1.9.17 with smarter iTerm detection using front window, diagnostic logging, auto-window creation, and better edge case handling

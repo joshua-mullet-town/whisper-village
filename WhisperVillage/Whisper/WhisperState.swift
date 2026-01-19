@@ -394,23 +394,12 @@ class WhisperState: NSObject, ObservableObject {
 
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                         if shouldSend {
-                            // Double-tap "smart send": check if we can paste, otherwise send to terminal
-                            let canPaste = PasteEligibilityService.isPastePossible()
-                            StreamingLogger.shared.log("📋 SMART SEND: canPaste=\(canPaste)")
-
-                            if canPaste {
-                                // Paste at cursor + Enter
-                                StreamingLogger.shared.log("📋 -> Pasting at cursor + Enter")
-                                CursorPaster.pasteAtCursor(finalText)
-                                SoundManager.shared.playSendSound()
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                    CursorPaster.pressEnter()
-                                }
-                            } else {
-                                // No text input focused - send to terminal instead
-                                StreamingLogger.shared.log("📋 -> No text input, sending to TERMINAL")
-                                SoundManager.shared.playSendSound()
-                                TerminalSender.shared.sendToTerminal(finalText.trimmingCharacters(in: .whitespacesAndNewlines), pressEnter: true)
+                            // Double-tap: paste + Enter
+                            StreamingLogger.shared.log("📋 DOUBLE-TAP: Pasting + Enter")
+                            CursorPaster.pasteAtCursor(finalText)
+                            SoundManager.shared.playSendSound()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                CursorPaster.pressEnter()
                             }
                         } else {
                             // Normal paste at cursor (single tap stop)
@@ -545,23 +534,12 @@ class WhisperState: NSObject, ObservableObject {
                         }
 
                         if shouldSend {
-                            // Double-tap "smart send": check if we can paste, otherwise send to terminal
-                            let canPaste = PasteEligibilityService.isPastePossible()
-                            StreamingLogger.shared.log("📋 SMART SEND (Streaming): canPaste=\(canPaste)")
-
-                            if canPaste {
-                                // Paste at cursor + Enter
-                                StreamingLogger.shared.log("📋 -> Pasting at cursor + Enter")
-                                CursorPaster.pasteAtCursor(finalText)
-                                SoundManager.shared.playSendSound()
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                    CursorPaster.pressEnter()
-                                }
-                            } else {
-                                // No text input focused - send to terminal instead
-                                StreamingLogger.shared.log("📋 -> No text input, sending to TERMINAL")
-                                SoundManager.shared.playSendSound()
-                                TerminalSender.shared.sendToTerminal(finalText.trimmingCharacters(in: .whitespacesAndNewlines), pressEnter: true)
+                            // Double-tap: paste + Enter
+                            StreamingLogger.shared.log("📋 DOUBLE-TAP (Streaming): Pasting + Enter")
+                            CursorPaster.pasteAtCursor(finalText)
+                            SoundManager.shared.playSendSound()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                CursorPaster.pressEnter()
                             }
                         } else {
                             // Normal paste at cursor (single tap stop)

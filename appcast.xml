@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.18</title>
+            <pubDate>Mon, 19 Jan 2026 12:15:37 -0500</pubDate>
+            <sparkle:version>113</sparkle:version>
+            <sparkle:shortVersionString>1.9.18</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.18</h3>
+                <ul>
+                    <li>Remove smart send logic: Double-tap now always does paste + Enter, removed terminal fallback detection that was causing inconsistent behavior</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.18/WhisperVillage-1.9.18.dmg" length="13129280" type="application/octet-stream" sparkle:edSignature="K6Tmzz+PKjJPMfeGm1MSbMI5r3ta4NhooxK8B+5gi3g9yMgRt/jxoe11GeCYHlOQ7rot4SlniafvZhYlGdWtAw=="/>
+        </item>
+        <item>
             <title>1.9.17</title>
             <pubDate>Mon, 19 Jan 2026 12:09:47 -0500</pubDate>
             <sparkle:version>112</sparkle:version>

@@ -158,12 +158,14 @@ struct SpaceTabPopover: View {
                     linkResult = .success("Linked!")
                 }
             } else {
-                linkResult = .error("Failed to link. Is iTerm2 open?")
+                // Use the detailed error message from the manager
+                let errorMsg = spaceTabManager.lastLinkError ?? "Failed to link. Is iTerm2 open?"
+                linkResult = .error(errorMsg)
             }
         }
 
         // Clear result after delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
             withAnimation {
                 linkResult = nil
             }

@@ -174,14 +174,42 @@ class SpaceTabManager: ObservableObject {
 
     // MARK: - Binding Management
 
+    /// Error type for linking failures
+    enum LinkError: Error {
+        case iTermNotRunning
+        case noiTermWindow
+        case appleScriptFailed(String)
+        case parseError(String)
+
+        var message: String {
+            switch self {
+            case .iTermNotRunning:
+                return "iTerm2 is not running"
+            case .noiTermWindow:
+                return "No iTerm2 window open"
+            case .appleScriptFailed(let detail):
+                return "AppleScript failed: \(detail)"
+            case .parseError(let detail):
+                return "Failed to parse iTerm response: \(detail)"
+            }
+        }
+    }
+
+    /// Last error from linking attempt (for UI display)
+    @Published var lastLinkError: String?
+
     /// Link the current Space to the current iTerm2 tab
     func linkCurrentSpaceAndTab() -> Bool {
+        lastLinkError = nil
+
         guard isiTermRunning() else {
-            StreamingLogger.shared.log("SpaceTabManager: iTerm2 not running")
+            lastLinkError = LinkError.iTermNotRunning.message
+            StreamingLogger.shared.log("SpaceTabManager: \(lastLinkError!)")
             return false
         }
 
-        guard let tabInfo = getCurrentiTermTab() else {
+        guard let tabInfo = getCurrentiTermTabWithError() else {
+            // lastLinkError is set by getCurrentiTermTabWithError
             return false
         }
 
@@ -199,6 +227,68 @@ class SpaceTabManager: ObservableObject {
 
         StreamingLogger.shared.log("SpaceTabManager: Linked Space \(spaceID) to Tab '\(tabInfo.name)' (index \(tabInfo.index))")
         return true
+    }
+
+    /// Get current iTerm2 tab info with detailed error reporting
+    private func getCurrentiTermTabWithError() -> (index: Int, name: String)? {
+        let script = """
+        tell application "iTerm2"
+            if (count of windows) = 0 then
+                return "NO_WINDOW"
+            end if
+            tell current window
+                set tabList to tabs
+                set currentT to current tab
+                set tabIdx to 0
+                repeat with i from 1 to count of tabList
+                    if item i of tabList is currentT then
+                        set tabIdx to i
+                        exit repeat
+                    end if
+                end repeat
+                set sessionName to name of current session of currentT
+                return (tabIdx as string) & "|" & sessionName
+            end tell
+        end tell
+        """
+
+        var error: NSDictionary?
+        guard let appleScript = NSAppleScript(source: script) else {
+            lastLinkError = LinkError.appleScriptFailed("Failed to create script").message
+            StreamingLogger.shared.log("SpaceTabManager: \(lastLinkError!)")
+            return nil
+        }
+
+        let result = appleScript.executeAndReturnError(&error)
+
+        if let error = error {
+            let errorMsg = error[NSAppleScript.errorMessage] as? String ?? "Unknown error"
+            lastLinkError = LinkError.appleScriptFailed(errorMsg).message
+            StreamingLogger.shared.log("SpaceTabManager: \(lastLinkError!)")
+            return nil
+        }
+
+        guard let resultString = result.stringValue else {
+            lastLinkError = LinkError.parseError("No result from AppleScript").message
+            StreamingLogger.shared.log("SpaceTabManager: \(lastLinkError!)")
+            return nil
+        }
+
+        if resultString == "NO_WINDOW" {
+            lastLinkError = LinkError.noiTermWindow.message
+            StreamingLogger.shared.log("SpaceTabManager: \(lastLinkError!)")
+            return nil
+        }
+
+        let parts = resultString.split(separator: "|", maxSplits: 1)
+        guard parts.count >= 1, let index = Int(parts[0]) else {
+            lastLinkError = LinkError.parseError(resultString).message
+            StreamingLogger.shared.log("SpaceTabManager: \(lastLinkError!)")
+            return nil
+        }
+
+        let name = parts.count > 1 ? String(parts[1]) : "Tab \(index)"
+        return (index, name)
     }
 
     /// Remove a specific binding

@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.16</title>
+            <pubDate>Mon, 19 Jan 2026 11:58:09 -0500</pubDate>
+            <sparkle:version>111</sparkle:version>
+            <sparkle:shortVersionString>1.9.16</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.16</h3>
+                <ul>
+                    <li>Improved iTerm linking error messages: Now shows specific failure reason (AppleScript error, no window, parse error) instead of generic message. Also removed Ollama dependency from session summary hooks - now uses Claude Haiku.</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.16/WhisperVillage-1.9.16.dmg" length="13135395" type="application/octet-stream" sparkle:edSignature="W5pQx+41CTvSfoK28dcRNU2TshgstYQKVfAm45/UQ2KRmBmAuAOltUfOJ27ljolDvxHFIEpFYFTGBSSfuUllBQ=="/>
+        </item>
+        <item>
             <title>1.9.15</title>
             <pubDate>Mon, 19 Jan 2026 11:46:45 -0500</pubDate>
             <sparkle:version>110</sparkle:version>

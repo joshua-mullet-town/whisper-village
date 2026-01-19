@@ -1,2 +1,3 @@
-USER asked to update Whisper Village's summary hook UI from Ollama to Claude Haiku, then restore the original double-tap send functionality with a 1000ms detection window.
-AGENT updated the settings UI text, removed Ollama dependencies, and restored v1.9.0 double-tap logic that checks for double-tap at the start of keypress before any state transitions.
+USER asked to fix the double-tap send functionality by restoring the original v1.9.0 logic with a 1000ms detection window, then ship the release and investigate GitHub issues.
+
+AGENT restored the double-tap detection to check first at keypress start with early return, shipped v1.9.15, and identified four open issues with #5 (iTerm linking error messages) as the next target.

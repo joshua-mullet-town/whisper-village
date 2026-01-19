@@ -230,45 +230,84 @@ class SpaceTabManager: ObservableObject {
     }
 
     /// Get current iTerm2 tab info with detailed error reporting
+    /// More robust: activates iTerm first, handles edge cases
     private func getCurrentiTermTabWithError() -> (index: Int, name: String)? {
+        // First, get diagnostic info about iTerm state
+        let diagScript = """
+        tell application "iTerm2"
+            set winCount to count of windows
+            set isRunning to running
+            return "windows:" & winCount & ",running:" & isRunning
+        end tell
+        """
+
+        if let diag = runAppleScriptWithError(diagScript).result {
+            StreamingLogger.shared.log("SpaceTabManager: iTerm diagnostic: \(diag)")
+        }
+
+        // More robust script that:
+        // 1. Activates iTerm to ensure it has focus context
+        // 2. Creates a window if none exist
+        // 3. Gets the frontmost window (not just "current window")
         let script = """
         tell application "iTerm2"
-            if (count of windows) = 0 then
+            -- Check if any windows exist
+            set winCount to count of windows
+
+            if winCount = 0 then
+                -- Try to create a new window
+                try
+                    create window with default profile
+                    delay 0.5
+                    set winCount to count of windows
+                end try
+            end if
+
+            if winCount = 0 then
                 return "NO_WINDOW"
             end if
-            tell current window
+
+            -- Get the front window (most reliable across spaces)
+            set frontWin to front window
+
+            tell frontWin
                 set tabList to tabs
+                set tabCount to count of tabList
+
+                if tabCount = 0 then
+                    return "NO_TABS"
+                end if
+
                 set currentT to current tab
                 set tabIdx to 0
-                repeat with i from 1 to count of tabList
+                repeat with i from 1 to tabCount
                     if item i of tabList is currentT then
                         set tabIdx to i
                         exit repeat
                     end if
                 end repeat
-                set sessionName to name of current session of currentT
+
+                -- Get session name safely
+                try
+                    set sessionName to name of current session of currentT
+                on error
+                    set sessionName to "Tab " & tabIdx
+                end try
+
                 return (tabIdx as string) & "|" & sessionName
             end tell
         end tell
         """
 
-        var error: NSDictionary?
-        guard let appleScript = NSAppleScript(source: script) else {
-            lastLinkError = LinkError.appleScriptFailed("Failed to create script").message
-            StreamingLogger.shared.log("SpaceTabManager: \(lastLinkError!)")
-            return nil
-        }
+        let (resultString, errorMsg) = runAppleScriptWithError(script)
 
-        let result = appleScript.executeAndReturnError(&error)
-
-        if let error = error {
-            let errorMsg = error[NSAppleScript.errorMessage] as? String ?? "Unknown error"
+        if let errorMsg = errorMsg {
             lastLinkError = LinkError.appleScriptFailed(errorMsg).message
             StreamingLogger.shared.log("SpaceTabManager: \(lastLinkError!)")
             return nil
         }
 
-        guard let resultString = result.stringValue else {
+        guard let resultString = resultString else {
             lastLinkError = LinkError.parseError("No result from AppleScript").message
             StreamingLogger.shared.log("SpaceTabManager: \(lastLinkError!)")
             return nil
@@ -280,8 +319,14 @@ class SpaceTabManager: ObservableObject {
             return nil
         }
 
+        if resultString == "NO_TABS" {
+            lastLinkError = "iTerm2 window has no tabs"
+            StreamingLogger.shared.log("SpaceTabManager: \(lastLinkError!)")
+            return nil
+        }
+
         let parts = resultString.split(separator: "|", maxSplits: 1)
-        guard parts.count >= 1, let index = Int(parts[0]) else {
+        guard parts.count >= 1, let index = Int(parts[0]), index > 0 else {
             lastLinkError = LinkError.parseError(resultString).message
             StreamingLogger.shared.log("SpaceTabManager: \(lastLinkError!)")
             return nil
@@ -289,6 +334,23 @@ class SpaceTabManager: ObservableObject {
 
         let name = parts.count > 1 ? String(parts[1]) : "Tab \(index)"
         return (index, name)
+    }
+
+    /// Run AppleScript and return both result and error
+    private func runAppleScriptWithError(_ source: String) -> (result: String?, error: String?) {
+        var error: NSDictionary?
+        guard let script = NSAppleScript(source: source) else {
+            return (nil, "Failed to create AppleScript")
+        }
+
+        let result = script.executeAndReturnError(&error)
+
+        if let error = error {
+            let errorMsg = error[NSAppleScript.errorMessage] as? String ?? "Unknown AppleScript error"
+            return (nil, errorMsg)
+        }
+
+        return (result.stringValue, nil)
     }
 
     /// Remove a specific binding

@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.17</title>
+            <pubDate>Mon, 19 Jan 2026 12:09:47 -0500</pubDate>
+            <sparkle:version>112</sparkle:version>
+            <sparkle:shortVersionString>1.9.17</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.17</h3>
+                <ul>
+                    <li>More robust iTerm linking: Uses front window instead of current window, adds diagnostic logging, auto-creates window if none exist, handles edge cases better across different machine configurations</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.17/WhisperVillage-1.9.17.dmg" length="13140448" type="application/octet-stream" sparkle:edSignature="ZQ23JHOh3Fn6wH6rh/lM/xK1tK00ZZKwYVtHvi7+jdbj0k75NeBZGCSgm2Qax0LzUWv7O1L/OI08xPkWexXHAw=="/>
+        </item>
+        <item>
             <title>1.9.16</title>
             <pubDate>Mon, 19 Jan 2026 11:58:09 -0500</pubDate>
             <sparkle:version>111</sparkle:version>

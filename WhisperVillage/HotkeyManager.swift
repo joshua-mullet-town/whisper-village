@@ -78,7 +78,7 @@ class HotkeyManager: ObservableObject {
     // Track when recording was stopped - if stopped again within threshold, it's a double-tap
     private static var lastRecordingStopTime: Date? = nil
     private static var lastEventTimestamp: TimeInterval = 0  // Dedupe events
-    private let doubleTapThreshold: TimeInterval = 0.6  // 600ms window for double-tap
+    private let doubleTapThreshold: TimeInterval = 0.8  // 800ms window for double-tap
 
     enum HotkeyOption: String, CaseIterable {
         case none = "none"

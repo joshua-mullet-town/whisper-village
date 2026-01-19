@@ -1,2 +1,7 @@
-USER asked: (see conversation)
-AGENT: (Ollama not available)
+Based on the conversation transcript you've provided, here's the session summary:
+
+---
+
+**USER asked:** How to update Whisper Village to use Claude Haiku for summary generation instead of local Ollama, and to investigate the double-tap send functionality that's been causing issues in recent releases.
+
+**AGENT:** Updated SummaryHookManager and UI to remove Ollama dependencies in favor of Claude Haiku, then analyzed the double-tap feature history across v1.9.0 through v1.9.14 to identify when the functionality regressed from a reliable 1-second window to a broken detection system.

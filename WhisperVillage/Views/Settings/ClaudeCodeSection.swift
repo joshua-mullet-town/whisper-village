@@ -1430,14 +1430,7 @@ private struct SummaryHookRow: View {
                             .font(.subheadline)
                             .fontWeight(.medium)
 
-                        HStack(spacing: 6) {
-                            // Ollama status indicator
-                            Circle()
-                                .fill(manager.isOllamaRunning ? Color.green : Color.red)
-                                .frame(width: 6, height: 6)
-                            
-                            StatusBadge(status: manager.isInstalled ? .installed : .notInstalled)
-                        }
+                        StatusBadge(status: manager.isInstalled ? .installed : .notInstalled)
 
                         Button(action: { showingInfo.toggle() }) {
                             Image(systemName: "questionmark.circle")
@@ -1470,19 +1463,7 @@ private struct SummaryHookRow: View {
                 }
             }
 
-            // Status messages
-            if manager.isInstalled && !manager.isOllamaRunning {
-                HStack(spacing: 6) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                    Text("Ollama not running - install and run: brew install ollama && ollama serve")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                }
-            }
-
-            if manager.isInstalled && manager.isOllamaRunning {
+            if manager.isInstalled {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Image(systemName: "checkmark.circle.fill")
@@ -1492,7 +1473,7 @@ private struct SummaryHookRow: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
-                    
+
                     HStack(spacing: 6) {
                         Image(systemName: "terminal")
                             .font(.caption)
@@ -1511,7 +1492,7 @@ private struct SummaryHookRow: View {
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundColor(.secondary)
-                    
+
                     Text(summary)
                         .font(.system(.caption, design: .monospaced))
                         .padding(.horizontal, 8)
@@ -1579,7 +1560,7 @@ private struct SummaryHookInfoPopover: View {
                 Text("What it does")
                     .font(.subheadline)
                     .fontWeight(.semibold)
-                Text("Automatically generates 2-line summaries of your Claude Code sessions using a local LLM (Ollama). Helps you track what you accomplished across coding sessions.")
+                Text("Automatically generates 2-line summaries of your Claude Code sessions using Claude Haiku. Helps you track what you accomplished across coding sessions.")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1617,7 +1598,7 @@ private struct SummaryHookInfoPopover: View {
                             .font(.caption)
                             .fontWeight(.medium)
                             .foregroundColor(.accentColor)
-                        Text("Uses local Phi-3 model to generate summary")
+                        Text("Uses Claude Haiku to generate summary")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -1635,36 +1616,6 @@ private struct SummaryHookInfoPopover: View {
 
             Divider()
 
-            // Requirements
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Requirements")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .top, spacing: 8) {
-                        Text("•")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(.accentColor)
-                        Text("Ollama running locally (brew install ollama)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    HStack(alignment: .top, spacing: 8) {
-                        Text("•")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(.accentColor)
-                        Text("Phi-3 model downloaded (ollama pull phi3:3.8b)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-
-            Divider()
-
             // Example output
             VStack(alignment: .leading, spacing: 6) {
                 Text("Example Output")
@@ -1672,11 +1623,11 @@ private struct SummaryHookInfoPopover: View {
                     .fontWeight(.semibold)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Asked: Help implement user authentication with JWT tokens")
+                    Text("USER asked: Help implement user authentication with JWT tokens")
                         .font(.system(.caption, design: .monospaced))
                         .foregroundColor(.primary)
-                    
-                    Text("Done: Created JWT auth system with login/signup routes, middleware, and token validation")
+
+                    Text("AGENT: Created JWT auth system with login/signup routes and token validation")
                         .font(.system(.caption, design: .monospaced))
                         .foregroundColor(.primary)
                 }
@@ -1709,7 +1660,7 @@ private struct SummaryHookInfoPopover: View {
                             .font(.caption)
                             .fontWeight(.medium)
                             .foregroundColor(.accentColor)
-                        Text("Run 'claude-summary' for live streaming view (like tail -f)")
+                        Text("Run 'claude-summary' for live streaming view")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -1723,19 +1674,6 @@ private struct SummaryHookInfoPopover: View {
                             .foregroundColor(.secondary)
                     }
                 }
-            }
-
-            Divider()
-
-            // Privacy note
-            HStack(alignment: .top, spacing: 8) {
-                Image(systemName: "lock.shield")
-                    .font(.caption)
-                    .foregroundColor(.blue)
-                Text("Completely private - uses local Ollama, no data sent to cloud services.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(16)

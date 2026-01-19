@@ -1,6 +1,6 @@
 import Foundation
 
-/// Manages Claude Code summary hooks that generate session summaries using local Ollama
+/// Manages Claude Code summary hooks that generate session summaries using Claude Haiku
 /// Follows the same pattern as GoalModeManager - clones repo and runs install.sh
 @MainActor
 class SummaryHookManager: ObservableObject {
@@ -29,7 +29,6 @@ class SummaryHookManager: ObservableObject {
     }
 
     @Published var isInstalled = false
-    @Published var isOllamaRunning = false
     @Published var latestSummary: String?
     @Published var isChecking = false
     @Published var isProcessing = false
@@ -88,9 +87,6 @@ class SummaryHookManager: ObservableObject {
 
     /// Slow checks that run in background
     private func checkSlowStatus() async {
-        // Check Ollama status (network call)
-        await checkOllamaStatus()
-
         // Verify settings.json config
         let hooksConfigured = await isHookConfigured()
 
@@ -149,41 +145,6 @@ class SummaryHookManager: ObservableObject {
         return false
     }
 
-    func checkOllamaStatus() async {
-        let process = Process()
-        process.launchPath = "/usr/bin/curl"
-        process.arguments = ["-s", "--connect-timeout", "2", "--max-time", "3", "http://localhost:11434/api/tags"]
-
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = Pipe()
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-
-            if process.terminationStatus == 0,
-               let data = try? pipe.fileHandleForReading.readToEnd(),
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                // Check if phi3:3.8b model is available
-                if let models = json["models"] as? [[String: Any]] {
-                    isOllamaRunning = models.contains { model in
-                        if let name = model["name"] as? String {
-                            return name.hasPrefix("phi3") || name.contains("phi3:3.8b")
-                        }
-                        return false
-                    }
-                } else {
-                    isOllamaRunning = false
-                }
-            } else {
-                isOllamaRunning = false
-            }
-        } catch {
-            isOllamaRunning = false
-        }
-    }
-
     func installHooks() async throws {
         isProcessing = true
         errorMessage = nil
@@ -221,7 +182,6 @@ class SummaryHookManager: ObservableObject {
 
             progressMessage = "Done!"
             await checkInstallStatus()
-            await checkOllamaStatus()
 
         } catch {
             errorMessage = "Install failed: \(error.localizedDescription)"

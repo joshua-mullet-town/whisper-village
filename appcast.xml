@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.23</title>
+            <pubDate>Thu, 22 Jan 2026 08:56:26 -0500</pubDate>
+            <sparkle:version>118</sparkle:version>
+            <sparkle:shortVersionString>1.9.23</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.23</h3>
+                <ul>
+                    <li>Increased double-tap send delay to 850ms for better reliability in Claude Code terminals</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.23/WhisperVillage-1.9.23.dmg" length="13256228" type="application/octet-stream" sparkle:edSignature="2nwbnZxXtdC6dJqdK/TMHYe8fRDCw8d7piiEZXyzXfqRfLVO3YWi0eS6Snln3+rURUs4JnixtNe7gr8vJTJaBg=="/>
+        </item>
+        <item>
             <title>1.9.22</title>
             <pubDate>Thu, 22 Jan 2026 08:31:06 -0500</pubDate>
             <sparkle:version>117</sparkle:version>

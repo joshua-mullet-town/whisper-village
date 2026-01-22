@@ -4,6 +4,79 @@
 
 ---
 
+## [2026-01-22 14:30] Claude Code Session Status Dots & Click-Through Fix (v1.9.20-1.9.22)
+
+**Achievement:** Major feature release adding Claude Code session integration to the notch UI.
+
+### New Features
+- **Session Status Dots** - Live indicators below notch showing Claude Code sessions (yellow=working, green=waiting, gray=idle)
+- **Session Summary Panel ("Mini TV")** - Shows 8-10 word summaries of what you asked and what Claude did
+- **Click session cards** to switch iTerm tabs instantly
+- **Active tab highlighting** - Border highlights which session corresponds to current Space
+
+### Click-Through Transparency Fix
+**Problem:** The 200pt tall notch window was blocking ALL clicks/scrolls in the center column of the screen, even on transparent areas.
+
+**Broken approaches tried:**
+- `ignoresMouseEvents` toggle based on mouse position - doesn't work (global on/off, no regional control)
+- Pixel-based hit testing - SwiftUI layers don't render transparency correctly for sampling
+
+**Working solution:** Proper `hitTest(_:)` override in `ClickThroughHostingView`:
+- Do NOT set `ignoresMouseEvents` anywhere
+- Override `hitTest(_:)` to return `nil` for areas outside clickable regions
+- Use `.clickableRegion(id:)` view modifier to register clickable views
+- `ClickableRegionsStore` singleton tracks named regions in window coordinates
+
+**Key insight:** `hitTest(_:)` is THE mechanism macOS uses for ALL mouse events (clicks, scrolls, hovers). Returning `nil` tells macOS "no view here, check windows below."
+
+### Bug Fixes
+- **AppleScript thread safety crash** - Added `NSLock` to serialize all AppleScript calls (NSAppleScript is not thread-safe)
+- **Session matching** - Now prefers most recently updated session when multiple match (fixes GiveGrove showing stale status)
+- **Double-tap send delay** - Increased from 400ms to 850ms for Claude Code terminal reliability
+
+### Files Added
+- `ClaudeSessionManager.swift` (597 lines) - Session tracking & iTerm integration
+- `ClaudeSessionDotsView.swift` (571 lines) - UI components for session display
+- `ClickThroughHostingView.swift` - Proper click-through implementation
+- `scripts/dev.sh` - Development build script
+
+### Settings Integration
+- Session Summaries install button installs hooks that enable status updates
+- Session Status Dots and Summary Panel toggles are disabled until hooks installed
+
+---
+
+## [2026-01-22 12:00] Pause/Resume Transcription - Research Complete
+
+**Research only - not implemented yet.**
+
+### Proposed Implementation
+- **Pause**: Transcribe current audio → store TEXT (not audio) → stop audio engine
+- **Resume**: Start fresh recording → keep pending text chunks
+- **Stop**: Concatenate all stored text + current transcription → paste
+
+### State Machine Changes
+Add `paused` to `RecordingState` enum, add `pausedTextChunks: [String]` accumulator.
+
+### Hotkey Design (Recommended)
+Same hotkey cycles:
+- Tap while idle → Start
+- Tap while recording → Pause (transcribes & stores)
+- Tap while paused → Resume (fresh recording)
+- Tap while recording → Stop (concatenates all)
+
+### Key Code Locations
+- `WhisperState.swift` - Add `.paused` state, new methods
+- `HotkeyManager.swift` - Handle paused state transitions
+- `NotchRecorderView.swift` - Paused visual state (amber, pause icon)
+
+### Edge Cases Identified
+- Empty transcription on immediate pause (don't add empty strings)
+- Cancel while paused (clear chunks)
+- Multiple pause/resume cycles (array naturally accumulates)
+
+---
+
 ## [2026-01-17 10:30] Live Preview Box Off-Screen Fix (v1.9.11)
 
 **Achievement:** Fixed live preview box not appearing on multi-monitor setups.

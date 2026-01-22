@@ -1,5 +1,3 @@
-# Session Summary
-
-**User Asked:** Enable "Terminal Mode" for sending transcribed text directly to terminal windows, while debugging double-tap send timing issues in Claude Code.
-
-**Agent Accomplished:** Increased paste-to-send delay from 400ms to 650ms (fixing reliability in Claude Code terminals), and updated the claude-summary-hooks repository to use concise 8-10 word JSON format for session summaries on reinstall.
+```json
+{"user_summary": "Backlog send-to-terminal, plan pause/resume transcription feature", "agent_summary": "Updated PLAN.md, designed pause/resume with text accumulation approach"}
+```

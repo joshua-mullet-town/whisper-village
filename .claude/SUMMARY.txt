@@ -1,3 +1,6 @@
 ```json
-{"user_summary": "Explore multi-agent workflow for plan/state doc management", "agent_summary": "Discussed dual-agent architecture: worker + admin for continuous doc sync"}
+{
+  "user_summary": "Discussed multi-agent architecture, found crash in AppleScript threading",
+  "agent_summary": "Identified NSAppleScript thread-safety bug causing concurrent execution crash"
+}
 ```

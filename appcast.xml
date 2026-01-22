@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.21</title>
+            <pubDate>Thu, 22 Jan 2026 07:45:14 -0500</pubDate>
+            <sparkle:version>116</sparkle:version>
+            <sparkle:shortVersionString>1.9.21</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.21</h3>
+                <ul>
+                    <li>Session dots and summary panel toggles now disabled until Session Summaries hooks are installed</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.21/WhisperVillage-1.9.21.dmg" length="13246066" type="application/octet-stream" sparkle:edSignature="fXMr4sO+t5eoX8ERbMJIOKWGOKHkbTySPRK8mKwZ3D7DTWrDXDXCPQCadBDBT8a6yDS81N3Zd1ZGYWvyg1BjCw=="/>
+        </item>
+        <item>
             <title>1.9.20</title>
             <pubDate>Wed, 21 Jan 2026 19:43:05 -0500</pubDate>
             <sparkle:version>115</sparkle:version>

@@ -1688,6 +1688,7 @@ private struct SummaryHookInfoPopover: View {
 
 private struct SessionDotsToggle: View {
     @StateObject private var sessionManager = ClaudeSessionManager.shared
+    @ObservedObject private var hookManager = SummaryHookManager.shared
 
     var body: some View {
         Divider()
@@ -1710,8 +1711,18 @@ private struct SessionDotsToggle: View {
         }
         .toggleStyle(.switch)
         .controlSize(.small)
+        .disabled(!hookManager.isInstalled)
 
-        if sessionManager.isEnabled && !sessionManager.iTermTabs.isEmpty {
+        if !hookManager.isInstalled {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.caption2)
+                    .foregroundColor(.orange)
+                Text("Requires Session Summaries to be installed above")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        } else if sessionManager.isEnabled && !sessionManager.iTermTabs.isEmpty {
             HStack(spacing: 6) {
                 Text("Active tabs:")
                     .font(.caption2)
@@ -1750,6 +1761,7 @@ private struct SessionDotsToggle: View {
         }
         .toggleStyle(.switch)
         .controlSize(.small)
+        .disabled(!hookManager.isInstalled)
     }
 
     private func colorForStatus(_ status: ClaudeSessionStatus) -> Color {

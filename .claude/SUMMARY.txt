@@ -1,6 +1,5 @@
-```json
-{
-  "user_summary": "Discussed multi-agent architecture, found crash in AppleScript threading",
-  "agent_summary": "Identified NSAppleScript thread-safety bug causing concurrent execution crash"
-}
-```
+# Session Summary
+
+**User Asked:** Enable "Terminal Mode" for sending transcribed text directly to terminal windows, while debugging double-tap send timing issues in Claude Code.
+
+**Agent Accomplished:** Increased paste-to-send delay from 400ms to 650ms (fixing reliability in Claude Code terminals), and updated the claude-summary-hooks repository to use concise 8-10 word JSON format for session summaries on reinstall.

@@ -395,10 +395,11 @@ class WhisperState: NSObject, ObservableObject {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                         if shouldSend {
                             // Double-tap: paste + Enter
+                            // 650ms delay to allow slower apps (like Claude Code terminals) to finish processing paste
                             StreamingLogger.shared.log("📋 DOUBLE-TAP: Pasting + Enter")
                             CursorPaster.pasteAtCursor(finalText)
                             SoundManager.shared.playSendSound()
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
                                 CursorPaster.pressEnter()
                             }
                         } else {
@@ -535,10 +536,11 @@ class WhisperState: NSObject, ObservableObject {
 
                         if shouldSend {
                             // Double-tap: paste + Enter
+                            // 650ms delay to allow slower apps (like Claude Code terminals) to finish processing paste
                             StreamingLogger.shared.log("📋 DOUBLE-TAP (Streaming): Pasting + Enter")
                             CursorPaster.pasteAtCursor(finalText)
                             SoundManager.shared.playSendSound()
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
                                 CursorPaster.pressEnter()
                             }
                         } else {

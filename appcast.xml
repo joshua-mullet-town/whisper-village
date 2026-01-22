@@ -3,6 +3,29 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.20</title>
+            <pubDate>Wed, 21 Jan 2026 19:43:05 -0500</pubDate>
+            <sparkle:version>115</sparkle:version>
+            <sparkle:shortVersionString>1.9.20</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.20</h3>
+                <ul>
+                    <li>Claude Code Integration
+
+✨ New Features:
+• Claude Code session status dots - see all your active sessions at a glance below the notch
+• Session summary panel - shows what you asked and what Claude did
+• Click session cards to switch iTerm tabs instantly
+
+🐛 Bug Fixes:
+• Fixed click-through on notch window - apps behind it are now fully interactive
+• Fixed rare crash when switching Spaces with iTerm open</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.20/WhisperVillage-1.9.20.dmg" length="13269042" type="application/octet-stream" sparkle:edSignature="4C4vmZUPtbXpMTAkpwrDyAg8gbNpznFaSPp6mMEHZrfRXR66Nf5r5Mum2xoVwqGb5PtY9luAlGUKjfvTUitqCA=="/>
+        </item>
+        <item>
             <title>1.9.19</title>
             <pubDate>Mon, 19 Jan 2026 12:52:34 -0500</pubDate>
             <sparkle:version>114</sparkle:version>

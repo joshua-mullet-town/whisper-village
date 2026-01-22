@@ -6,10 +6,10 @@ class KeyablePanel: NSPanel {
     override var canBecomeMain: Bool { true }
 }
 
-class NotchRecorderPanel: KeyablePanel {
+class NotchRecorderPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
-    
+
     private var notchMetrics: (width: CGFloat, height: CGFloat) {
         if let screen = NSScreen.main {
             let safeAreaInsets = screen.safeAreaInsets
@@ -70,8 +70,9 @@ class NotchRecorderPanel: KeyablePanel {
         // Keep escape key functionality
         self.standardWindowButton(.closeButton)?.isHidden = true
         
-        // Make window transparent to mouse events except for the content
-        self.ignoresMouseEvents = false
+        // CRITICAL: Do NOT set ignoresMouseEvents!
+        // Click-through is handled by hitTest(_:) in ClickThroughHostingView
+        // which returns nil for areas outside clickable regions.
         self.isMovable = false
         
         print("NotchRecorderPanel initialized")
@@ -84,8 +85,9 @@ class NotchRecorderPanel: KeyablePanel {
         )
     }
     
-    /// Height of the ticker area below the notch
-    static let tickerHeight: CGFloat = 32
+    /// Height of the area below the notch (ticker + session dots + summary panel)
+    /// Height-aware - expands to fit summary content (legacy summaries can be long)
+    static let tickerHeight: CGFloat = 200
 
     static func calculateWindowMetrics() -> (frame: NSRect, notchWidth: CGFloat, notchHeight: CGFloat) {
         guard let screen = NSScreen.main else {
@@ -155,49 +157,19 @@ class NotchRecorderPanel: KeyablePanel {
     }
 }
 
+/// NotchRecorderHostingController uses ClickThroughHostingView for transparent click-through
 class NotchRecorderHostingController<Content: View>: NSHostingController<Content> {
+    override func loadView() {
+        // Use our custom click-through hosting view (defined in ClickThroughHostingView.swift)
+        let hostingView = ClickThroughHostingView(rootView: rootView)
+        hostingView.wantsLayer = true
+        self.view = hostingView
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        view.wantsLayer = true
+
         view.layer?.backgroundColor = NSColor.clear.cgColor
-        
-        // Add visual effect view as background
-        let visualEffect = NSVisualEffectView()
-        visualEffect.material = .dark
-        visualEffect.state = .active
-        visualEffect.blendingMode = .withinWindow
-        visualEffect.wantsLayer = true
-        visualEffect.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.95).cgColor
-        
-        // Create a mask layer for the notched shape
-        let maskLayer = CAShapeLayer()
-        let path = CGMutablePath()
-        let bounds = view.bounds
-        let cornerRadius: CGFloat = 10
-        
-        // Create the notched path
-        path.move(to: CGPoint(x: bounds.minX, y: bounds.minY))
-        path.addLine(to: CGPoint(x: bounds.maxX, y: bounds.minY))
-        path.addLine(to: CGPoint(x: bounds.maxX, y: bounds.maxY - cornerRadius))
-        path.addQuadCurve(to: CGPoint(x: bounds.maxX - cornerRadius, y: bounds.maxY),
-                         control: CGPoint(x: bounds.maxX, y: bounds.maxY))
-        path.addLine(to: CGPoint(x: bounds.minX + cornerRadius, y: bounds.maxY))
-        path.addQuadCurve(to: CGPoint(x: bounds.minX, y: bounds.maxY - cornerRadius),
-                         control: CGPoint(x: bounds.minX, y: bounds.maxY))
-        path.closeSubpath()
-        
-        maskLayer.path = path
-        visualEffect.layer?.mask = maskLayer
-        
-        view.addSubview(visualEffect, positioned: .below, relativeTo: nil)
-        visualEffect.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            visualEffect.topAnchor.constraint(equalTo: view.topAnchor),
-            visualEffect.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            visualEffect.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            visualEffect.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        ])
     }
 } 
 

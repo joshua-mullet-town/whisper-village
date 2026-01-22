@@ -7,6 +7,7 @@ struct NotchRecorderView: View {
     @EnvironmentObject var windowManager: NotchWindowManager
     @StateObject private var worktreeManager = WorktreeManager.shared
     @StateObject private var spaceTabManager = SpaceTabManager.shared
+    @ObservedObject private var claudeSessionManager = ClaudeSessionManager.shared
     @State private var isHovering = false
     @State private var recordingDuration: TimeInterval = 0
     @State private var formatModeDuration: TimeInterval = 0
@@ -17,6 +18,7 @@ struct NotchRecorderView: View {
     @State private var wasInFormatMode = false
     @State private var showingWorktrees = false
     @State private var showingSpaceTabs = false
+    @State private var isSummaryHidden = false
 
     // Settings for eyeball button behavior
     @AppStorage("StreamingModeEnabled") private var isStreamingModeEnabled = false
@@ -536,8 +538,9 @@ struct NotchRecorderView: View {
     var body: some View {
         Group {
             if windowManager.isVisible {
-                VStack(spacing: 4) {
-                    // Main notch bar
+                // Outer container ignores mouse - only inner elements with explicit contentShape receive clicks
+                VStack(alignment: .center, spacing: 0) {
+                    // Main notch bar - aligned to top of window
                     HStack(spacing: 0) {
                         if isInErrorState {
                             errorLeftSection
@@ -588,6 +591,7 @@ struct NotchRecorderView: View {
                     }
                     .clipped()
                     .contentShape(NotchShape(cornerRadius: 10))
+                    .clickableRegion(id: "notchBar")
                     .onTapGesture {
                         // Click to start recording when idle
                         if isIdleState {
@@ -608,6 +612,28 @@ struct NotchRecorderView: View {
                     .animation(.easeInOut(duration: 0.4), value: isIdleState)
                     .frame(maxWidth: .infinity)  // Center the shrinking bar within full-width parent
 
+                    // Claude session bar below notch - sits flush against the notch
+                    // Background matches notch state: orange when recording, transparent when idle
+                    if claudeSessionManager.isEnabled && !claudeSessionManager.iTermTabs.isEmpty {
+                        ClaudeSessionDotsView(
+                            sessionManager: claudeSessionManager,
+                            isRecording: whisperState.recordingState == .recording,
+                            isSummaryHidden: $isSummaryHidden
+                        )
+                        .clickableRegion(id: "sessionDots")
+                    }
+
+                    // Summary TV panel - shows current session's summary below session dots
+                    // Hidden when user clicks on the already-active tab to toggle it off
+                    if claudeSessionManager.isSummaryPanelEnabled && !isSummaryHidden {
+                        SummaryTVView(
+                            sessionManager: claudeSessionManager,
+                            isRecording: whisperState.recordingState == .recording
+                        )
+                        .contentShape(Rectangle())  // Make the whole panel clickable
+                        .clickableRegion(id: "summaryPanel")
+                    }
+
                     // Live transcription ticker below notch
                     if shouldShowTicker && isPreviewVisible {
                         NotchTranscriptionTicker(
@@ -615,8 +641,12 @@ struct NotchRecorderView: View {
                             isRecording: whisperState.recordingState == .recording
                         )
                         .padding(.horizontal, 8)
+                        .padding(.top, 4)
                     }
+
+                    Spacer(minLength: 0)
                 }
+                .frame(maxHeight: .infinity, alignment: .top)
                 .opacity(windowManager.isVisible ? 1 : 0)
                 .onChange(of: whisperState.recordingState) { _, newState in
                     if newState == .recording {

@@ -68,21 +68,32 @@ Can run both side-by-side. Dev has its own permissions.
 
 User doesn't need to know these. Claude runs them.
 
+### Scripts (PREFERRED)
+
 ```bash
-# Build Dev
-xcodebuild -scheme WhisperVillage -project /Users/joshuamullet/code/whisper-village/WhisperVillage.xcodeproj -configuration Debug -allowProvisioningUpdates build
+# Dev build - kill, build, sign, launch (USE THIS)
+./scripts/dev.sh
 
-# Run Dev
-open "/Users/joshuamullet/Library/Developer/Xcode/DerivedData/WhisperVillage-adepclzyfrgthjclfduvkuhixsrz/Build/Products/Debug/Whisper Village Dev.app"
+# Ship a release
+./scripts/ship-it.sh <version> "<release notes>"
+```
 
+### ⚠️ IMPORTANT: Provisioning Profile Issue (Jan 2026)
+
+The standard `-allowProvisioningUpdates` build stopped working due to Apple bundle ID registration issues.
+The `dev.sh` script works around this by:
+1. Building without Apple signing (`CODE_SIGN_IDENTITY="-"`)
+2. Re-signing with the local "Whisper Village Signing" certificate
+
+This mirrors what `ship-it.sh` does for releases.
+
+### Manual commands (if scripts don't work)
+```bash
 # Kill Dev
 pkill -f "Whisper Village Dev"
 
-# Full Cycle
-pkill -f "Whisper Village Dev"; xcodebuild -scheme WhisperVillage -project /Users/joshuamullet/code/whisper-village/WhisperVillage.xcodeproj -configuration Debug -allowProvisioningUpdates build && open "/Users/joshuamullet/Library/Developer/Xcode/DerivedData/WhisperVillage-adepclzyfrgthjclfduvkuhixsrz/Build/Products/Debug/Whisper Village Dev.app"
-
-# Build Release (for testing locally only)
-xcodebuild -scheme WhisperVillage -project /Users/joshuamullet/code/whisper-village/WhisperVillage.xcodeproj -configuration Release -allowProvisioningUpdates clean archive
+# Run Dev (after building)
+open "/Users/joshuamullet/code/whisper-village/build/DerivedData/Build/Products/Debug/Whisper Village Dev.app"
 ```
 
 ---

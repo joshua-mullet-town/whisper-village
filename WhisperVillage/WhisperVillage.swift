@@ -93,6 +93,9 @@ struct WhisperVillageApp: App {
         }
         
         AppShortcuts.updateAppShortcutParameters()
+
+        // Initialize ClaudeSessionManager early so it starts watching for session changes
+        _ = ClaudeSessionManager.shared
     }
     
     var body: some Scene {

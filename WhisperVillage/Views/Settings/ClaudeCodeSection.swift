@@ -1483,6 +1483,9 @@ private struct SummaryHookRow: View {
                             .foregroundColor(.secondary)
                     }
                 }
+
+                // Session dots toggle
+                SessionDotsToggle()
             }
 
             // Show latest summary if available
@@ -1678,5 +1681,82 @@ private struct SummaryHookInfoPopover: View {
         }
         .padding(16)
         .frame(width: 340)
+    }
+}
+
+// MARK: - Session Dots Toggle
+
+private struct SessionDotsToggle: View {
+    @StateObject private var sessionManager = ClaudeSessionManager.shared
+
+    var body: some View {
+        Divider()
+            .padding(.vertical, 4)
+
+        Toggle(isOn: $sessionManager.isEnabled) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Image(systemName: "circle.grid.3x3.fill")
+                        .font(.caption)
+                        .foregroundColor(.accentColor)
+                    Text("Session Status Dots")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                }
+                Text("Show iTerm tab status dots below the notch")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .toggleStyle(.switch)
+        .controlSize(.small)
+
+        if sessionManager.isEnabled && !sessionManager.iTermTabs.isEmpty {
+            HStack(spacing: 6) {
+                Text("Active tabs:")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                ForEach(sessionManager.iTermTabs) { tab in
+                    HStack(spacing: 2) {
+                        Circle()
+                            .fill(colorForStatus(sessionManager.statusForTab(tab.index)))
+                            .frame(width: 6, height: 6)
+                        Text(tab.projectName)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+        }
+
+        // Summary Panel Toggle
+        Divider()
+            .padding(.vertical, 4)
+
+        Toggle(isOn: $sessionManager.isSummaryPanelEnabled) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Image(systemName: "tv")
+                        .font(.caption)
+                        .foregroundColor(.accentColor)
+                    Text("Summary Panel")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                }
+                Text("Show session summary mini-TV below status dots")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .toggleStyle(.switch)
+        .controlSize(.small)
+    }
+
+    private func colorForStatus(_ status: ClaudeSessionStatus) -> Color {
+        switch status {
+        case .working: return .yellow
+        case .waiting: return .green
+        case .idle: return .gray.opacity(0.5)
+        }
     }
 }

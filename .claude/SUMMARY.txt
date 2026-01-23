@@ -1,3 +1,6 @@
 ```json
-{"user_summary": "Backlog send-to-terminal, plan pause/resume transcription feature", "agent_summary": "Updated PLAN.md, designed pause/resume with text accumulation approach"}
+{
+  "user_summary": "Pause/resume transcription with vertical button layout, peek mode",
+  "agent_summary": "Stacked buttons, peek in pause mode, configurable pause hotkey"
+}
 ```

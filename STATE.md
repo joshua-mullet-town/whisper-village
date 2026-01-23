@@ -4,6 +4,19 @@
 
 ---
 
+## [2026-01-22 16:45] Status Bar Toggle in Notch
+
+**Achievement:** Added a quick-hide chevron button inside the notch bar to toggle session dots + summary panel visibility without going to Settings.
+
+- Chevron button (`chevron.up.circle` / `chevron.down.circle`) in the right section of the notch
+- Only visible when session dots are enabled and iTerm tabs exist
+- Hides/shows both session dots and summary panel with smooth animation
+- State persists via `@AppStorage("SessionBarHidden")` across restarts
+- Idle section width bumped from 34px to 62px to fit both the toggle and link icons
+- Settings toggle remains as global enable/disable; notch button is the immediate show/hide
+
+---
+
 ## [2026-01-22 14:30] Claude Code Session Status Dots & Click-Through Fix (v1.9.20-1.9.22)
 
 **Achievement:** Major feature release adding Claude Code session integration to the notch UI.

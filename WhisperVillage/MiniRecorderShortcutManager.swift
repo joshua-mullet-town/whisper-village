@@ -7,7 +7,7 @@ extension KeyboardShortcuts.Name {
     static let cancelRecorder = Self("cancelRecorder")
     static let toggleEnhancement = Self("toggleEnhancement")
     // Recording action shortcuts
-    static let sendRecorder = Self("sendRecorder")       // Stop + Paste + Enter
+    static let pauseResumeRecording = Self("pauseResumeRecording") // Pause/Resume recording
     static let peekTranscription = Self("peekTranscription") // Show preview without stopping
     // AI Prompt selection shortcuts
     static let selectPrompt1 = Self("selectPrompt1")
@@ -39,7 +39,7 @@ class MiniRecorderShortcutManager: ObservableObject {
     private var visibilityTask: Task<Void, Never>?
     
     private var isCancelHandlerSetup = false
-    private var isSendHandlerSetup = false
+    private var isPauseResumeHandlerSetup = false
     private var isPeekHandlerSetup = false
 
     // Double-tap Escape handling
@@ -54,7 +54,7 @@ class MiniRecorderShortcutManager: ObservableObject {
         setupEnhancementShortcut()
         setupEscapeHandlerOnce()
         setupCancelHandlerOnce()
-        setupSendHandlerOnce()
+        setupPauseResumeHandlerOnce()
         setupPeekHandlerOnce()
     }
     
@@ -197,20 +197,24 @@ class MiniRecorderShortcutManager: ObservableObject {
         // Shortcut managed by user settings
     }
 
-    // MARK: - Send Shortcut (Stop + Paste + Enter)
+    // MARK: - Pause/Resume Shortcut
 
-    private func setupSendHandlerOnce() {
-        guard !isSendHandlerSetup else { return }
-        isSendHandlerSetup = true
+    private func setupPauseResumeHandlerOnce() {
+        guard !isPauseResumeHandlerSetup else { return }
+        isPauseResumeHandlerSetup = true
 
-        KeyboardShortcuts.onKeyDown(for: .sendRecorder) { [weak self] in
+        KeyboardShortcuts.onKeyDown(for: .pauseResumeRecording) { [weak self] in
             Task { @MainActor in
                 guard let self = self,
                       await self.whisperState.isMiniRecorderVisible,
-                      await self.whisperState.recordingState == .recording,
-                      KeyboardShortcuts.getShortcut(for: .sendRecorder) != nil else { return }
+                      KeyboardShortcuts.getShortcut(for: .pauseResumeRecording) != nil else { return }
 
-                await self.whisperState.stopRecordingAndSend()
+                let state = await self.whisperState.recordingState
+                if state == .recording {
+                    await self.whisperState.pauseRecording()
+                } else if state == .paused {
+                    await self.whisperState.resumeRecording()
+                }
             }
         }
     }
@@ -225,8 +229,10 @@ class MiniRecorderShortcutManager: ObservableObject {
             Task { @MainActor in
                 guard let self = self,
                       await self.whisperState.isMiniRecorderVisible,
-                      await self.whisperState.recordingState == .recording,
                       KeyboardShortcuts.getShortcut(for: .peekTranscription) != nil else { return }
+
+                let state = await self.whisperState.recordingState
+                guard state == .recording || state == .paused else { return }
 
                 await self.whisperState.peekTranscription()
             }

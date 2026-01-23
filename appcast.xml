@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.24</title>
+            <pubDate>Fri, 23 Jan 2026 08:12:33 -0500</pubDate>
+            <sparkle:version>119</sparkle:version>
+            <sparkle:shortVersionString>1.9.24</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.24</h3>
+                <ul>
+                    <li>Pause/Resume transcription: Pause mid-recording to collect thoughts, resume when ready. All segments concatenated with newlines on finish. New stacked pause/stop buttons in notch, paused state visual indicator, timer freezes while paused. Peek now shows all accumulated segments. Added configurable Pause/Resume keyboard shortcut (Settings > Shortcuts). Removed redundant Send shortcut (double-tap hotkey already does this). Status bar toggle button in notch for quick hide/show of session dots.</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.24/WhisperVillage-1.9.24.dmg" length="13270224" type="application/octet-stream" sparkle:edSignature="fZsXcPD8izdh13whk0stzfHVyXTdeWn6GMpt2xpVlGVJstoXvDL//Hkr8lVDTrNxf4EYy/DCYW/HHJqEJ2jPDw=="/>
+        </item>
+        <item>
             <title>1.9.23</title>
             <pubDate>Thu, 22 Jan 2026 08:56:26 -0500</pubDate>
             <sparkle:version>118</sparkle:version>

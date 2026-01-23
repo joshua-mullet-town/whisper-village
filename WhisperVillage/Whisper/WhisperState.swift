@@ -10,6 +10,7 @@ import os
 enum RecordingState: Equatable {
     case idle
     case recording
+    case paused      // Audio stopped, previous segments transcribed and stored
     case transcribing
     case enhancing
     case busy
@@ -43,8 +44,8 @@ enum DebugLogEntry: Identifiable {
 class WhisperState: NSObject, ObservableObject {
     @Published var recordingState: RecordingState = .idle {
         didSet {
-            // Dismiss live preview box when recording stops
-            if recordingState != .recording {
+            // Dismiss live preview box when recording stops (but not when paused)
+            if recordingState != .recording && recordingState != .paused {
                 NotificationManager.shared.dismissLiveBox()
             }
         }
@@ -58,6 +59,10 @@ class WhisperState: NSObject, ObservableObject {
     @Published var clipboardMessage = ""
     @Published var miniRecorderError: String?
     @Published var shouldCancelRecording = false
+
+    // MARK: - Pause/Resume
+    /// Accumulated transcribed text segments from pause operations
+    @Published var pausedSegments: [String] = []
 
     /// When true, the next paste operation should also press Enter (for double-tap send)
     var doubleTapSendPending = false
@@ -278,6 +283,90 @@ class WhisperState: NSObject, ObservableObject {
     
     func toggleRecord() async {
         StreamingLogger.shared.log("🎯 toggleRecord() called, current state: \(recordingState)")
+
+        // Handle hotkey pressed while paused: finalize with all stored segments
+        if recordingState == .paused {
+            StreamingLogger.shared.log("🎯 Was paused, finalizing with \(pausedSegments.count) stored segments...")
+
+            await MainActor.run {
+                recordingState = .transcribing
+            }
+
+            // Concatenate all stored segments with newlines
+            let finalText: String
+            if pausedSegments.isEmpty {
+                // Nothing was transcribed during any pause
+                await MainActor.run {
+                    recordingState = .idle
+                    pausedSegments = []
+                }
+                await cleanupModelResources()
+                await dismissMiniRecorder()
+                return
+            } else {
+                finalText = pausedSegments.joined(separator: "\n")
+            }
+
+            // Clear segments for next session
+            await MainActor.run {
+                pausedSegments = []
+                recordingState = .idle
+            }
+
+            // Apply word replacements, ML cleanup, etc.
+            var processedText = finalText
+
+            // LLM Correction (if enabled)
+            processedText = await LLMCorrectionService.shared.correct(processedText)
+
+            // Word replacements (if enabled)
+            if UserDefaults.standard.bool(forKey: "IsWordReplacementEnabled") {
+                processedText = WordReplacementService.shared.applyReplacements(to: processedText)
+            }
+
+            // ML Cleanup - filler removal (if enabled)
+            if UserDefaults.standard.bool(forKey: "IsMLCleanupEnabled") {
+                if #available(macOS 13.0, *), CoreMLCleanupService.shared.isAvailable {
+                    processedText = CoreMLCleanupService.shared.cleanup(text: processedText)
+                } else {
+                    processedText = await MLCleanupService.shared.cleanup(text: processedText)
+                }
+            }
+
+            let shouldAddSpace = UserDefaults.standard.object(forKey: "AppendTrailingSpace") as? Bool ?? true
+            if shouldAddSpace {
+                processedText += " "
+            }
+
+            // Save to history
+            saveStreamingTranscriptionToHistory(processedText)
+
+            let shouldSend = self.doubleTapSendPending
+            self.doubleTapSendPending = false
+            self.tripleTapTerminalPending = false
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
+                if shouldSend {
+                    StreamingLogger.shared.log("📋 DOUBLE-TAP (from paused): Pasting + Enter")
+                    CursorPaster.pasteAtCursor(processedText)
+                    SoundManager.shared.playSendSound()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) {
+                        CursorPaster.pressEnter()
+                    }
+                } else {
+                    StreamingLogger.shared.log("📋 -> Normal paste from paused segments")
+                    CursorPaster.pasteAtCursor(processedText)
+                }
+            }
+
+            hideRecorderPanel()
+            await MainActor.run {
+                isMiniRecorderVisible = false
+            }
+            await cleanupModelResources()
+            return
+        }
+
         if recordingState == .recording {
             StreamingLogger.shared.log("🎯 Was recording, now stopping...")
             // FIRST: Stop audio engines to release audio resources
@@ -350,8 +439,20 @@ class WhisperState: NSObject, ObservableObject {
                 // Clear finalTranscribedChunks for next session
                 finalTranscribedChunks = []
 
+                // Prepend any paused segments from earlier in this session
+                if !pausedSegments.isEmpty {
+                    var allSegments = pausedSegments
+                    if !textToPaste.isEmpty {
+                        allSegments.append(textToPaste)
+                    }
+                    textToPaste = allSegments.joined(separator: "\n")
+                    pausedSegments = []
+                    StreamingLogger.shared.log("📝 Prepended \(allSegments.count - 1) paused segments to final text")
+                }
+
                 if shouldCancelRecording || textToPaste.isEmpty {
                     // Cancelled or nothing to paste
+                    pausedSegments = []  // Clear on cancel too
                     await MainActor.run {
                         recordingState = .idle
                     }
@@ -476,6 +577,17 @@ class WhisperState: NSObject, ObservableObject {
 
                 // Recorders already stopped above (before sound playback)
 
+                // Prepend any paused segments from earlier in this session
+                if !pausedSegments.isEmpty {
+                    var allSegments = pausedSegments
+                    if !textToPaste.isEmpty {
+                        allSegments.append(textToPaste)
+                    }
+                    textToPaste = allSegments.joined(separator: "\n")
+                    pausedSegments = []
+                    StreamingLogger.shared.log("📝 Prepended \(allSegments.count - 1) paused segments to final text")
+                }
+
                 if shouldCancelRecording || textToPaste.isEmpty {
                     // Delete placeholder if we pasted one (cancelled or empty result)
                     if placeholderLength > 0 {
@@ -484,6 +596,7 @@ class WhisperState: NSObject, ObservableObject {
                         }
                         StreamingLogger.shared.log("Deleted placeholder (cancelled/empty)")
                     }
+                    pausedSegments = []  // Clear on cancel too
                     await MainActor.run {
                         recordingState = .idle
                         isInCommandMode = false  // Reset command mode on cancel
@@ -699,13 +812,119 @@ class WhisperState: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - Pause/Resume Recording
+
+    /// Pauses recording: immediately transcribes current buffer, stores the text segment,
+    /// and stops audio capture. Resume will start fresh recording.
+    func pauseRecording() async {
+        guard recordingState == .recording else { return }
+        StreamingLogger.shared.log("⏸️ PAUSE: Stopping audio and transcribing current segment...")
+
+        // 1. Stop streaming transcription loop
+        await stopStreamingTranscription()
+
+        // 2. Get current audio samples before stopping
+        let capturedSamples = await streamingRecorder.stopRecording()
+        await recorder.stopRecording()
+
+        // 3. Set state to paused immediately (shows paused UI)
+        await MainActor.run {
+            recordingState = .paused
+        }
+
+        // 4. Transcribe the captured audio segment
+        var segmentText = ""
+
+        if isStreamingModeEnabled && isLivePreviewEnabled {
+            // Use interim transcription if available (fast path)
+            let interimText = interimTranscription.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !interimText.isEmpty {
+                segmentText = interimText
+                StreamingLogger.shared.log("⏸️ PAUSE: Using interim transcription: \"\(segmentText.prefix(80))...\"")
+            } else if capturedSamples.count > 16000 {
+                // Fallback: transcribe captured samples
+                if let transcribed = await transcribeCapturedSamples(capturedSamples) {
+                    segmentText = transcribed.trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+                StreamingLogger.shared.log("⏸️ PAUSE: Transcribed samples: \"\(segmentText.prefix(80))...\"")
+            }
+        } else if isStreamingModeEnabled {
+            // Simple streaming mode (no live preview) - must transcribe
+            if capturedSamples.count > 16000 {
+                if let transcribed = await transcribeCapturedSamples(capturedSamples) {
+                    segmentText = transcribed.trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+            }
+        }
+
+        // 5. Store non-empty segment
+        if !segmentText.isEmpty {
+            await MainActor.run {
+                pausedSegments.append(segmentText)
+                StreamingLogger.shared.log("⏸️ PAUSE: Stored segment #\(pausedSegments.count): \"\(segmentText.prefix(50))...\"")
+            }
+        } else {
+            StreamingLogger.shared.log("⏸️ PAUSE: No audio to transcribe (empty segment)")
+        }
+
+        // 6. Clear interim for next segment
+        await MainActor.run {
+            interimTranscription = ""
+            finalTranscribedChunks = []
+        }
+    }
+
+    /// Resumes recording after pause: starts fresh audio capture.
+    /// Previous segments are preserved in pausedSegments.
+    func resumeRecording() async {
+        guard recordingState == .paused else { return }
+        StreamingLogger.shared.log("▶️ RESUME: Starting fresh audio capture...")
+
+        do {
+            // 1. Create new recording file for standard recorder
+            let fileName = "\(UUID().uuidString).wav"
+            let permanentURL = recordingsDirectory.appendingPathComponent(fileName)
+            recordedFile = permanentURL
+
+            // 2. Start standard recorder
+            try await recorder.startRecording(toOutputFile: permanentURL)
+
+            // 3. Start streaming recorder (fresh buffer)
+            if isStreamingModeEnabled {
+                try await streamingRecorder.startRecording()
+                StreamingLogger.shared.log("▶️ RESUME: StreamingRecorder started")
+            }
+
+            // 4. Set state back to recording
+            await MainActor.run {
+                recordingState = .recording
+                interimTranscription = ""
+            }
+
+            // 5. Restart streaming transcription if live preview is enabled
+            if isStreamingModeEnabled && isLivePreviewEnabled {
+                if let model = currentTranscriptionModel,
+                   (model.provider == .local || model.provider == .parakeet) {
+                    startStreamingTranscription()
+                }
+            }
+
+            StreamingLogger.shared.log("▶️ RESUME: Recording resumed successfully")
+        } catch {
+            logger.error("❌ Failed to resume recording: \(error.localizedDescription)")
+            await MainActor.run {
+                recordingState = .error(message: "Failed to resume: \(error.localizedDescription)")
+            }
+        }
+    }
+
     // MARK: - Stop Recording and Send (Paste + Enter)
 
     /// Stops recording, transcribes, pastes, and presses Enter to send
     /// This is similar to toggleRecord() stop path but also presses Enter after paste
     /// OPTIMIZED: Hides UI immediately for perceived responsiveness
     func stopRecordingAndSend() async {
-        guard recordingState == .recording else { return }
+        guard recordingState == .recording || recordingState == .paused else { return }
 
         // For streaming mode
         if isStreamingModeEnabled {
@@ -826,7 +1045,7 @@ class WhisperState: NSObject, ObservableObject {
     /// Triggers a transcription of current audio and shows the result
     /// Recording continues after showing the preview
     func peekTranscription() async {
-        guard recordingState == .recording else { return }
+        guard recordingState == .recording || recordingState == .paused else { return }
 
         guard isStreamingModeEnabled else {
             NotificationManager.shared.showNotification(
@@ -839,23 +1058,33 @@ class WhisperState: NSObject, ObservableObject {
 
         StreamingLogger.shared.log("=== PEEK TRANSCRIPTION ===")
 
-        var currentText = ""
+        var currentSegmentText = ""
 
-        if isLivePreviewEnabled {
+        if recordingState == .paused {
+            // While paused: no active audio to transcribe, current segment is empty
+            StreamingLogger.shared.log("Peek (paused): showing stored segments only")
+        } else if isLivePreviewEnabled {
             // Live Preview ON: Use the already-computed interim transcription
-            currentText = interimTranscription.trimmingCharacters(in: .whitespacesAndNewlines)
-            StreamingLogger.shared.log("Peek (live preview): \"\(currentText)\"")
+            currentSegmentText = interimTranscription.trimmingCharacters(in: .whitespacesAndNewlines)
+            StreamingLogger.shared.log("Peek (live preview): \"\(currentSegmentText)\"")
         } else {
             // Simple Mode: Do an on-demand transcription of current audio buffer
             // Note: This transcribes but doesn't stop recording
             StreamingLogger.shared.log("Peek (simple mode): Transcribing current audio...")
             if let transcribedText = await transcribeFullAudioBuffer(clearBufferAfter: false) {
-                currentText = transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                currentSegmentText = transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
             }
-            StreamingLogger.shared.log("Peek (simple mode) result: \"\(currentText)\"")
+            StreamingLogger.shared.log("Peek (simple mode) result: \"\(currentSegmentText)\"")
         }
 
-        if currentText.isEmpty {
+        // Combine paused segments + current segment for full peek view
+        var allSegments = pausedSegments
+        if !currentSegmentText.isEmpty {
+            allSegments.append(currentSegmentText)
+        }
+        let fullText = allSegments.joined(separator: "\n")
+
+        if fullText.isEmpty {
             NotificationManager.shared.showNotification(
                 title: "No transcription yet",
                 type: .info,
@@ -867,7 +1096,7 @@ class WhisperState: NSObject, ObservableObject {
             // - Hover to pause auto-dismiss
             // - 8 second default duration
             NotificationManager.shared.showPeekToast(
-                text: currentText,
+                text: fullText,
                 duration: 8.0
             )
         }

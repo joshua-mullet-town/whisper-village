@@ -424,8 +424,8 @@ class HotkeyManager: ObservableObject {
                 }
                 return
 
-            case .recording:
-                // STOP recording
+            case .recording, .paused:
+                // STOP recording (or finalize from paused state)
                 isHandsFreeMode = false
                 recordStopTime()  // Record IMMEDIATELY, before async work
                 Task { @MainActor in
@@ -523,8 +523,8 @@ class HotkeyManager: ObservableObject {
             whisperState.dismissError()
             return
 
-        case .recording:
-            // STOP recording
+        case .recording, .paused:
+            // STOP recording (or finalize from paused state)
             isShortcutHandsFreeMode = false
             recordStopTime()  // Record IMMEDIATELY, before async work
             guard canProcessHotkeyAction else { return }

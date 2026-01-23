@@ -64,7 +64,7 @@ extension WhisperState {
         }
 
         if isMiniRecorderVisible {
-            if recordingState == .recording {
+            if recordingState == .recording || recordingState == .paused {
                 await toggleRecord()
             } else {
                 await cancelRecording()
@@ -91,6 +91,12 @@ extension WhisperState {
         }
 
         let wasRecording = recordingState == .recording
+        let wasPaused = recordingState == .paused
+
+        // Clear paused segments on dismiss (discard everything)
+        if wasPaused || wasRecording {
+            pausedSegments = []
+        }
 
         logger.notice("📱 Dismissing \(self.recorderType) recorder")
 
@@ -148,11 +154,18 @@ extension WhisperState {
     }
     
     func cancelRecording() async {
-        // FIRST: Stop audio engines to release audio resources
+        let wasPaused = recordingState == .paused
+
+        // FIRST: Stop audio engines to release audio resources (if not already paused)
         // This allows the cancel sound to play without being blocked by AVAudioEngine
-        await stopStreamingTranscription()
-        _ = await streamingRecorder.stopRecording()
-        await recorder.stopRecording()
+        if !wasPaused {
+            await stopStreamingTranscription()
+            _ = await streamingRecorder.stopRecording()
+            await recorder.stopRecording()
+        }
+
+        // Clear any paused segments
+        pausedSegments = []
 
         // NOW play cancel sound - audio resources are released
         SoundManager.shared.playEscSound()

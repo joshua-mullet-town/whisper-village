@@ -19,6 +19,7 @@ struct NotchRecorderView: View {
     @State private var showingWorktrees = false
     @State private var showingSpaceTabs = false
     @State private var isSummaryHidden = false
+    @AppStorage("SessionBarHidden") private var isSessionBarHidden = false
 
     // Settings for eyeball button behavior
     @AppStorage("StreamingModeEnabled") private var isStreamingModeEnabled = false
@@ -104,7 +105,7 @@ struct NotchRecorderView: View {
     /// Animates to 34 when idle (enough for icon + padding), 130 when active
     private var sectionWidth: CGFloat {
         if isIdleState {
-            return 34  // Enough for 24px icon + padding to be fully visible
+            return 62  // Enough for two 24px icons + spacing + padding
         }
         return 130  // Increased from 100 to accommodate worktree icon during recording
     }
@@ -115,31 +116,79 @@ struct NotchRecorderView: View {
         exactNotchWidth + (sectionWidth * 2)
     }
 
+    /// Whether we're in paused state
+    private var isPaused: Bool {
+        whisperState.recordingState == .paused
+    }
+
     private var leftSection: some View {
         HStack(spacing: 4) {
-            // Cancel button - hide when idle
-            if !isIdleState {
-                NotchIconButton(
-                    icon: "xmark.circle.fill",
-                    color: .white,
-                    tooltip: cancelTooltip
-                ) {
-                    Task { @MainActor in
-                        // Reset format mode state before dismissing
-                        if isInFormatMode {
-                            whisperState.isLLMFormattingMode = false
-                            whisperState.isWaitingForFormattingInstruction = false
-                            whisperState.llmFormattingContent = ""
-                            NotificationManager.shared.dismissFormatContentBox()
+            // Pause/Play + Stop stacked vertically in a compact column
+            if whisperState.recordingState == .recording || isPaused {
+                if isInFormatMode || isInCommandMode {
+                    // In format/command mode: show cancel button instead of pause
+                    NotchIconButton(
+                        icon: "xmark.circle.fill",
+                        color: .white,
+                        tooltip: cancelTooltip
+                    ) {
+                        Task { @MainActor in
+                            if isInFormatMode {
+                                whisperState.isLLMFormattingMode = false
+                                whisperState.isWaitingForFormattingInstruction = false
+                                whisperState.llmFormattingContent = ""
+                                NotificationManager.shared.dismissFormatContentBox()
+                            }
+                            if isInCommandMode {
+                                whisperState.isInCommandMode = false
+                            }
+                            await whisperState.dismissMiniRecorder()
                         }
-                        // Reset Command Mode if active
-                        if isInCommandMode {
-                            whisperState.isInCommandMode = false
-                        }
-                        await whisperState.dismissMiniRecorder()
                     }
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                } else {
+                    // Stacked pause/play on top, stop on bottom
+                    VStack(spacing: 1) {
+                        // Pause/Play toggle (top)
+                        Button {
+                            Task { @MainActor in
+                                if isPaused {
+                                    await whisperState.resumeRecording()
+                                } else {
+                                    await whisperState.pauseRecording()
+                                }
+                            }
+                        } label: {
+                            Image(systemName: isPaused ? "play.fill" : "pause.fill")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(width: 18, height: 11)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .help(isPaused ? "Resume" : "Pause")
+
+                        // Stop/discard (bottom)
+                        Button {
+                            Task { @MainActor in
+                                await whisperState.cancelRecording()
+                            }
+                        } label: {
+                            Image(systemName: "stop.fill")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundColor(.white.opacity(0.6))
+                                .frame(width: 18, height: 11)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .help("Stop (discard)")
+                    }
+                    .padding(.vertical, 2)
+                    .padding(.horizontal, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.white.opacity(0.1))
+                    )
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
                 }
-                .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
 
             Spacer()
@@ -177,11 +226,11 @@ struct NotchRecorderView: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
 
-            // Timer display
-            if whisperState.recordingState == .recording {
+            // Timer display - shows during recording and paused (frozen when paused)
+            if whisperState.recordingState == .recording || isPaused {
                 Text(formatTime(displayDuration))
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundColor(.white)
+                    .foregroundColor(isPaused ? .white.opacity(0.6) : .white)
                     .frame(width: 35, alignment: .trailing)
                     .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
@@ -268,6 +317,20 @@ struct NotchRecorderView: View {
 
     private var rightSection: some View {
         HStack(spacing: 4) {
+            // Session bar toggle - quick hide/show for dots + summary
+            if claudeSessionManager.isEnabled && !claudeSessionManager.iTermTabs.isEmpty {
+                NotchIconButton(
+                    icon: isSessionBarHidden ? "chevron.down.circle" : "chevron.up.circle",
+                    color: .white.opacity(0.7),
+                    tooltip: isSessionBarHidden ? "Show session bar" : "Hide session bar"
+                ) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isSessionBarHidden.toggle()
+                    }
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.8)))
+            }
+
             // Space-Tab link button - always visible, positioned closest to notch
             NotchIconButton(
                 icon: spaceTabManager.hasBindingForCurrentSpace ? "link.circle.fill" : "link.circle",
@@ -286,8 +349,9 @@ struct NotchRecorderView: View {
             // Hide preview buttons when in format mode
             if !isInFormatMode {
                 // Peek button - show full transcription toast
-                // Show UNLESS (live preview is enabled AND style is box) - in that case it's redundant
-                if isStreamingModeEnabled && !isIdleState && whisperState.recordingState == .recording && !(isLivePreviewEnabled && livePreviewStyle == "box") {
+                // Show during recording OR paused (when paused, shows all accumulated segments)
+                // Hide when live preview box is active (redundant)
+                if isStreamingModeEnabled && !isIdleState && (whisperState.recordingState == .recording || isPaused) && !(isLivePreviewEnabled && livePreviewStyle == "box") {
                     NotchIconButton(
                         icon: "doc.text.magnifyingglass",
                         color: .white.opacity(0.9),
@@ -412,6 +476,16 @@ struct NotchRecorderView: View {
                 colors: [
                     Color(red: 0.8, green: 0.2, blue: 0.2).opacity(0.9),
                     Color(red: 0.6, green: 0.1, blue: 0.1).opacity(0.95)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        } else if whisperState.recordingState == .paused {
+            // Paused state: muted orange, no audio-reactive animation
+            LinearGradient(
+                colors: [
+                    Color(red: 0.7, green: 0.35, blue: 0.1).opacity(0.6),
+                    Color(red: 0.6, green: 0.2, blue: 0.1).opacity(0.7)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -610,28 +684,30 @@ struct NotchRecorderView: View {
                     .animation(.easeInOut(duration: 0.3), value: whisperState.recordingState)
                     .animation(.easeInOut(duration: 0.2), value: isHovering)
                     .animation(.easeInOut(duration: 0.4), value: isIdleState)
+                    .animation(.easeInOut(duration: 0.2), value: isSessionBarHidden)
                     .frame(maxWidth: .infinity)  // Center the shrinking bar within full-width parent
 
                     // Claude session bar below notch - sits flush against the notch
                     // Background matches notch state: orange when recording, transparent when idle
-                    if claudeSessionManager.isEnabled && !claudeSessionManager.iTermTabs.isEmpty {
+                    // Hidden via the notch chevron toggle (quick hide) or global settings toggle
+                    if claudeSessionManager.isEnabled && !claudeSessionManager.iTermTabs.isEmpty && !isSessionBarHidden {
                         ClaudeSessionDotsView(
                             sessionManager: claudeSessionManager,
                             isRecording: whisperState.recordingState == .recording,
                             isSummaryHidden: $isSummaryHidden
                         )
                         .clickableRegion(id: "sessionDots")
-                    }
 
-                    // Summary TV panel - shows current session's summary below session dots
-                    // Hidden when user clicks on the already-active tab to toggle it off
-                    if claudeSessionManager.isSummaryPanelEnabled && !isSummaryHidden {
-                        SummaryTVView(
-                            sessionManager: claudeSessionManager,
-                            isRecording: whisperState.recordingState == .recording
-                        )
-                        .contentShape(Rectangle())  // Make the whole panel clickable
-                        .clickableRegion(id: "summaryPanel")
+                        // Summary TV panel - shows current session's summary below session dots
+                        // Hidden when user clicks on the already-active tab to toggle it off
+                        if claudeSessionManager.isSummaryPanelEnabled && !isSummaryHidden {
+                            SummaryTVView(
+                                sessionManager: claudeSessionManager,
+                                isRecording: whisperState.recordingState == .recording
+                            )
+                            .contentShape(Rectangle())  // Make the whole panel clickable
+                            .clickableRegion(id: "summaryPanel")
+                        }
                     }
 
                     // Live transcription ticker below notch
@@ -648,16 +724,23 @@ struct NotchRecorderView: View {
                 }
                 .frame(maxHeight: .infinity, alignment: .top)
                 .opacity(windowManager.isVisible ? 1 : 0)
-                .onChange(of: whisperState.recordingState) { _, newState in
+                .onChange(of: whisperState.recordingState) { oldState, newState in
                     if newState == .recording {
-                        recordingDuration = 0
-                        formatModeDuration = 0
+                        // Only reset duration on fresh start (not when resuming from pause)
+                        if oldState != .paused {
+                            recordingDuration = 0
+                            formatModeDuration = 0
+                        }
                         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
                             recordingDuration += 0.1
                             if isInFormatMode {
                                 formatModeDuration += 0.1
                             }
                         }
+                    } else if newState == .paused {
+                        // Freeze timer: stop incrementing but preserve duration value
+                        timer?.invalidate()
+                        timer = nil
                     } else {
                         timer?.invalidate()
                         timer = nil

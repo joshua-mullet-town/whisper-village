@@ -167,10 +167,10 @@ struct ShortcutsSection: View {
             )
 
             ShortcutRow(
-                name: "Send",
-                description: "Paste and press Enter (for chat apps)",
-                shortcut: .sendRecorder,
-                icon: "paperplane"
+                name: "Pause/Resume",
+                description: "Pause recording, resume when pressed again",
+                shortcut: .pauseResumeRecording,
+                icon: "pause.circle"
             )
 
             ShortcutRow(

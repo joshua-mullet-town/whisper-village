@@ -4,6 +4,38 @@
 
 ---
 
+## [2026-01-23 10:00] Pause/Resume Transcription (v1.9.24)
+
+**Achievement:** Full pause/resume during recording. Pause transcribes immediately, stores segment. Resume starts fresh. Hotkey finalizes all segments joined with newlines.
+
+### Implementation
+- New `RecordingState.paused` state in the state machine
+- `pauseRecording()`: stops audio, transcribes current buffer via fast path (interim) or fallback (full transcribe), appends to `pausedSegments[]`
+- `resumeRecording()`: starts fresh recorder + streaming, preserves accumulated segments
+- `toggleRecord()` from paused: concatenates all segments with `\n`, applies word replacements/ML cleanup, pastes
+- Multiple pause/resume cycles work — each appends a segment
+
+### UI
+- Stacked vertical buttons in notch left section: pause/play on top, stop (discard) on bottom
+- Compact rounded rectangle container, ~18px wide
+- Paused state: muted orange gradient (dimmer than recording), no audio-reactive animation
+- Timer freezes while paused, resumes on play
+- Peek button visible during paused state — shows ALL accumulated segments + current
+
+### Shortcuts
+- Removed redundant "Send" shortcut (double-tap hotkey already does paste+Enter)
+- Added configurable "Pause/Resume" shortcut (unbound by default, set in Settings > Shortcuts)
+- Peek shortcut also works during paused state
+
+### Key Decisions
+- Concatenate WORDS not audio (avoids audio stitching complexity)
+- Transcribe on pause (not at end) — locks in text immediately
+- Newline-separated segments (not space) — preserves pause as visual break
+- Stop button = discard all (not finalize)
+- Format mode / Command mode: show X cancel button instead of pause (keep those flows simple)
+
+---
+
 ## [2026-01-22 16:45] Status Bar Toggle in Notch
 
 **Achievement:** Added a quick-hide chevron button inside the notch bar to toggle session dots + summary panel visibility without going to Settings.

@@ -1,6 +1,6 @@
 ```json
 {
-  "user_summary": "Pause/resume transcription with vertical button layout, peek mode",
-  "agent_summary": "Stacked buttons, peek in pause mode, configurable pause hotkey"
+  "user_summary": "Ship pause/resume feature, update docs",
+  "agent_summary": "Released v1.9.24, updated STATE.md and PLAN.md"
 }
 ```

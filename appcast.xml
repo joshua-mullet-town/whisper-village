@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.25</title>
+            <pubDate>Fri, 23 Jan 2026 08:25:00 -0500</pubDate>
+            <sparkle:version>120</sparkle:version>
+            <sparkle:shortVersionString>1.9.25</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.25</h3>
+                <ul>
+                    <li>Session dot names now show the end of long project names (suffix truncation) instead of the beginning, making similar-prefix names distinguishable. Fixes #9.</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.25/WhisperVillage-1.9.25.dmg" length="13269063" type="application/octet-stream" sparkle:edSignature="/Fh9/TeW83PkAxXrguLjs+SrRJmf2ruPkEPjJqFtOa9SFRc2JI40B5gZed8NPqLXvVzezqTfYWS7yuICH36DAA=="/>
+        </item>
+        <item>
             <title>1.9.24</title>
             <pubDate>Fri, 23 Jan 2026 08:12:33 -0500</pubDate>
             <sparkle:version>119</sparkle:version>

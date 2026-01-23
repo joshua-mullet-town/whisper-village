@@ -257,7 +257,8 @@ struct SessionCard: View {
         if projectName.count <= 12 {
             return projectName
         }
-        return String(projectName.prefix(10)) + "…"
+        // Show the end of the name (more likely to be unique/distinguishing)
+        return "…" + String(projectName.suffix(10))
     }
 
     private var timeColor: Color {

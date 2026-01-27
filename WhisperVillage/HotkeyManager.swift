@@ -10,6 +10,7 @@ extension KeyboardShortcuts.Name {
     static let retryLastTranscription = Self("retryLastTranscription")
     static let formatWithLLM = Self("formatWithLLM")
     static let commandMode = Self("commandMode")
+    static let sendIt = Self("sendIt")
 }
 
 @MainActor
@@ -197,6 +198,21 @@ class HotkeyManager: ObservableObject {
             guard let self = self else { return }
             Task { @MainActor in
                 await self.whisperState.triggerCommandMode()
+            }
+        }
+
+        // Send It hotkey - triggers paste + Enter (independent of main hotkey)
+        // Works regardless of whether main hotkey is single key or combination
+        KeyboardShortcuts.onKeyUp(for: .sendIt) { [weak self] in
+            guard let self = self else { return }
+            Task { @MainActor in
+                // Set the double-tap send flag, which triggers paste + Enter
+                self.whisperState.doubleTapSendPending = true
+
+                // If currently recording, stop and send
+                if self.whisperState.recordingState == .recording || self.whisperState.recordingState == .paused {
+                    await self.whisperState.handleToggleMiniRecorder()
+                }
             }
         }
 

@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.26</title>
+            <pubDate>Tue, 27 Jan 2026 11:25:12 -0500</pubDate>
+            <sparkle:version>121</sparkle:version>
+            <sparkle:shortVersionString>1.9.26</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.26</h3>
+                <ul>
+                    <li>Added dedicated 'Send It' keyboard shortcut that works independently of main hotkey. Solves issue where double-tap doesn't work with multi-key combinations. Configure in Settings > Shortcuts > Quick Actions. Fixes #10.</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.26/WhisperVillage-1.9.26.dmg" length="13293391" type="application/octet-stream" sparkle:edSignature="I1/TC/oQ7hqqwTKQROCyFAwVhMP89Oy0OxAbNPduYtaEzurvQreXDGz0aK+zheDo9XSYCtcXFucwmBIP2Yd/Bg=="/>
+        </item>
+        <item>
             <title>1.9.25</title>
             <pubDate>Fri, 23 Jan 2026 08:25:00 -0500</pubDate>
             <sparkle:version>120</sparkle:version>

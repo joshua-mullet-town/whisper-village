@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import CryptoKit
 
 /// Represents the status of a Claude Code session
 enum ClaudeSessionStatus: String, Codable {
@@ -17,12 +18,14 @@ struct ClaudeSession: Identifiable, Codable {
     var userSummary: String?  // Structured: what the user asked
     var agentSummary: String?  // Structured: what the agent did
     var updatedAt: String  // ISO-8601 string from Python hooks
+    var displayName: String?  // User-set custom name (overrides cwd-derived name)
 
     var id: String { sessionId }
 
-    /// Project name (last component of cwd)
+    /// Project name - prefers user-set displayName, falls back to last path component of cwd
     var projectName: String {
-        URL(fileURLWithPath: cwd).lastPathComponent
+        if let name = displayName, !name.isEmpty { return name }
+        return URL(fileURLWithPath: cwd).lastPathComponent
     }
 
     /// Returns true if we have structured summary data
@@ -253,6 +256,27 @@ class ClaudeSessionManager: ObservableObject {
         }
 
         return matches.first
+    }
+
+    /// Set a custom display name for a session (persists to JSON file)
+    func setDisplayName(_ name: String?, forCwd cwd: String) {
+        guard var session = sessions[cwd] else { return }
+        session.displayName = name
+        sessions[cwd] = session
+
+        // Write back to session file
+        let cwdHash = cwd.data(using: .utf8).map {
+            Insecure.MD5.hash(data: $0).prefix(6).map { String(format: "%02x", $0) }.joined()
+        } ?? ""
+        let sessionFile = sessionsDir.appendingPathComponent("\(cwdHash).json")
+
+        do {
+            let data = try JSONEncoder().encode(session)
+            try data.write(to: sessionFile)
+            debugLog("Saved displayName '\(name ?? "nil")' for \(cwd)")
+        } catch {
+            debugLog("Error saving displayName: \(error)")
+        }
     }
 
     /// Force refresh of all data

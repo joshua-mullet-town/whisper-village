@@ -7,6 +7,8 @@ struct ClaudeSessionDotsView: View {
     var isRecording: Bool = false  // Passed from parent to match notch state
     @Binding var isSummaryHidden: Bool  // Toggle summary visibility
     @State private var hoveredTab: Int?
+    @State private var renamingCwd: String?  // cwd of session being renamed
+    @State private var renameText: String = ""
 
     var body: some View {
         // TimelineView provides smooth, non-blocking time updates
@@ -14,14 +16,30 @@ struct ClaudeSessionDotsView: View {
         TimelineView(.periodic(from: .now, by: 1.0)) { timeline in
             HStack(spacing: 6) {
                 ForEach(sessionManager.iTermTabs) { tab in
+                    let session = sessionManager.sessionForTabIndex(tab.index)
+                    let displayName = session?.projectName ?? tab.projectName
+
                     SessionCard(
                         status: sessionManager.statusForTab(tab.index),
                         isHovered: hoveredTab == tab.index,
                         isActive: sessionManager.activeTabIndex == tab.index,
-                        projectName: tab.projectName,
+                        projectName: displayName,
                         updatedAt: sessionManager.updatedAtForTab(tab.index),
                         now: timeline.date
                     )
+                    .contextMenu {
+                        if let session = session {
+                            Button("Rename") {
+                                renameText = session.displayName ?? ""
+                                renamingCwd = session.cwd
+                            }
+                            if session.displayName != nil {
+                                Button("Reset Name") {
+                                    sessionManager.setDisplayName(nil, forCwd: session.cwd)
+                                }
+                            }
+                        }
+                    }
                     .onHover { hovering in
                         withAnimation(.easeInOut(duration: 0.15)) {
                             hoveredTab = hovering ? tab.index : nil
@@ -46,6 +64,24 @@ struct ClaudeSessionDotsView: View {
         .padding(.vertical, 3)
         .background(SessionBarBackground(isActive: isRecording))
         .contentShape(Rectangle())  // Entire session bar is clickable
+        .overlay {
+            // Rename input overlay
+            if renamingCwd != nil {
+                RenameOverlay(
+                    text: $renameText,
+                    onSubmit: {
+                        if let cwd = renamingCwd {
+                            let trimmed = renameText.trimmingCharacters(in: .whitespaces)
+                            sessionManager.setDisplayName(trimmed.isEmpty ? nil : trimmed, forCwd: cwd)
+                        }
+                        renamingCwd = nil
+                    },
+                    onCancel: {
+                        renamingCwd = nil
+                    }
+                )
+            }
+        }
     }
 
     private func switchToTab(_ index: Int) {
@@ -63,6 +99,80 @@ struct ClaudeSessionDotsView: View {
         if let scriptObject = NSAppleScript(source: script) {
             scriptObject.executeAndReturnError(&error)
         }
+    }
+}
+
+/// Small text input overlay for renaming a session dot
+private struct RenameOverlay: View {
+    @Binding var text: String
+    var onSubmit: () -> Void
+    var onCancel: () -> Void
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        HStack(spacing: 6) {
+            TextField("Name", text: $text)
+                .textFieldStyle(.plain)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.white)
+                .focused($isFocused)
+                .onSubmit { submitAndDismiss() }
+                .onExitCommand { cancelAndDismiss() }
+                .frame(width: 100)
+
+            Button(action: submitAndDismiss) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(.green)
+            }
+            .buttonStyle(.plain)
+
+            Button(action: cancelAndDismiss) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(.red.opacity(0.7))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color(white: 0.15))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                )
+        )
+        .clickableRegion(id: "rename-overlay")
+        .onAppear {
+            // Enable keyboard input on the notch panel and make it key
+            NotchRecorderPanel.needsKeyboardInput = true
+            DispatchQueue.main.async {
+                NSApp.activate(ignoringOtherApps: true)
+                if let window = NSApp.windows.first(where: { $0 is NotchRecorderPanel }) {
+                    window.makeKey()
+                }
+                isFocused = true
+            }
+        }
+        .onDisappear {
+            NotchRecorderPanel.needsKeyboardInput = false
+            // Resign key so clicks pass through again
+            if let window = NSApp.windows.first(where: { $0 is NotchRecorderPanel }) {
+                window.resignKey()
+            }
+        }
+    }
+
+    private func submitAndDismiss() {
+        NotchRecorderPanel.needsKeyboardInput = false
+        onSubmit()
+    }
+
+    private func cancelAndDismiss() {
+        NotchRecorderPanel.needsKeyboardInput = false
+        onCancel()
     }
 }
 

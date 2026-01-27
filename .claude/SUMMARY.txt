@@ -1,6 +1,6 @@
 ```json
 {
-  "user_summary": "Ship pause/resume feature, update docs",
-  "agent_summary": "Released v1.9.24, updated STATE.md and PLAN.md"
+  "user_summary": "Restore dedicated Send It hotkey, build and test",
+  "agent_summary": "Added Send It shortcut UI, built Dev app for testing"
 }
 ```

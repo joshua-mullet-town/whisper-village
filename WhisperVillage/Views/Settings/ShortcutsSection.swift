@@ -186,6 +186,13 @@ struct ShortcutsSection: View {
                 shortcut: .cancelRecorder,
                 icon: "xmark.circle"
             )
+
+            ShortcutRow(
+                name: "Send It",
+                description: "Paste + Enter (works with any hotkey type)",
+                shortcut: .sendIt,
+                icon: "paperplane.fill"
+            )
         }
     }
 }

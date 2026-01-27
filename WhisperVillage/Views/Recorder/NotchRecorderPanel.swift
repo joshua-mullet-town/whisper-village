@@ -7,7 +7,10 @@ class KeyablePanel: NSPanel {
 }
 
 class NotchRecorderPanel: NSPanel {
-    override var canBecomeKey: Bool { false }
+    /// When true, the panel can become key window (needed for text field input)
+    static var needsKeyboardInput: Bool = false
+
+    override var canBecomeKey: Bool { NotchRecorderPanel.needsKeyboardInput }
     override var canBecomeMain: Bool { false }
 
     private var notchMetrics: (width: CGFloat, height: CGFloat) {

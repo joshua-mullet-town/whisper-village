@@ -96,6 +96,9 @@ struct WhisperVillageApp: App {
 
         // Initialize ClaudeSessionManager early so it starts watching for session changes
         _ = ClaudeSessionManager.shared
+
+        // Initialize WhisperServerManager - auto-starts HTTP server if enabled
+        _ = WhisperServerManager.shared
     }
     
     var body: some Scene {

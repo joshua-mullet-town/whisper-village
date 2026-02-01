@@ -32,8 +32,235 @@ struct ClaudeCodeSection: View {
 
                 // Bronco Browser
                 BroncoBrowserRow(manager: broncoBrowserManager)
+
+                Divider()
+
+                // Whisper Server
+                WhisperServerRow()
             }
         }
+    }
+}
+
+// MARK: - Whisper Server Row
+
+private struct WhisperServerRow: View {
+    @StateObject private var serverManager = WhisperServerManager.shared
+    @State private var showingInfo = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text("Whisper HTTP Server")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+
+                        WhisperServerStatusBadge(isRunning: serverManager.isRunning)
+
+                        Button(action: { showingInfo.toggle() }) {
+                            Image(systemName: "questionmark.circle")
+                                .font(.system(size: 14))
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .popover(isPresented: $showingInfo, arrowEdge: .bottom) {
+                            WhisperServerInfoPopover()
+                        }
+                    }
+
+                    Text("Local transcription API for external apps")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                WhisperServerActionButton(serverManager: serverManager)
+            }
+
+            // Auto-launch toggle
+            Toggle(isOn: Binding(
+                get: { serverManager.isAutoLaunchEnabled },
+                set: { serverManager.isAutoLaunchEnabled = $0 }
+            )) {
+                Text("Auto-start with Whisper Village")
+                    .font(.caption)
+            }
+            .toggleStyle(.switch)
+            .controlSize(.small)
+
+            if serverManager.isRunning {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                    Text("Running on port \(serverManager.port) - POST to /inference")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            if let error = serverManager.lastError {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                        .lineLimit(2)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Whisper Server Status Badge
+
+private struct WhisperServerStatusBadge: View {
+    let isRunning: Bool
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(isRunning ? Color.green : Color.orange)
+                .frame(width: 6, height: 6)
+            Text(isRunning ? "Running" : "Stopped")
+                .font(.caption2)
+                .fontWeight(.medium)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background((isRunning ? Color.green : Color.orange).opacity(0.15))
+        .cornerRadius(4)
+    }
+}
+
+// MARK: - Whisper Server Action Button
+
+private struct WhisperServerActionButton: View {
+    @ObservedObject var serverManager: WhisperServerManager
+
+    var body: some View {
+        Button(action: {
+            if serverManager.isRunning {
+                serverManager.stop()
+            } else {
+                serverManager.start()
+            }
+        }) {
+            HStack(spacing: 4) {
+                Image(systemName: serverManager.isRunning ? "stop.fill" : "play.fill")
+                    .font(.system(size: 11))
+                Text(serverManager.isRunning ? "Stop" : "Start")
+                    .font(.subheadline)
+            }
+            .frame(width: 70)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+    }
+}
+
+// MARK: - Whisper Server Info Popover
+
+private struct WhisperServerInfoPopover: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header
+            HStack(spacing: 8) {
+                Image(systemName: "server.rack")
+                    .font(.title2)
+                    .foregroundColor(.accentColor)
+                Text("Whisper HTTP Server")
+                    .font(.headline)
+            }
+
+            // What it does
+            VStack(alignment: .leading, spacing: 6) {
+                Text("What it does")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Text("Runs a local whisper-cpp HTTP server that other apps can use for transcription. Uses the same Whisper models as Whisper Village.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Divider()
+
+            // Use case
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Use case")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Text("Apps like Homestead can send audio to this server for local transcription instead of using cloud APIs like OpenAI Whisper.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Divider()
+
+            // API
+            VStack(alignment: .leading, spacing: 6) {
+                Text("API Endpoint")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("POST http://localhost:8178/inference")
+                        .font(.system(.caption, design: .monospaced))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.secondary.opacity(0.1))
+                        .cornerRadius(4)
+
+                    Text("Send audio as multipart/form-data with field 'file'")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            Divider()
+
+            // Requirements
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Requirements")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .top, spacing: 8) {
+                        Text("•")
+                            .font(.caption)
+                            .foregroundColor(.accentColor)
+                        Text("whisper-cpp installed via Homebrew")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    HStack(alignment: .top, spacing: 8) {
+                        Text("•")
+                            .font(.caption)
+                            .foregroundColor(.accentColor)
+                        Text("At least one Whisper model downloaded")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Text("brew install whisper-cpp")
+                    .font(.system(.caption, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.secondary.opacity(0.1))
+                    .cornerRadius(4)
+            }
+        }
+        .padding(16)
+        .frame(width: 320)
     }
 }
 

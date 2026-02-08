@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.27</title>
+            <pubDate>Sun, 08 Feb 2026 15:15:08 -0500</pubDate>
+            <sparkle:version>122</sparkle:version>
+            <sparkle:shortVersionString>1.9.27</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.27</h3>
+                <ul>
+                    <li>Added Homestead integration - lightweight manager for launching and managing Homestead dashboard from within Whisper Village. Includes CLI script for first-time setup and server management.</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.27/WhisperVillage-1.9.27.dmg" length="13372498" type="application/octet-stream" sparkle:edSignature="NPyqLk+SJZmBibO23njsw83vKeRwCWj0YXTMEtAcKEUrbfRaNtxYjOf7p5TEiOAMcYi+hK+hSCw2NI0uONI8DA=="/>
+        </item>
+        <item>
             <title>1.9.26</title>
             <pubDate>Tue, 27 Jan 2026 11:25:12 -0500</pubDate>
             <sparkle:version>121</sparkle:version>

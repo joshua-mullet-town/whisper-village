@@ -38,35 +38,16 @@ class HomesteadManager: ObservableObject {
 
     /// Launch the Homestead CLI in Terminal
     func launchTerminal() {
-        let scriptPath = Bundle.main.resourcePath?
-            .replacingOccurrences(of: "/Contents/Resources", with: "")
-            .replacingOccurrences(of: "/Whisper Village Dev.app", with: "")
-            .replacingOccurrences(of: "/Whisper Village.app", with: "")
-            .appending("/scripts/homestead") ?? ""
-
-        // Try to find the script in various locations
-        let possiblePaths = [
-            scriptPath,
-            FileManager.default.homeDirectoryForCurrentUser.path + "/code/whisper-village/scripts/homestead",
-            "/usr/local/bin/homestead"
-        ]
-
-        var finalPath: String?
-        for path in possiblePaths {
-            if FileManager.default.fileExists(atPath: path) {
-                finalPath = path
-                break
-            }
-        }
-
-        guard let path = finalPath else {
-            // Script not found - show error
+        // Script is bundled in the app's Resources folder
+        guard let bundledScript = Bundle.main.path(forResource: "homestead", ofType: nil) else {
             let alert = NSAlert()
             alert.messageText = "Homestead CLI Not Found"
-            alert.informativeText = "The homestead script could not be found. Please ensure it's installed at ~/code/whisper-village/scripts/homestead"
+            alert.informativeText = "The homestead script is missing from the app bundle. Please reinstall Whisper Village."
             alert.runModal()
             return
         }
+
+        let path = bundledScript
 
         // Launch Terminal with the script
         let script = """

@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.28</title>
+            <pubDate>Sun, 08 Feb 2026 15:30:02 -0500</pubDate>
+            <sparkle:version>123</sparkle:version>
+            <sparkle:shortVersionString>1.9.28</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.28</h3>
+                <ul>
+                    <li>Fixed Homestead script bundling - script now properly packaged inside app bundle instead of requiring external file path.</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.28/WhisperVillage-1.9.28.dmg" length="13370723" type="application/octet-stream" sparkle:edSignature="k5ZLxV6H5C1CxaoDu5JVW/eTdx2owAUb1nZBTVh27m8JBPL9h6ppDKSf285VDFLyD69+EhswCafVBP1Ch+b9DQ=="/>
+        </item>
+        <item>
             <title>1.9.27</title>
             <pubDate>Sun, 08 Feb 2026 15:15:08 -0500</pubDate>
             <sparkle:version>122</sparkle:version>

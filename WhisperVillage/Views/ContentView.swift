@@ -11,6 +11,7 @@ enum ViewType: String, CaseIterable {
     case permissions = "Permissions"
     case audioInput = "Audio Setup"
     case dictionary = "Custom Words"
+    case homestead = "Homestead"
     case settings = "Settings"
     case about = "About"
 
@@ -22,6 +23,7 @@ enum ViewType: String, CaseIterable {
         case .permissions: return "shield.fill"
         case .audioInput: return "mic.fill"
         case .dictionary: return "character.book.closed.fill"
+        case .homestead: return "house.fill"
         case .settings: return "gearshape.fill"
         case .about: return "info.circle.fill"
         }
@@ -209,6 +211,9 @@ struct ContentView: View {
                     // Ensure we switch to the Transcribe Audio view in-place
                     print("ContentView: Navigating to Transcribe Audio")
                     selectedView = .transcribeAudio
+                case "Homestead":
+                    print("ContentView: Navigating to Homestead")
+                    selectedView = .homestead
                 default:
                     print("ContentView: No matching destination found for: \(destination)")
                     break
@@ -239,6 +244,8 @@ struct ContentView: View {
             AudioInputSettingsView()
         case .dictionary:
             DictionarySettingsView(whisperPrompt: whisperState.whisperPrompt)
+        case .homestead:
+            HomesteadView()
         case .settings:
             SettingsView()
                 .environmentObject(whisperState)

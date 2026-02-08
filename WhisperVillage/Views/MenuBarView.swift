@@ -9,6 +9,7 @@ struct MenuBarView: View {
     @EnvironmentObject var enhancementService: AIEnhancementService
     @EnvironmentObject var aiService: AIService
     @StateObject private var worktreeManager = WorktreeManager.shared
+    @StateObject private var homesteadManager = HomesteadManager.shared
     @State private var launchAtLoginEnabled = LaunchAtLogin.isEnabled
     @State private var menuRefreshTrigger = false  // Added to force menu updates
     @State private var isHovered = false
@@ -189,6 +190,23 @@ struct MenuBarView: View {
             Button("Settings") {
                 menuBarManager.openMainWindowAndNavigate(to: "Settings")
             }
+
+            // Homestead quick access
+            Divider()
+
+            Button {
+                homesteadManager.openInBrowser()
+            } label: {
+                HStack {
+                    Image(systemName: "house.fill")
+                    Text("Open Homestead")
+                    Spacer()
+                    Circle()
+                        .fill(homesteadManager.isServerRunning ? .green : .red)
+                        .frame(width: 8, height: 8)
+                }
+            }
+            .disabled(!homesteadManager.isServerRunning)
 
             // Worktrees menu - only show if worktrees exist
             if worktreeManager.hasWorktrees {

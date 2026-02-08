@@ -65,7 +65,11 @@ class WhisperState: NSObject, ObservableObject {
     @Published var pausedSegments: [String] = []
 
     /// When true, the next paste operation should also press Enter (for double-tap send)
-    var doubleTapSendPending = false
+    var doubleTapSendPending = false {
+        didSet {
+            StreamingLogger.shared.log("🚩 doubleTapSendPending changed: \(oldValue) → \(doubleTapSendPending)")
+        }
+    }
 
     /// When true, the next transcription should be sent to terminal instead of pasting (for triple-tap)
     var tripleTapTerminalPending = false
@@ -350,7 +354,7 @@ class WhisperState: NSObject, ObservableObject {
                     StreamingLogger.shared.log("📋 DOUBLE-TAP (from paused): Pasting + Enter")
                     CursorPaster.pasteAtCursor(processedText)
                     SoundManager.shared.playSendSound()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                         CursorPaster.pressEnter()
                     }
                 } else {
@@ -496,11 +500,11 @@ class WhisperState: NSObject, ObservableObject {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                         if shouldSend {
                             // Double-tap: paste + Enter
-                            // 850ms delay to allow slower apps (like Claude Code terminals) to finish processing paste
+                            // 1200ms delay to allow slower apps (like Claude Code terminals) to finish processing paste
                             StreamingLogger.shared.log("📋 DOUBLE-TAP: Pasting + Enter")
                             CursorPaster.pasteAtCursor(finalText)
                             SoundManager.shared.playSendSound()
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                                 CursorPaster.pressEnter()
                             }
                         } else {
@@ -649,11 +653,11 @@ class WhisperState: NSObject, ObservableObject {
 
                         if shouldSend {
                             // Double-tap: paste + Enter
-                            // 850ms delay to allow slower apps (like Claude Code terminals) to finish processing paste
+                            // 1200ms delay to allow slower apps (like Claude Code terminals) to finish processing paste
                             StreamingLogger.shared.log("📋 DOUBLE-TAP (Streaming): Pasting + Enter")
                             CursorPaster.pasteAtCursor(finalText)
                             SoundManager.shared.playSendSound()
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                                 CursorPaster.pressEnter()
                             }
                         } else {

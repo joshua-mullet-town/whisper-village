@@ -417,7 +417,15 @@ class HotkeyManager: ObservableObject {
             doubleTapHandled = false
 
             // CHECK DOUBLE-TAP FIRST (before state) - state may lag behind
-            if isWithinDoubleTapWindow() {
+            let withinWindow = isWithinDoubleTapWindow()
+            if let lastStop = Self.lastStopTime {
+                let elapsed = Date().timeIntervalSince(lastStop)
+                StreamingLogger.shared.log("🔑 Double-tap check: elapsed=\(String(format: "%.3f", elapsed))s, threshold=\(doubleTapSendThreshold)s, withinWindow=\(withinWindow)")
+            } else {
+                StreamingLogger.shared.log("🔑 Double-tap check: lastStopTime is nil")
+            }
+
+            if withinWindow {
                 doubleTapHandled = true
                 Self.lastStopTime = nil  // Reset so next press isn't also double-tap
                 whisperState.doubleTapSendPending = true

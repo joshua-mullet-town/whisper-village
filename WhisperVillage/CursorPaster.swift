@@ -16,13 +16,13 @@ class CursorPaster {
         if autoEndPunctEnabled {
             textToPaste = applyAutoEndPunctuation(to: textToPaste)
         }
-        
+
         var savedContents: [(NSPasteboard.PasteboardType, Data)] = []
-        
+
         // Only save clipboard contents if we plan to restore them
         if !preserveTranscript {
             let currentItems = pasteboard.pasteboardItems ?? []
-            
+
             for item in currentItems {
                 for type in item.types {
                     if let data = item.data(forType: type) {
@@ -31,16 +31,19 @@ class CursorPaster {
                 }
             }
         }
-        
+
         pasteboard.clearContents()
         pasteboard.setString(textToPaste, forType: .string)
-        
+
         if UserDefaults.standard.bool(forKey: "UseAppleScriptPaste") {
             _ = pasteUsingAppleScript()
         } else {
             pasteUsingCommandV()
         }
-        
+
+        // DIAGNOSTIC: Check if we can read focused element via AX API (for future polling approach)
+        checkFocusedElementReadability(expectedText: textToPaste)
+
         // Only restore clipboard if preserve setting is disabled
         if !preserveTranscript {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
@@ -134,5 +137,37 @@ class CursorPaster {
         // Add period at the end (preserve trailing whitespace if any)
         let trailingWhitespace = text.hasSuffix(" ") ? " " : ""
         return trimmed + "." + trailingWhitespace
+    }
+
+    // DIAGNOSTIC: Check if we can read the focused element via Accessibility API
+    // This helps determine if polling approach would work for double-tap send
+    private static func checkFocusedElementReadability(expectedText: String) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { // Small delay to let paste start
+            let systemWide = AXUIElementCreateSystemWide()
+            var focusedApp: AnyObject?
+
+            let result = AXUIElementCopyAttributeValue(systemWide, kAXFocusedApplicationAttribute as CFString, &focusedApp)
+
+            if result == .success, let app = focusedApp {
+                var focusedElement: AnyObject?
+                let elemResult = AXUIElementCopyAttributeValue(app as! AXUIElement, kAXFocusedUIElementAttribute as CFString, &focusedElement)
+
+                if elemResult == .success, let element = focusedElement {
+                    var value: AnyObject?
+                    let valueResult = AXUIElementCopyAttributeValue(element as! AXUIElement, kAXValueAttribute as CFString, &value)
+
+                    if valueResult == .success, let textValue = value as? String {
+                        let contains = textValue.contains(expectedText)
+                        StreamingLogger.shared.log("🔍 AX API DIAGNOSTIC: Can read focused element ✅ | Contains pasted text: \(contains) | App role available")
+                    } else {
+                        StreamingLogger.shared.log("🔍 AX API DIAGNOSTIC: Cannot read value ❌ | Error: \(valueResult.rawValue)")
+                    }
+                } else {
+                    StreamingLogger.shared.log("🔍 AX API DIAGNOSTIC: Cannot get focused element ❌ | Error: \(elemResult.rawValue)")
+                }
+            } else {
+                StreamingLogger.shared.log("🔍 AX API DIAGNOSTIC: Cannot get focused app ❌ | Error: \(result.rawValue)")
+            }
+        }
     }
 }

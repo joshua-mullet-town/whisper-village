@@ -1,0 +1,499 @@
+#!/bin/bash
+#
+# HOMESTEAD CLI - Terminal-based Homestead Manager
+# Launched from Whisper Village, runs in tmux for persistence
+#
+
+set -e
+
+# ============================================================================
+# COLORS & STYLING (Homestead brand)
+# ============================================================================
+ORANGE='\033[38;5;208m'
+YELLOW='\033[38;5;220m'
+GREEN='\033[38;5;82m'
+RED='\033[38;5;196m'
+DIM='\033[2m'
+BOLD='\033[1m'
+RESET='\033[0m'
+
+# ============================================================================
+# CONFIG
+# ============================================================================
+HOMESTEAD_DIR="$HOME/.whisper-village/homestead"
+REPO_URL="https://github.com/joshua-mullet-town/homestead.git"
+PORT="${HOMESTEAD_PORT:-3007}"
+PID_FILE="$HOMESTEAD_DIR/.homestead.pid"
+LOG_FILE="$HOMESTEAD_DIR/.homestead.log"
+
+# ============================================================================
+# HELPERS
+# ============================================================================
+clear_screen() {
+    clear
+    printf '\033[3J'
+}
+
+print_logo() {
+    echo ""
+    echo -e "${ORANGE}${BOLD}"
+    echo "    ██╗  ██╗ ██████╗ ███╗   ███╗███████╗███████╗████████╗███████╗ █████╗ ██████╗ "
+    echo "    ██║  ██║██╔═══██╗████╗ ████║██╔════╝██╔════╝╚══██╔══╝██╔════╝██╔══██╗██╔══██╗"
+    echo "    ███████║██║   ██║██╔████╔██║█████╗  ███████╗   ██║   █████╗  ███████║██║  ██║"
+    echo "    ██╔══██║██║   ██║██║╚██╔╝██║██╔══╝  ╚════██║   ██║   ██╔══╝  ██╔══██║██║  ██║"
+    echo "    ██║  ██║╚██████╔╝██║ ╚═╝ ██║███████╗███████║   ██║   ███████╗██║  ██║██████╔╝"
+    echo "    ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚══════╝╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═════╝ "
+    echo -e "${RESET}"
+    echo -e "                        ${DIM}Mobile Command Center${RESET}"
+    echo ""
+}
+
+is_installed() {
+    [[ -f "$HOMESTEAD_DIR/server.js" && -d "$HOMESTEAD_DIR/node_modules" ]]
+}
+
+is_running() {
+    local response=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:$PORT/" --max-time 2 2>/dev/null)
+    [[ "$response" =~ ^(200|304)$ ]]
+}
+
+find_node() {
+    local nvm_dir="$HOME/.nvm/versions/node"
+    if [[ -d "$nvm_dir" ]]; then
+        local latest=$(ls -1 "$nvm_dir" 2>/dev/null | sort -V | tail -1)
+        if [[ -n "$latest" && -x "$nvm_dir/$latest/bin/node" ]]; then
+            echo "$nvm_dir/$latest/bin/node"
+            return 0
+        fi
+    fi
+    for p in /opt/homebrew/bin/node /usr/local/bin/node /usr/bin/node; do
+        if [[ -x "$p" ]]; then
+            echo "$p"
+            return 0
+        fi
+    done
+    command -v node 2>/dev/null
+}
+
+find_npm() {
+    local node_path=$(find_node)
+    if [[ -n "$node_path" ]]; then
+        local npm_path="${node_path%/node}/npm"
+        if [[ -x "$npm_path" ]]; then
+            echo "$npm_path"
+            return 0
+        fi
+    fi
+    command -v npm 2>/dev/null
+}
+
+open_browser() {
+    sleep 2  # Give server a moment
+    open "http://localhost:$PORT" 2>/dev/null || true
+}
+
+# Simple spinner
+show_spinner() {
+    local pid=$1
+    local message=$2
+    local delay=0.1
+    local spin='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+
+    # Hide cursor
+    tput civis 2>/dev/null || true
+
+    while kill -0 "$pid" 2>/dev/null; do
+        for (( i=0; i<${#spin}; i++ )); do
+            if ! kill -0 "$pid" 2>/dev/null; then break; fi
+            printf "\r  %s %s" "${spin:$i:1}" "$message"
+            sleep $delay
+        done
+    done
+
+    # Show cursor
+    tput cnorm 2>/dev/null || true
+    printf "\r\033[K"  # Clear line
+}
+
+# ============================================================================
+# ACTIONS
+# ============================================================================
+do_install() {
+    clear_screen
+    print_logo
+
+    echo -e "  ${ORANGE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo ""
+    echo -e "                    ${YELLOW}${BOLD}INSTALLING HOMESTEAD${RESET}"
+    echo ""
+    echo -e "  ${ORANGE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo ""
+
+    local node=$(find_node)
+    if [[ -z "$node" ]]; then
+        echo -e "  ${RED}✗ Node.js not found!${RESET}"
+        echo -e "  ${DIM}Install Node.js first: https://nodejs.org${RESET}"
+        echo ""
+        read -p "  Press Enter to continue..."
+        return 1
+    fi
+    echo -e "  ${GREEN}✓${RESET} Node.js found"
+
+    mkdir -p "$(dirname "$HOMESTEAD_DIR")"
+
+    # Clean up if directory exists but isn't a valid install
+    if [[ -d "$HOMESTEAD_DIR" ]]; then
+        if [[ ! -f "$HOMESTEAD_DIR/server.js" ]] || [[ ! -d "$HOMESTEAD_DIR/node_modules" ]]; then
+            rm -rf "$HOMESTEAD_DIR"
+        fi
+    fi
+
+    if [[ -d "$HOMESTEAD_DIR" ]]; then
+        echo -e "  ${YELLOW}Already installed. Starting server...${RESET}"
+    else
+        # Clone with spinner
+        echo ""
+        git clone --depth 1 "$REPO_URL" "$HOMESTEAD_DIR" > /tmp/homestead-clone.log 2>&1 &
+        local clone_pid=$!
+        show_spinner $clone_pid "Cloning repository"
+        wait $clone_pid
+        local clone_status=$?
+        if [[ $clone_status -ne 0 ]]; then
+            echo -e "  ${RED}✗ Clone failed${RESET}"
+            cat /tmp/homestead-clone.log | sed 's/^/    /'
+            read -p "  Press Enter to continue..."
+            return 1
+        fi
+        echo -e "  ${GREEN}✓${RESET} Repository cloned"
+
+        # Install deps with spinner
+        echo ""
+        cd "$HOMESTEAD_DIR"
+        $(find_npm) install --production > /tmp/homestead-npm.log 2>&1 &
+        local npm_pid=$!
+        show_spinner $npm_pid "Installing dependencies"
+        wait $npm_pid
+        local npm_status=$?
+        if [[ $npm_status -ne 0 ]]; then
+            echo -e "  ${RED}✗ npm install failed${RESET}"
+            tail -10 /tmp/homestead-npm.log | sed 's/^/    /'
+            read -p "  Press Enter to continue..."
+            return 1
+        fi
+        echo -e "  ${GREEN}✓${RESET} Dependencies installed"
+    fi
+
+    echo ""
+    echo -e "  ${GREEN}${BOLD}✓ INSTALLATION COMPLETE${RESET}"
+    echo ""
+
+    # Auto-start the server
+    do_start_silent
+
+    # Auto-open browser
+    echo -e "  ${DIM}Opening browser...${RESET}"
+    open_browser &
+
+    echo ""
+    echo -e "  ${GREEN}${BOLD}🏠 HOMESTEAD IS READY!${RESET}"
+    echo -e "  ${DIM}http://localhost:$PORT${RESET}"
+    echo ""
+    read -p "  Press Enter to continue..."
+}
+
+do_start_silent() {
+    local node=$(find_node)
+    [[ -z "$node" ]] && return 1
+
+    cd "$HOMESTEAD_DIR"
+    rm -rf .next/dev/lock 2>/dev/null
+
+    PORT=$PORT nohup "$node" server.js > "$LOG_FILE" 2>&1 &
+    echo "$!" > "$PID_FILE"
+
+    # Wait up to 30 seconds for server to become ready (first run compiles deps)
+    echo -e "  ${DIM}Waiting for server to start...${RESET}"
+    local attempts=0
+    local max_attempts=30
+    while [[ $attempts -lt $max_attempts ]]; do
+        if is_running; then
+            echo -e "  ${GREEN}✓${RESET} Server started on port $PORT"
+
+            if command -v tailscale &> /dev/null; then
+                tailscale serve reset 2>/dev/null
+                tailscale serve --bg "$PORT" 2>/dev/null
+                echo -e "  ${GREEN}✓${RESET} Tailscale enabled"
+            fi
+            return 0
+        fi
+        sleep 1
+        ((attempts++))
+        # Show progress dots
+        printf "."
+    done
+    echo ""
+    echo -e "  ${RED}✗${RESET} Server failed to start after ${max_attempts}s"
+    echo -e "  ${DIM}Check logs: $LOG_FILE${RESET}"
+    return 1
+}
+
+do_start() {
+    clear_screen
+    print_logo
+
+    echo ""
+    echo -e "  ${YELLOW}Starting Homestead...${RESET}"
+    echo ""
+
+    if do_start_silent; then
+        echo ""
+        echo -e "  ${GREEN}${BOLD}🏠 HOMESTEAD IS RUNNING!${RESET}"
+        echo -e "  ${DIM}http://localhost:$PORT${RESET}"
+        open_browser &
+    else
+        echo ""
+        echo -e "  ${RED}Check logs: $LOG_FILE${RESET}"
+    fi
+
+    echo ""
+    read -p "  Press Enter to continue..."
+}
+
+do_stop() {
+    echo ""
+    echo -e "  ${YELLOW}Stopping Homestead...${RESET}"
+
+    if [[ -f "$PID_FILE" ]]; then
+        local pid=$(cat "$PID_FILE")
+        if [[ -n "$pid" ]]; then
+            kill "$pid" 2>/dev/null || true
+            rm -f "$PID_FILE"
+        fi
+    fi
+
+    lsof -ti ":$PORT" 2>/dev/null | xargs -r kill 2>/dev/null || true
+
+    if command -v tailscale &> /dev/null; then
+        tailscale serve reset 2>/dev/null
+    fi
+
+    echo -e "  ${GREEN}✓${RESET} Server stopped"
+    sleep 1
+}
+
+do_update() {
+    clear_screen
+    print_logo
+
+    echo ""
+    echo -e "  ${YELLOW}Updating Homestead...${RESET}"
+    echo ""
+
+    cd "$HOMESTEAD_DIR"
+
+    if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then
+        echo -e "  ${YELLOW}You have local changes. Stashing...${RESET}"
+        git stash push -m "whisper-village-auto-stash" 2>&1 | sed 's/^/    /'
+    fi
+
+    git pull --rebase 2>&1 | sed 's/^/    /'
+    echo -e "  ${GREEN}✓${RESET} Code updated"
+
+    echo -e "  ${DIM}Installing dependencies...${RESET}"
+    $(find_npm) install --production 2>&1 | tail -3 | sed 's/^/    /'
+    echo -e "  ${GREEN}✓${RESET} Dependencies updated"
+
+    echo ""
+    echo -e "  ${GREEN}${BOLD}✓ UPDATE COMPLETE${RESET}"
+    echo ""
+    read -p "  Press Enter to continue..."
+}
+
+do_logs() {
+    clear_screen
+    echo -e "  ${YELLOW}Logs (Ctrl+C to exit)${RESET}"
+    echo -e "  ${DIM}$LOG_FILE${RESET}"
+    echo ""
+
+    if [[ -f "$LOG_FILE" ]]; then
+        tail -f "$LOG_FILE" 2>/dev/null || true
+    else
+        echo -e "  ${DIM}No logs yet.${RESET}"
+        read -p "  Press Enter to continue..."
+    fi
+}
+
+do_uninstall() {
+    clear_screen
+    print_logo
+
+    echo ""
+    echo -e "  ${RED}${BOLD}UNINSTALL HOMESTEAD?${RESET}"
+    echo -e "  ${DIM}This will delete all Homestead files.${RESET}"
+    echo ""
+    read -p "  Type 'yes' to confirm: " confirm
+
+    if [[ "$confirm" == "yes" ]]; then
+        do_stop 2>/dev/null || true
+        rm -rf "$HOMESTEAD_DIR"
+        echo ""
+        echo -e "  ${GREEN}✓ Homestead uninstalled${RESET}"
+    else
+        echo ""
+        echo -e "  ${DIM}Cancelled.${RESET}"
+    fi
+
+    sleep 1
+}
+
+# ============================================================================
+# SCREENS
+# ============================================================================
+screen_not_installed() {
+    clear_screen
+    print_logo
+
+    echo -e "  ${ORANGE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo ""
+    echo -e "          ${BOLD}Control Claude Code from your phone.${RESET}"
+    echo ""
+    echo -e "  ${ORANGE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo ""
+    echo ""
+    echo -e "        ${GREEN}${BOLD}╔═══════════════════════════════════════════╗${RESET}"
+    echo -e "        ${GREEN}${BOLD}║                                           ║${RESET}"
+    echo -e "        ${GREEN}${BOLD}║      >>> PRESS  I  TO INSTALL <<<         ║${RESET}"
+    echo -e "        ${GREEN}${BOLD}║                                           ║${RESET}"
+    echo -e "        ${GREEN}${BOLD}╚═══════════════════════════════════════════╝${RESET}"
+    echo ""
+    echo ""
+    echo -e "  ${DIM}[q] Quit${RESET}"
+    echo ""
+}
+
+screen_stopped() {
+    clear_screen
+    print_logo
+
+    echo -e "  ${ORANGE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo ""
+    echo -e "             ${RED}${BOLD}○  SERVER OFFLINE${RESET}"
+    echo ""
+    echo -e "  ${ORANGE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo ""
+    echo ""
+    echo -e "        ${GREEN}${BOLD}╔═══════════════════════════════════════════╗${RESET}"
+    echo -e "        ${GREEN}${BOLD}║                                           ║${RESET}"
+    echo -e "        ${GREEN}${BOLD}║       >>> PRESS  S  TO START <<<          ║${RESET}"
+    echo -e "        ${GREEN}${BOLD}║                                           ║${RESET}"
+    echo -e "        ${GREEN}${BOLD}╚═══════════════════════════════════════════╝${RESET}"
+    echo ""
+    echo ""
+    echo -e "  ${DIM}[u] Update    [l] Logs    [d] Open folder    [x] Uninstall    [q] Quit${RESET}"
+    echo ""
+}
+
+screen_running() {
+    clear_screen
+    print_logo
+
+    echo -e "  ${ORANGE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo ""
+    echo -e "             ${GREEN}${BOLD}●  SERVER ONLINE${RESET}  ${DIM}http://localhost:$PORT${RESET}"
+    echo ""
+    echo -e "  ${ORANGE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo ""
+    echo ""
+    echo -e "        ${YELLOW}${BOLD}╔═══════════════════════════════════════════╗${RESET}"
+    echo -e "        ${YELLOW}${BOLD}║                                           ║${RESET}"
+    echo -e "        ${YELLOW}${BOLD}║        >>> PRESS  O  TO OPEN <<<          ║${RESET}"
+    echo -e "        ${YELLOW}${BOLD}║                                           ║${RESET}"
+    echo -e "        ${YELLOW}${BOLD}╚═══════════════════════════════════════════╝${RESET}"
+    echo ""
+    echo ""
+    echo -e "        ${RED}[k] Stop Server${RESET}    ${DIM}[r] Restart${RESET}"
+    echo ""
+    echo -e "  ${DIM}[u] Update    [l] Logs    [d] Open folder    [x] Uninstall    [q] Quit${RESET}"
+    echo ""
+}
+
+# ============================================================================
+# MAIN LOOP
+# ============================================================================
+main() {
+    while true; do
+        if ! is_installed; then
+            screen_not_installed
+        elif is_running; then
+            screen_running
+        else
+            screen_stopped
+        fi
+
+        read -rsn1 key
+
+        case $key in
+            i|I)
+                if ! is_installed; then
+                    do_install
+                fi
+                ;;
+            s|S)
+                if is_installed && ! is_running; then
+                    do_start
+                fi
+                ;;
+            k|K)
+                if is_running; then
+                    do_stop
+                fi
+                ;;
+            r|R)
+                if is_running; then
+                    do_stop
+                    do_start
+                fi
+                ;;
+            o|O)
+                if is_running; then
+                    open "http://localhost:$PORT"
+                fi
+                ;;
+            u|U)
+                if is_installed; then
+                    do_update
+                fi
+                ;;
+            l|L)
+                if is_installed; then
+                    do_logs
+                fi
+                ;;
+            d|D)
+                if is_installed; then
+                    open "$HOMESTEAD_DIR"
+                fi
+                ;;
+            x|X)
+                if is_installed; then
+                    do_uninstall
+                fi
+                ;;
+            q|Q)
+                clear_screen
+                echo ""
+                echo -e "  ${ORANGE}Homestead CLI closed.${RESET}"
+                if is_running; then
+                    echo -e "  ${GREEN}Server still running at http://localhost:$PORT${RESET}"
+                fi
+                echo ""
+                exit 0
+                ;;
+        esac
+    done
+}
+
+# ============================================================================
+# ENTRY POINT
+# ============================================================================
+main "$@"

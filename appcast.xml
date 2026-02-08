@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.30</title>
+            <pubDate>Sun, 08 Feb 2026 15:52:56 -0500</pubDate>
+            <sparkle:version>125</sparkle:version>
+            <sparkle:shortVersionString>1.9.30</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.30</h3>
+                <ul>
+                    <li>Fixed native module compatibility - now rebuilds node-pty for local Node version during install.</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.30/WhisperVillage-1.9.30.dmg" length="13372669" type="application/octet-stream" sparkle:edSignature="PNfcR3izH6N2+nEZiLefXiQ5RxPLQkDp8EMYBbLgcTasqKmYSAASGj+JggnJYQOJeOXOfJe3vv3ONoPMH0w/AQ=="/>
+        </item>
+        <item>
             <title>1.9.29</title>
             <pubDate>Sun, 08 Feb 2026 15:49:29 -0500</pubDate>
             <sparkle:version>124</sparkle:version>

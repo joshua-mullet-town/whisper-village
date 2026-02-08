@@ -1,6 +1,6 @@
 ```json
 {
-  "user_summary": "Debug Homestead script path error in release",
-  "agent_summary": "Identified script bundling issue, needs new release"
+  "user_summary": "Test Homestead onboarding, fix layout width issue",
+  "agent_summary": "Released v1.9.29: CODE_DIR prompt, consistent layout"
 }
 ```

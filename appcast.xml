@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.29</title>
+            <pubDate>Sun, 08 Feb 2026 15:49:29 -0500</pubDate>
+            <sparkle:version>124</sparkle:version>
+            <sparkle:shortVersionString>1.9.29</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.29</h3>
+                <ul>
+                    <li>TUI now prompts for code directory before installing. Smaller, cleaner layout.</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.29/WhisperVillage-1.9.29.dmg" length="13383521" type="application/octet-stream" sparkle:edSignature="diW0UJnNg5A7gUKGn/XDiS7UC4be1vZylWsnXUA3LUVVHstiNWB+JCdmHrHn3GQZHqmEHm6+Db4lJsUgsY+UDA=="/>
+        </item>
+        <item>
             <title>1.9.28</title>
             <pubDate>Sun, 08 Feb 2026 15:30:02 -0500</pubDate>
             <sparkle:version>123</sparkle:version>

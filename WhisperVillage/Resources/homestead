@@ -271,6 +271,13 @@ do_install() {
             return 1
         fi
         echo -e "  ${GREEN}✓${RESET} Dependencies installed"
+
+        # Rebuild native modules for local Node version
+        $(find_npm) rebuild > /tmp/homestead-rebuild.log 2>&1 &
+        local rebuild_pid=$!
+        show_spinner $rebuild_pid "Compiling native modules"
+        wait $rebuild_pid
+        echo -e "  ${GREEN}✓${RESET} Native modules compiled"
     fi
 
     echo ""

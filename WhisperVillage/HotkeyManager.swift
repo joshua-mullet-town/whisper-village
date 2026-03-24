@@ -161,7 +161,6 @@ class HotkeyManager: ObservableObject {
         self.middleClickActivationDelay = storedDelay > 0 ? storedDelay : 200
         
         self.whisperState = whisperState
-        self.miniRecorderShortcutManager = MiniRecorderShortcutManager(whisperState: whisperState)
         if KeyboardShortcuts.getShortcut(for: .pasteLastTranscription) == nil {
             let defaultPasteShortcut = KeyboardShortcuts.Shortcut(.v, modifiers: [.command, .option])
             KeyboardShortcuts.setShortcut(defaultPasteShortcut, for: .pasteLastTranscription)

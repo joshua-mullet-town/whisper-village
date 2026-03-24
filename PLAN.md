@@ -4,15 +4,41 @@
 
 ---
 
-## CURRENT: Slim Down — Phase 1 (Strip UI)
+## CURRENT: Slim Down — Phase 1 (Strip UI) — IN PROGRESS
 
 **Goal:** Remove everything except the core recording flow.
 
-**Keep:** Notch bar (narrowed to timer + hotkey + peek), Deepgram + local Whisper/Parakeet, paste last (Cmd+Opt+V), double-tap send, settings for transcription backend only.
+**Keep:** Notch bar (narrowed to timer + hotkey + peek), Deepgram + local Whisper/Parakeet, paste last, double-tap send, settings for transcription backend only.
 
-**Delete ~80 files:** PowerMode/, unused Services (Jarvis, SpaceTab, ScreenCapture, ML cleanup, LLM formatting, Ollama, announcements, dictionary, import/export, crash reporter, etc.), cloud backends except Deepgram, MiniRecorder, live preview, 12+ settings tabs, license/onboarding/metrics UI, AppIntents.
+### Files to DELETE entirely:
+- Views/ContentView.swift → replace with minimal settings-only window
+- Views/AudioTranscribeView.swift, TranscriptionHistoryView.swift, TranscriptionCard.swift
+- Views/PermissionsView.swift, ModelSettingsView.swift
+- Views/Common/ (all 5 files)
+- Views/AI Models/ (all 10 files)
+- Views/Settings/HomesteadView.swift, AudioInputSettingsView.swift
+- Views/Recorder/MiniRecorderPanel.swift
+- Services/AIService.swift, ClaudeSessionManager.swift, HomesteadManager.swift
+- Services/WhisperServerManager.swift, TerminalSender.swift
+- Services/TranscriptionAutoCleanupService.swift, TranscriptionFallbackManager.swift
+- Services/DebugLogCollector.swift, AudioFileProcessor.swift
+- Services/AudioFileTranscriptionManager.swift, AudioFileTranscriptionService.swift
+- Services/CloudTranscription/CustomModelManager.swift
+- Services/NativeAppleTranscriptionService.swift
+- MediaController.swift, PlaybackController.swift, ClipboardManager.swift, WindowManager.swift
+- Models/Transcription.swift (SwiftData history)
+- Notifications/LiveBoxView.swift, LiveBoxPanel.swift, AppNotificationView.swift, AppNotifications.swift
+- Whisper/WhisperState+ModelQueries.swift, WhisperHallucinationFilter.swift
 
-**Core files to modify:** WhisperState.swift, WhisperState+UI.swift, WhisperVillage.swift, AppDelegate.swift, HotkeyManager.swift, NotchRecorderView.swift, RecorderComponents.swift, SettingsView.swift, MenuBarView.swift, MenuBarManager.swift, AIService.swift, CloudTranscriptionService.swift.
+### Files to MODIFY (strip unused code):
+- WhisperVillage.swift — remove UpdaterViewModel, AIService, auto-cleanup, ClaudeSession, Sparkle, main WindowGroup
+- NotchRecorderView.swift — remove worktree/spacetab/session/formatmode/commandmode, narrow width
+- WhisperState.swift — remove jarvis, format mode, LLM, SpaceTab, PowerMode, ML cleanup, terminal send
+- HotkeyManager.swift — remove triple-tap, format-LLM, command-mode secondary actions
+- SettingsView.swift — strip to 3 sections: Model, Shortcuts, Visual
+- MenuBarView.swift + MenuBarManager.swift — simplify to model + quit + settings
+- AppDelegate.swift — remove PowerMode, license, onboarding
+- ContentView.swift — replace with minimal settings window
 
 ## NEXT: Slim Down — Phase 2 (Presenter Integration)
 

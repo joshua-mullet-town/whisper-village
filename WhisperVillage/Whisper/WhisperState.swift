@@ -99,14 +99,7 @@ class WhisperState: NSObject, ObservableObject {
         UserDefaults.standard.bool(forKey: "CommandModeEnabled")
     }
 
-    @Published var recorderType: String = UserDefaults.standard.string(forKey: "RecorderType") ?? "notch" {
-        didSet {
-            UserDefaults.standard.set(recorderType, forKey: "RecorderType")
-            StreamingLogger.shared.log("🎛️ RECORDER_TYPE CHANGED: '\(oldValue)' → '\(recorderType)'")
-            StreamingLogger.shared.log("    notchWindowManager exists: \(notchWindowManager != nil)")
-            StreamingLogger.shared.log("    miniWindowManager exists: \(miniWindowManager != nil)")
-        }
-    }
+    let recorderType: String = "notch"
     
     @Published var isMiniRecorderVisible = false {
         didSet {

@@ -19,20 +19,7 @@ extension WhisperState {
     
     func hideRecorderPanel() {
         StreamingLogger.shared.log("=== HIDE RECORDER PANEL ===")
-        StreamingLogger.shared.log("  recorderType: '\(recorderType)'")
-        StreamingLogger.shared.log("  notchWindowManager.isVisible BEFORE: \(notchWindowManager?.isVisible ?? false)")
-        StreamingLogger.shared.log("  miniWindowManager.isVisible BEFORE: \(miniWindowManager?.isVisible ?? false)")
-
-        if recorderType == "notch" {
-            notchWindowManager?.hide()
-            StreamingLogger.shared.log("  Called notchWindowManager?.hide()")
-        } else {
-            miniWindowManager?.hide()
-            StreamingLogger.shared.log("  Called miniWindowManager?.hide()")
-        }
-
-        StreamingLogger.shared.log("  notchWindowManager.isVisible AFTER: \(notchWindowManager?.isVisible ?? false)")
-        StreamingLogger.shared.log("  miniWindowManager.isVisible AFTER: \(miniWindowManager?.isVisible ?? false)")
+        notchWindowManager?.hide()
     }
     
     // MARK: - Mini Recorder Management

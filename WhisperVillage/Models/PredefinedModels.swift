@@ -74,7 +74,7 @@ import Foundation
     ]
     
     static var models: [any TranscriptionModel] {
-        return predefinedModels + CustomModelManager.shared.customModels
+        return predefinedModels
     }
     
     private static let predefinedModels: [any TranscriptionModel] = [

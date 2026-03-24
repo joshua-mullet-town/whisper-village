@@ -113,7 +113,7 @@ class ParakeetTranscriptionService: TranscriptionService {
                     text = WhisperTextFormatter.format(text)
                 }
 
-                text = WhisperHallucinationFilter.filter(text)
+                text = text
 
                 return text
             } catch {
@@ -211,7 +211,7 @@ class ParakeetTranscriptionService: TranscriptionService {
             }
 
             // Apply hallucination and filler word filtering
-            text = WhisperHallucinationFilter.filter(text)
+            text = text
 
             return text
         }

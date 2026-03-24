@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 import AVFoundation
-import SwiftData
+// SwiftData removed
 import AppKit
 import KeyboardShortcuts
 import os
@@ -199,12 +199,10 @@ class WhisperState: NSObject, ObservableObject {
     // Jarvis command service for intelligent voice commands
     private let jarvisService = JarvisCommandService.shared
     
-    let modelContext: ModelContext
-    
     // Transcription Services
     private var localTranscriptionService: LocalTranscriptionService!
     private lazy var cloudTranscriptionService = CloudTranscriptionService()
-    private lazy var nativeAppleTranscriptionService = NativeAppleTranscriptionService()
+    // NativeAppleTranscriptionService removed
     private lazy var parakeetTranscriptionService = ParakeetTranscriptionService(customModelsDirectory: parakeetModelsDirectory)
     
     private var modelUrl: URL? {
@@ -229,8 +227,7 @@ class WhisperState: NSObject, ObservableObject {
     let modelsDirectory: URL
     let recordingsDirectory: URL
     let parakeetModelsDirectory: URL
-    let enhancementService: AIEnhancementService?
-    var licenseViewModel: LicenseViewModel
+    // enhancementService and licenseViewModel removed
     let logger = Logger(subsystem: "town.mullet.WhisperVillage", category: "WhisperState")
     var notchWindowManager: NotchWindowManager?
     var miniWindowManager: MiniWindowManager?
@@ -239,25 +236,16 @@ class WhisperState: NSObject, ObservableObject {
     @Published var downloadProgress: [String: Double] = [:]
     @Published var isDownloadingParakeet = false
     
-    init(modelContext: ModelContext, enhancementService: AIEnhancementService? = nil) {
-        self.modelContext = modelContext
+    init() {
         let appSupportDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("town.mullet.WhisperVillage")
-        
+
         self.modelsDirectory = appSupportDirectory.appendingPathComponent("WhisperModels")
         self.recordingsDirectory = appSupportDirectory.appendingPathComponent("Recordings")
         self.parakeetModelsDirectory = appSupportDirectory
-        
-        self.enhancementService = enhancementService
-        self.licenseViewModel = LicenseViewModel()
-        
+
         super.init()
-        
-        // Configure the session manager
-        if let enhancementService = enhancementService {
-            PowerModeSessionManager.shared.configure(whisperState: self, enhancementService: enhancementService)
-        }
-        
+
         // Set the whisperState reference after super.init()
         self.localTranscriptionService = LocalTranscriptionService(modelsDirectory: self.modelsDirectory, whisperState: self)
         
@@ -1144,8 +1132,6 @@ class WhisperState: NSObject, ObservableObject {
                 transcriptionService = localTranscriptionService
                     case .parakeet:
             transcriptionService = parakeetTranscriptionService
-            case .nativeApple:
-                transcriptionService = nativeAppleTranscriptionService
             default:
                 transcriptionService = cloudTranscriptionService
             }
@@ -1165,76 +1151,8 @@ class WhisperState: NSObject, ObservableObject {
                 text = WordReplacementService.shared.applyReplacements(to: text)
             }
 
-            let audioAsset = AVURLAsset(url: url)
-            let actualDuration = (try? CMTimeGetSeconds(await audioAsset.load(.duration))) ?? 0.0
-            var promptDetectionResult: PromptDetectionService.PromptDetectionResult? = nil
-            let originalText = text
-            
-            if let enhancementService = enhancementService, enhancementService.isConfigured {
-                let detectionResult = promptDetectionService.analyzeText(text, with: enhancementService)
-                promptDetectionResult = detectionResult
-                await promptDetectionService.applyDetectionResult(detectionResult, to: enhancementService)
-            }
-            
-            if let enhancementService = enhancementService,
-               enhancementService.isEnhancementEnabled,
-               enhancementService.isConfigured {
-                do {
-                    if await checkCancellationAndCleanup() { return }
-
-                    await MainActor.run { self.recordingState = .enhancing }
-                    let textForAI = promptDetectionResult?.processedText ?? text
-                    let (enhancedText, enhancementDuration, promptName) = try await enhancementService.enhance(textForAI)
-                    let newTranscription = Transcription(
-                        text: originalText,
-                        duration: actualDuration,
-                        enhancedText: enhancedText,
-                        audioFileURL: url.absoluteString,
-                        transcriptionModelName: model.displayName,
-                        aiEnhancementModelName: enhancementService.getAIService()?.currentModel,
-                        promptName: promptName,
-                        transcriptionDuration: transcriptionDuration,
-                        enhancementDuration: enhancementDuration
-                    )
-                    modelContext.insert(newTranscription)
-                    try? modelContext.save()
-                    NotificationCenter.default.post(name: .transcriptionCreated, object: newTranscription)
-                    text = enhancedText
-                } catch {
-                    let newTranscription = Transcription(
-                        text: originalText,
-                        duration: actualDuration,
-                        enhancedText: "Enhancement failed: \(error)",
-                        audioFileURL: url.absoluteString,
-                        transcriptionModelName: model.displayName,
-                        promptName: nil,
-                        transcriptionDuration: transcriptionDuration
-                    )
-                    modelContext.insert(newTranscription)
-                    try? modelContext.save()
-                    NotificationCenter.default.post(name: .transcriptionCreated, object: newTranscription)
-                    
-                    await MainActor.run {
-                        NotificationManager.shared.showNotification(
-                            title: "AI enhancement failed",
-                            type: .error
-                        )
-                    }
-                }
-            } else {
-                let newTranscription = Transcription(
-                    text: originalText,
-                    duration: actualDuration,
-                    audioFileURL: url.absoluteString,
-                    transcriptionModelName: model.displayName,
-                    promptName: nil,
-                    transcriptionDuration: transcriptionDuration
-                )
-                modelContext.insert(newTranscription)
-                try? modelContext.save()
-                NotificationCenter.default.post(name: .transcriptionCreated, object: newTranscription)
-            }
-            
+            // Store last transcription
+            LastTranscriptionService.shared.store(text)
 
             let shouldAddSpace = UserDefaults.standard.object(forKey: "AppendTrailingSpace") as? Bool ?? true
             if shouldAddSpace {
@@ -1245,61 +1163,19 @@ class WhisperState: NSObject, ObservableObject {
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [self] in
                 CursorPaster.pasteAtCursor(text)
+            }
 
-                // Check if we should press Enter (power mode auto-send)
-                let powerMode = PowerModeManager.shared
-                if let activeConfig = powerMode.currentActiveConfiguration, activeConfig.isAutoSendEnabled {
-                    // Slight delay to ensure the paste operation completes
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        CursorPaster.pressEnter()
-                    }
-                }
-            }
-            
-            if let result = promptDetectionResult,
-               let enhancementService = enhancementService,
-               result.shouldEnableAI {
-                await promptDetectionService.restoreOriginalSettings(result, to: enhancementService)
-            }
-            
             await self.dismissMiniRecorder()
-            
+
         } catch {
-            do {
-                let audioAsset = AVURLAsset(url: url)
-                let duration = (try? CMTimeGetSeconds(await audioAsset.load(.duration))) ?? 0.0
-                
-                await MainActor.run {
-                    let errorDescription = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-                    let recoverySuggestion = (error as? LocalizedError)?.recoverySuggestion ?? ""
-                    let fullErrorText = recoverySuggestion.isEmpty ? errorDescription : "\(errorDescription) \(recoverySuggestion)"
-                    
-                    let failedTranscription = Transcription(
-                        text: "Transcription Failed: \(fullErrorText)",
-                        duration: duration,
-                        enhancedText: nil,
-                        audioFileURL: url.absoluteString,
-                        promptName: nil
-                    )
-                    
-                    modelContext.insert(failedTranscription)
-                    try? modelContext.save()
-                    NotificationCenter.default.post(name: .transcriptionCreated, object: failedTranscription)
-                }
-            } catch {
-                logger.error("❌ Could not create a record for the failed transcription: \(error.localizedDescription)")
-            }
-            
+            logger.error("❌ Transcription failed: \(error.localizedDescription)")
+
             // Show error in recorder UI instead of dismissing
             await MainActor.run {
                 recordingState = .error(message: "Transcription failed")
                 miniRecorderError = "Transcription failed"
             }
         }
-    }
-
-    func getEnhancementService() -> AIEnhancementService? {
-        return enhancementService
     }
     
     private func checkCancellationAndCleanup() async -> Bool {

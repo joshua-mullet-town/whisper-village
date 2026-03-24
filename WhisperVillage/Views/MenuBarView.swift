@@ -1,21 +1,13 @@
 import SwiftUI
-import LaunchAtLogin
 
 struct MenuBarView: View {
     @EnvironmentObject var whisperState: WhisperState
     @EnvironmentObject var hotkeyManager: HotkeyManager
     @EnvironmentObject var menuBarManager: MenuBarManager
-    @EnvironmentObject var updaterViewModel: UpdaterViewModel
-    @EnvironmentObject var enhancementService: AIEnhancementService
-    @EnvironmentObject var aiService: AIService
-    @StateObject private var worktreeManager = WorktreeManager.shared
-    @StateObject private var homesteadManager = HomesteadManager.shared
-    @State private var launchAtLoginEnabled = LaunchAtLogin.isEnabled
-    @State private var menuRefreshTrigger = false  // Added to force menu updates
-    @State private var isHovered = false
-    
+
     var body: some View {
         VStack {
+            // Current model display
             Menu {
                 ForEach(whisperState.usableModels, id: \.id) { model in
                     Button {
@@ -31,266 +23,22 @@ struct MenuBarView: View {
                         }
                     }
                 }
-                
-                Divider()
-                
-                Button("Manage Models") {
-                    menuBarManager.openMainWindowAndNavigate(to: "AI Models")
-                }
             } label: {
                 HStack {
-                    Text("Transcription Model: \(whisperState.currentTranscriptionModel?.displayName ?? "None")")
+                    Text("Model: \(whisperState.currentTranscriptionModel?.displayName ?? "None")")
                     Image(systemName: "chevron.up.chevron.down")
                         .font(.system(size: 10))
                 }
             }
-            
-            Divider()
-            
-            Toggle("AI Enhancement", isOn: $enhancementService.isEnhancementEnabled)
-            
-            Menu {
-                ForEach(enhancementService.allPrompts) { prompt in
-                    Button {
-                        enhancementService.setActivePrompt(prompt)
-                    } label: {
-                        HStack {
-                            Image(systemName: prompt.icon.rawValue)
-                                .foregroundColor(.accentColor)
-                            Text(prompt.title)
-                            if enhancementService.selectedPromptId == prompt.id {
-                                Spacer()
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                }
-            } label: {
-                HStack {
-                    Text("Prompt: \(enhancementService.activePrompt?.title ?? "None")")
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 10))
-                }
-            }
-            .disabled(!enhancementService.isEnhancementEnabled)
-            
-            Menu {
-                ForEach(aiService.connectedProviders, id: \.self) { provider in
-                    Button {
-                        aiService.selectedProvider = provider
-                    } label: {
-                        HStack {
-                            Text(provider.rawValue)
-                            if aiService.selectedProvider == provider {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                }
-                
-                if aiService.connectedProviders.isEmpty {
-                    Text("No providers connected")
-                        .foregroundColor(.secondary)
-                }
-                
-                Divider()
-                
-                Button("Manage AI Providers") {
-                    menuBarManager.openMainWindowAndNavigate(to: "Enhancement")
-                }
-            } label: {
-                HStack {
-                    Text("AI Provider: \(aiService.selectedProvider.rawValue)")
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 10))
-                }
-            }
-            .disabled(!enhancementService.isEnhancementEnabled)
-            
-            Menu {
-                ForEach(aiService.availableModels, id: \.self) { model in
-                    Button {
-                        aiService.selectModel(model)
-                    } label: {
-                        HStack {
-                            Text(model)
-                            if aiService.currentModel == model {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                }
-                
-                if aiService.availableModels.isEmpty {
-                    Text("No models available")
-                        .foregroundColor(.secondary)
-                }
-                
-                Divider()
-                
-                Button("Manage AI Models") {
-                    menuBarManager.openMainWindowAndNavigate(to: "Enhancement")
-                }
-            } label: {
-                HStack {
-                    Text("AI Model: \(aiService.currentModel)")
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 10))
-                }
-            }
-            .disabled(!enhancementService.isEnhancementEnabled)
-            
-            LanguageSelectionView(whisperState: whisperState, displayMode: .menuItem, whisperPrompt: whisperState.whisperPrompt)
-            
-            Menu("Additional") {
-                Button {
-                    enhancementService.useClipboardContext.toggle()
-                    menuRefreshTrigger.toggle()
-                } label: {
-                    HStack {
-                        Text("Clipboard Context")
-                        Spacer()
-                        if enhancementService.useClipboardContext {
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
-                .disabled(!enhancementService.isEnhancementEnabled)
-                
-                Button {
-                    enhancementService.useScreenCaptureContext.toggle()
-                    menuRefreshTrigger.toggle()
-                } label: {
-                    HStack {
-                        Text("Context Awareness")
-                        Spacer()
-                        if enhancementService.useScreenCaptureContext {
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
-                .disabled(!enhancementService.isEnhancementEnabled)
-            }
-            .id("additional-menu-\(menuRefreshTrigger)")
-            
-            Divider()
-            
-            Button("Retry Last Transcription") {
-                LastTranscriptionService.retryLastTranscription(from: whisperState.modelContext, whisperState: whisperState)
-            }
-            
-            Button("Copy Last Transcription") {
-                LastTranscriptionService.copyLastTranscription(from: whisperState.modelContext)
-            }
-            
-            Button("History") {
-                menuBarManager.openMainWindowAndNavigate(to: "History")
-            }
 
-            Button("Settings") {
-                menuBarManager.openMainWindowAndNavigate(to: "Settings")
-            }
-
-            // Homestead quick access
             Divider()
 
-            Button {
-                homesteadManager.openInBrowser()
-            } label: {
-                HStack {
-                    Image(systemName: "house.fill")
-                    Text("Open Homestead")
-                    Spacer()
-                    Circle()
-                        .fill(homesteadManager.isServerRunning ? .green : .red)
-                        .frame(width: 8, height: 8)
-                }
+            Button("Paste Last Transcription") {
+                LastTranscriptionService.shared.pasteLastTranscription()
             }
-            .disabled(!homesteadManager.isServerRunning)
 
-            // Worktrees menu - only show if worktrees exist
-            if worktreeManager.hasWorktrees {
-                Divider()
-
-                Menu {
-                    ForEach(Array(worktreeManager.worktrees.keys.sorted()), id: \.self) { project in
-                        if let projectWorktrees = worktreeManager.worktrees[project] {
-                            Section(project) {
-                                ForEach(projectWorktrees) { worktree in
-                                    Menu {
-                                        Button("Copy Path") {
-                                            worktreeManager.copyPath(worktree)
-                                        }
-
-                                        Button("Open in Finder") {
-                                            worktreeManager.openInFinder(worktree)
-                                        }
-
-                                        Divider()
-
-                                        Button("Delete Worktree") {
-                                            worktreeManager.delete(worktree)
-                                        }
-                                        .disabled(worktreeManager.isDeleting(worktree))
-                                    } label: {
-                                        HStack {
-                                            if worktreeManager.isDeleting(worktree) {
-                                                ProgressView()
-                                                    .controlSize(.small)
-                                            } else {
-                                                Text(worktree.status.icon)
-                                            }
-                                            Text(worktree.branch)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Divider()
-
-                    Button("Refresh") {
-                        Task {
-                            await worktreeManager.scan()
-                        }
-                    }
-                } label: {
-                    HStack {
-                        Image(systemName: "arrow.triangle.branch")
-                        Text("Worktrees (\(worktreeManager.totalCount))")
-                    }
-                }
-            }
-            
-            Button(menuBarManager.isMenuBarOnly ? "Show Dock Icon" : "Hide Dock Icon") {
-                menuBarManager.toggleMenuBarOnly()
-            }
-            
-            Toggle("Launch at Login", isOn: $launchAtLoginEnabled)
-                .onChange(of: launchAtLoginEnabled) { oldValue, newValue in
-                    LaunchAtLogin.isEnabled = newValue
-                }
-            
             Divider()
-            
-            Button("Email Joshua for help") {
-                let email = "joshua@mullet.town"
-                let pasteboard = NSPasteboard.general
-                pasteboard.clearContents()
-                pasteboard.setString(email, forType: .string)
-                
-                // Show a brief notification
-                let alert = NSAlert()
-                alert.messageText = "Email copied!"
-                alert.informativeText = "joshua@mullet.town has been copied to your clipboard"
-                alert.alertStyle = .informational
-                alert.addButton(withTitle: "OK")
-                alert.runModal()
-            }
-            
-            Divider()
-            
+
             Button("Quit Whisper Village") {
                 NSApplication.shared.terminate(nil)
             }

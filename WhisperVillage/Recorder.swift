@@ -10,8 +10,7 @@ class Recorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
     private let deviceManager = AudioDeviceManager.shared
     private var deviceObserver: NSObjectProtocol?
     private var isReconfiguring = false
-    private let mediaController = MediaController.shared
-    private let playbackController = PlaybackController.shared
+    // Media control removed (was MediaController + PlaybackController)
     @Published var audioMeter = AudioMeter(averagePower: 0, peakPower: 0)
     private var audioLevelCheckTask: Task<Void, Never>?
     private var audioMeterUpdateTask: Task<Void, Never>?
@@ -76,14 +75,6 @@ class Recorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
         UserDefaults.standard.set(String(currentDeviceID), forKey: "lastUsedMicrophoneDeviceID")
         
         hasDetectedAudioInCurrentSession = false
-        
-        // Coordinate media control and system audio sequentially for better reliability
-        await playbackController.pauseMedia()
-        
-        // Small delay to allow media command to process before muting system audio
-        try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
-        
-        _ = await mediaController.muteSystemAudio()
         
         let deviceID = deviceManager.getCurrentDevice()
         if deviceID != 0 {
@@ -159,11 +150,6 @@ class Recorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
         recorder = nil
         audioMeter = AudioMeter(averagePower: 0, peakPower: 0)
         
-        Task {
-            await mediaController.unmuteSystemAudio()
-            try? await Task.sleep(nanoseconds: 100_000_000)
-            await playbackController.resumeMedia()
-        }
         deviceManager.isRecordingActive = false
     }
 

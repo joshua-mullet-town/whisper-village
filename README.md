@@ -12,6 +12,7 @@
 
   <a href="https://mullet.town">
     <img src="https://img.shields.io/badge/Visit-Mullet%20Town-orange?style=for-the-badge&logo=safari" alt="Visit Mullet Town" width="200"/>
+[![Hypercommit](https://img.shields.io/badge/Hypercommit-DB2475)](https://hypercommit.com/whisper-village)
   </a>
 </div>
 

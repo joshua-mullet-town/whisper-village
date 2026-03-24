@@ -104,7 +104,6 @@ class NotchWindowManager: ObservableObject {
             streamingRecorder: whisperState.streamingRecorder
         )
             .environmentObject(self)
-            .environmentObject(whisperState.enhancementService!)
         
         let hostingController = NotchRecorderHostingController(rootView: notchRecorderView)
         panel.contentView = hostingController.view

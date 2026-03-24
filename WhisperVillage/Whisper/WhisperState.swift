@@ -234,25 +234,7 @@ class WhisperState: NSObject, ObservableObject {
                 recordingState = .idle
             }
 
-            // Apply word replacements, ML cleanup, etc.
             var processedText = finalText
-
-            // LLM Correction (if enabled)
-            processedText = await LLMCorrectionService.shared.correct(processedText)
-
-            // Word replacements (if enabled)
-            if UserDefaults.standard.bool(forKey: "IsWordReplacementEnabled") {
-                processedText = WordReplacementService.shared.applyReplacements(to: processedText)
-            }
-
-            // ML Cleanup - filler removal (if enabled)
-            if UserDefaults.standard.bool(forKey: "IsMLCleanupEnabled") {
-                if #available(macOS 13.0, *), CoreMLCleanupService.shared.isAvailable {
-                    processedText = CoreMLCleanupService.shared.cleanup(text: processedText)
-                } else {
-                    processedText = await MLCleanupService.shared.cleanup(text: processedText)
-                }
-            }
 
             let shouldAddSpace = UserDefaults.standard.object(forKey: "AppendTrailingSpace") as? Bool ?? true
             if shouldAddSpace {
@@ -393,25 +375,6 @@ class WhisperState: NSObject, ObservableObject {
                     }
 
                     var finalText = textToPaste
-
-                    // LLM Correction (if enabled) - runs before word replacements
-                    finalText = await LLMCorrectionService.shared.correct(finalText)
-
-                    // Word replacements (if enabled)
-                    if UserDefaults.standard.bool(forKey: "IsWordReplacementEnabled") {
-                        finalText = WordReplacementService.shared.applyReplacements(to: finalText)
-                    }
-
-                    // ML Cleanup - filler removal (if enabled)
-                    if UserDefaults.standard.bool(forKey: "IsMLCleanupEnabled") {
-                        // Try CoreML first (native, no Python server needed)
-                        if #available(macOS 13.0, *), CoreMLCleanupService.shared.isAvailable {
-                            finalText = CoreMLCleanupService.shared.cleanup(text: finalText)
-                        } else {
-                            // Fall back to HTTP-based cleanup
-                            finalText = await MLCleanupService.shared.cleanup(text: finalText)
-                        }
-                    }
 
                     let shouldAddSpace = UserDefaults.standard.object(forKey: "AppendTrailingSpace") as? Bool ?? true
                     if shouldAddSpace {

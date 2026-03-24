@@ -238,11 +238,15 @@ private struct LanguageRow: View {
 
             Spacer()
 
-            LanguageSelectionView(
-                whisperState: whisperState,
-                displayMode: .menuItem,
-                whisperPrompt: whisperState.whisperPrompt
-            )
+            Picker("", selection: Binding(
+                get: { UserDefaults.standard.string(forKey: "SelectedLanguage") ?? "auto" },
+                set: { UserDefaults.standard.set($0, forKey: "SelectedLanguage") }
+            )) {
+                Text("Auto-detect").tag("auto")
+                Text("English").tag("en")
+            }
+            .pickerStyle(.menu)
+            .frame(width: 140)
         }
     }
 }

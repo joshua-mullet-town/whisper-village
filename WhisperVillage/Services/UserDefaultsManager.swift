@@ -27,32 +27,10 @@ extension UserDefaults {
         set { setValue(newValue, forKey: Keys.licenseKey) }
     }
     
-    // MARK: - Trial Start Date (Obfuscated)
+    // Trial/license system removed
     var trialStartDate: Date? {
-        get {
-            let salt = Obfuscator.getDeviceIdentifier()
-            let obfuscatedKey = Obfuscator.encode(Keys.License.trialStartDate, salt: salt)
-            
-            guard let obfuscatedValue = string(forKey: obfuscatedKey),
-                  let decodedValue = Obfuscator.decode(obfuscatedValue, salt: salt),
-                  let timestamp = Double(decodedValue) else {
-                return nil
-            }
-            
-            return Date(timeIntervalSince1970: timestamp)
-        }
-        set {
-            let salt = Obfuscator.getDeviceIdentifier()
-            let obfuscatedKey = Obfuscator.encode(Keys.License.trialStartDate, salt: salt)
-            
-            if let date = newValue {
-                let timestamp = String(date.timeIntervalSince1970)
-                let obfuscatedValue = Obfuscator.encode(timestamp, salt: salt)
-                setValue(obfuscatedValue, forKey: obfuscatedKey)
-            } else {
-                removeObject(forKey: obfuscatedKey)
-            }
-        }
+        get { nil }
+        set { }
     }
 
     // MARK: - Audio Input Mode

@@ -167,13 +167,6 @@ struct ShortcutsSection: View {
             )
 
             ShortcutRow(
-                name: "Pause/Resume",
-                description: "Pause recording, resume when pressed again",
-                shortcut: .pauseResumeRecording,
-                icon: "pause.circle"
-            )
-
-            ShortcutRow(
                 name: "Peek",
                 description: "Preview without stopping recording",
                 shortcut: .peekTranscription,

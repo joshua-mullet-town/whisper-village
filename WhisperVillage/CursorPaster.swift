@@ -9,7 +9,7 @@ class CursorPaster {
 
         // Apply smart capitalization if enabled (defaults to true when not set)
         let smartCapEnabled = UserDefaults.standard.object(forKey: "SmartCapitalizationEnabled") as? Bool ?? true
-        var textToPaste = smartCapEnabled ? TextContextService.shared.applySmartCapitalization(to: text) : text
+        var textToPaste = text
 
         // Apply auto end punctuation if enabled (defaults to true when not set)
         let autoEndPunctEnabled = UserDefaults.standard.object(forKey: "AutoEndPunctuationEnabled") as? Bool ?? true

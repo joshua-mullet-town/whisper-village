@@ -35,7 +35,14 @@ struct WhisperVillageApp: App {
     }
 
     var body: some Scene {
-        // No main window — app is notch-bar + menu bar only
+        WindowGroup {
+            ContentView()
+                .environmentObject(whisperState)
+                .environmentObject(hotkeyManager)
+                .environmentObject(menuBarManager)
+                .modelContainer(modelContainer)
+        }
+
         MenuBarExtra {
             MenuBarView()
                 .environmentObject(whisperState)

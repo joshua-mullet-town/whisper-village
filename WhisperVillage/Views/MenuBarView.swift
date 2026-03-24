@@ -9,7 +9,7 @@ struct MenuBarView: View {
         VStack {
             // Current model display
             Menu {
-                ForEach(whisperState.usableModels, id: \.id) { model in
+                ForEach(whisperState.allAvailableModels, id: \.id) { model in
                     Button {
                         Task {
                             await whisperState.setDefaultTranscriptionModel(model)

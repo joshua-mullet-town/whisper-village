@@ -463,12 +463,6 @@ class WhisperState: NSObject, ObservableObject {
                                 }
                             }
 
-                            // Cache text context in background for smart capitalization
-                            // Don't block MainActor - just fire and forget
-                            Task.detached { @MainActor in
-                                TextContextService.shared.cacheCurrentContext()
-                            }
-
                             await MainActor.run {
                                 StreamingLogger.shared.log("=== RECORDING START - CLEARING STATE ===")
                                 StreamingLogger.shared.log("  debugLog.count BEFORE: \(self.debugLog.count)")
@@ -497,8 +491,6 @@ class WhisperState: NSObject, ObservableObject {
                                     StreamingLogger.shared.log("📦 NOT showing live box (mode is ticker or preview disabled)")
                                 }
                             }
-
-                            await ActiveWindowService.shared.applyConfigurationForCurrentApp()
 
                             // Only load model if it's a local model and not already loaded
                             if let model = self.currentTranscriptionModel, model.provider == .local {
@@ -727,15 +719,7 @@ class WhisperState: NSObject, ObservableObject {
                     recordingState = .idle
                 }
 
-                var finalText = textToPaste
-
-                // LLM Correction (if enabled) - runs before word replacements
-                finalText = await LLMCorrectionService.shared.correct(finalText)
-
-                // Word replacements (if enabled)
-                if UserDefaults.standard.bool(forKey: "IsWordReplacementEnabled") {
-                    finalText = WordReplacementService.shared.applyReplacements(to: finalText)
-                }
+                let finalText = textToPaste
 
                 // OPTIMIZATION 2 & 3: Reduced delays (50ms→20ms paste, 100ms→50ms enter)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
@@ -880,13 +864,6 @@ class WhisperState: NSObject, ObservableObject {
             if await checkCancellationAndCleanup() { return }
 
             text = text.trimmingCharacters(in: .whitespacesAndNewlines)
-
-            // Always fix common Whisper transcription errors (e.g., I' -> I'm)
-            text = WordReplacementService.shared.applyBuiltInFixes(to: text)
-
-            if UserDefaults.standard.bool(forKey: "IsWordReplacementEnabled") {
-                text = WordReplacementService.shared.applyReplacements(to: text)
-            }
 
             // Store last transcription
             LastTranscriptionService.shared.store(text)
@@ -1106,14 +1083,12 @@ class WhisperState: NSObject, ObservableObject {
         StreamingLogger.shared.log("✅ Background task complete after \(String(format: "%.2f", totalElapsed))s")
 
         // Back on MainActor - update UI state
-        // Apply built-in fixes (e.g., I' -> I'm) to preview
         if !transcriptionResult.isEmpty {
-            let fixedText = WordReplacementService.shared.applyBuiltInFixes(to: transcriptionResult)
-            interimTranscription = fixedText
+            interimTranscription = transcriptionResult
 
             // Update live preview box if in box mode
             if isLivePreviewBoxMode {
-                NotificationManager.shared.updateLiveBox(text: fixedText)
+                NotificationManager.shared.updateLiveBox(text: transcriptionResult)
             }
         }
 
@@ -1189,11 +1164,6 @@ class WhisperState: NSObject, ObservableObject {
         let elapsed = Date().timeIntervalSince(startTime)
         StreamingLogger.shared.log("Final transcription (captured): Got \"\(transcribedText)\" in \(String(format: "%.2f", elapsed))s")
 
-        // Apply built-in fixes (e.g., I' -> I'm)
-        if !transcribedText.isEmpty {
-            transcribedText = WordReplacementService.shared.applyBuiltInFixes(to: transcribedText)
-        }
-
         return transcribedText
     }
 
@@ -1251,11 +1221,6 @@ class WhisperState: NSObject, ObservableObject {
 
         let elapsed = Date().timeIntervalSince(startTime)
         StreamingLogger.shared.log("Final transcription: Got \"\(transcribedText)\" in \(String(format: "%.2f", elapsed))s")
-
-        // Apply built-in fixes (e.g., I' -> I'm)
-        if !transcribedText.isEmpty {
-            transcribedText = WordReplacementService.shared.applyBuiltInFixes(to: transcribedText)
-        }
 
         // Clear buffer if requested (used after pause to start fresh)
         if clearBufferAfter {

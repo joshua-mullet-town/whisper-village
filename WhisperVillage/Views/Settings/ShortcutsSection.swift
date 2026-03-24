@@ -167,20 +167,6 @@ struct ShortcutsSection: View {
             )
 
             ShortcutRow(
-                name: "Peek",
-                description: "Preview without stopping recording",
-                shortcut: .peekTranscription,
-                icon: "eye"
-            )
-
-            ShortcutRow(
-                name: "Cancel",
-                description: "Discard recording (default: double-tap Escape)",
-                shortcut: .cancelRecorder,
-                icon: "xmark.circle"
-            )
-
-            ShortcutRow(
                 name: "Send It",
                 description: "Paste + Enter (works with any hotkey type)",
                 shortcut: .sendIt,

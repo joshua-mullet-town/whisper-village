@@ -36,20 +36,9 @@ struct NotchRecorderView: View {
         HotkeyManager.HotkeyOption(rawValue: selectedHotkey1Raw)?.symbol ?? "⌥"
     }
 
-    /// Whether we're in format mode (recording formatting instructions)
-    private var isInFormatMode: Bool {
-        whisperState.isWaitingForFormattingInstruction
-    }
-
-    /// Whether we're in Command Mode (recording a voice command)
-    private var isInCommandMode: Bool {
-        whisperState.isInCommandMode
-    }
-
-    /// Whether AI Polish button should be visible (only when NOT in format mode and NOT in command mode)
-    private var showFormatButton: Bool {
-        !openAIAPIKey.isEmpty && whisperState.recordingState == .recording && !isInFormatMode && !isInCommandMode
-    }
+    /// Format mode and command mode removed
+    private var isInFormatMode: Bool { false }
+    private var isInCommandMode: Bool { false }
 
     /// Timer to display - format mode timer or regular recording timer
     private var displayDuration: TimeInterval {

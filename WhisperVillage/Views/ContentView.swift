@@ -113,12 +113,13 @@ struct HotkeySection: View {
     @EnvironmentObject var hotkeyManager: HotkeyManager
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Recording Hotkey", systemImage: "keyboard")
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Hotkeys", systemImage: "keyboard")
                 .font(.headline)
 
+            // Main recording hotkey
             HStack {
-                Text("Press to record:")
+                Text("Record / Stop")
                 Spacer()
                 Text(hotkeyManager.selectedHotkey1.displayName)
                     .font(.system(.body, design: .monospaced))
@@ -136,6 +137,32 @@ struct HotkeySection: View {
                 }
             }
             .pickerStyle(.menu)
+
+            Divider()
+
+            // Paste last transcription
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Paste Last")
+                    Text("Re-paste most recent transcription")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                KeyboardShortcuts.Recorder(for: .pasteLastTranscription)
+            }
+
+            // Send It (paste + Enter)
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Send It")
+                    Text("Paste + press Enter")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                KeyboardShortcuts.Recorder(for: .sendIt)
+            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)

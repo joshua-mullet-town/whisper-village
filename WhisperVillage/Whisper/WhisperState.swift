@@ -318,9 +318,8 @@ class WhisperState: NSObject, ObservableObject {
 
                 var textToPaste = ""
 
-                if isLivePreviewEnabled {
-                    // Live Preview ON: Use the last interim transcription (already computed)
-                    // Since engine is stopped, we can't do graceful stop - use what we have
+                if isLivePreviewEnabled && !doubleTapSendPending {
+                    // Live Preview ON (normal stop): Use the last interim transcription
                     StreamingLogger.shared.log("Live Preview Mode - using last interim transcription")
                     textToPaste = interimTranscription.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -332,6 +331,20 @@ class WhisperState: NSObject, ObservableObject {
                         }
                     }
                     StreamingLogger.shared.log("Live preview final: \"\(textToPaste)\"")
+                } else if isLivePreviewEnabled && doubleTapSendPending {
+                    // Double-tap send: Always do a fresh transcription for accuracy
+                    // The interim may be stale from a previous streaming chunk
+                    StreamingLogger.shared.log("Double-tap send - fresh transcription for accuracy")
+                    if capturedSamples.count > 16000 {
+                        if let transcribedText = await transcribeCapturedSamples(capturedSamples) {
+                            textToPaste = transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        }
+                    }
+                    // Fall back to interim if fresh transcription fails
+                    if textToPaste.isEmpty {
+                        textToPaste = interimTranscription.trimmingCharacters(in: .whitespacesAndNewlines)
+                    }
+                    StreamingLogger.shared.log("Double-tap final: \"\(textToPaste)\"")
                 } else {
                     // Live Preview OFF: Simple Mode - transcribe captured samples
                     StreamingLogger.shared.log("Simple Mode - transcribing captured samples")

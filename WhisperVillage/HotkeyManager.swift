@@ -169,33 +169,14 @@ class HotkeyManager: ObservableObject {
         KeyboardShortcuts.onKeyUp(for: .pasteLastTranscription) { [weak self] in
             guard let self = self else { return }
             Task { @MainActor in
-                LastTranscriptionService.pasteLastTranscription(from: self.whisperState.modelContext)
+                LastTranscriptionService.shared.pasteLastTranscription()
             }
         }
 
         KeyboardShortcuts.onKeyUp(for: .retryLastTranscription) { [weak self] in
             guard let self = self else { return }
             Task { @MainActor in
-                LastTranscriptionService.retryLastTranscription(from: self.whisperState.modelContext, whisperState: self.whisperState)
-            }
-        }
-
-        // Format with LLM hotkey - triggers two-stage formatting mode
-        // User must be actively recording - this captures content and starts Stage 2
-        KeyboardShortcuts.onKeyUp(for: .formatWithLLM) { [weak self] in
-            guard let self = self else { return }
-            Task { @MainActor in
-                await self.whisperState.triggerLLMFormatting()
-            }
-        }
-
-        // Command Mode hotkey - converts current recording to a command
-        // User must be actively recording - this marks the transcription as a command
-        // When recording stops, it interprets and executes instead of pasting
-        KeyboardShortcuts.onKeyUp(for: .commandMode) { [weak self] in
-            guard let self = self else { return }
-            Task { @MainActor in
-                await self.whisperState.triggerCommandMode()
+                // Retry removed — no history to retry from
             }
         }
 

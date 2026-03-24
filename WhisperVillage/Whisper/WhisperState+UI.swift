@@ -11,30 +11,10 @@ extension WhisperState {
         StreamingLogger.shared.log("=== SHOW RECORDER PANEL ===")
         StreamingLogger.shared.log("  recorderType property: '\(recorderType)'")
         StreamingLogger.shared.log("  recorderType from UserDefaults: '\(UserDefaults.standard.string(forKey: "RecorderType") ?? "nil")'")
-        StreamingLogger.shared.log("  notchWindowManager exists BEFORE: \(notchWindowManager != nil)")
-        StreamingLogger.shared.log("  miniWindowManager exists BEFORE: \(miniWindowManager != nil)")
-        StreamingLogger.shared.log("  notchWindowManager.isVisible BEFORE: \(notchWindowManager?.isVisible ?? false)")
-        StreamingLogger.shared.log("  miniWindowManager.isVisible BEFORE: \(miniWindowManager?.isVisible ?? false)")
-
-        logger.notice("📱 Showing \(self.recorderType) recorder")
-        if recorderType == "notch" {
-            if notchWindowManager == nil {
-                notchWindowManager = NotchWindowManager(whisperState: self, recorder: recorder)
-                logger.info("Created new notch window manager")
-                StreamingLogger.shared.log("  CREATED new NotchWindowManager")
-            }
-            notchWindowManager?.show()
-        } else {
-            if miniWindowManager == nil {
-                miniWindowManager = MiniWindowManager(whisperState: self, recorder: recorder)
-                logger.info("Created new mini window manager")
-                StreamingLogger.shared.log("  CREATED new MiniWindowManager")
-            }
-            miniWindowManager?.show()
+        if notchWindowManager == nil {
+            notchWindowManager = NotchWindowManager(whisperState: self, recorder: recorder)
         }
-
-        StreamingLogger.shared.log("  notchWindowManager.isVisible AFTER: \(notchWindowManager?.isVisible ?? false)")
-        StreamingLogger.shared.log("  miniWindowManager.isVisible AFTER: \(miniWindowManager?.isVisible ?? false)")
+        notchWindowManager?.show()
     }
     
     func hideRecorderPanel() {
@@ -199,7 +179,7 @@ extension WhisperState {
     }
     
     @objc func handleLicenseStatusChanged() {
-        self.licenseViewModel = LicenseViewModel()
+        // License system removed
     }
     
     @objc func handlePromptChange() {

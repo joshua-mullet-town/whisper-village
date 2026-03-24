@@ -230,7 +230,6 @@ class WhisperState: NSObject, ObservableObject {
     // enhancementService and licenseViewModel removed
     let logger = Logger(subsystem: "town.mullet.WhisperVillage", category: "WhisperState")
     var notchWindowManager: NotchWindowManager?
-    var miniWindowManager: MiniWindowManager?
     
     // For model progress tracking
     @Published var downloadProgress: [String: Double] = [:]
@@ -771,11 +770,6 @@ class WhisperState: NSObject, ObservableObject {
             try? await parakeetTranscriptionService.loadModel()
                             }
         
-                            if let enhancementService = self.enhancementService,
-                               enhancementService.useScreenCaptureContext {
-                                await enhancementService.captureScreenContext()
-                            }
-
                             // Start streaming transcription if enabled and using local or parakeet model
                             // Only start live preview loop if LivePreviewEnabled is true
                             if self.isStreamingModeEnabled && self.isLivePreviewEnabled {
@@ -1486,19 +1480,11 @@ class WhisperState: NSObject, ObservableObject {
 
     // MARK: - Streaming History Saving
 
-    /// Save a streaming transcription to history (for Option+Cmd+V paste-last-message)
+    /// Save a streaming transcription for paste-last-message
     private func saveStreamingTranscriptionToHistory(_ text: String) {
         guard !text.isEmpty else { return }
-
-        let newTranscription = Transcription(
-            text: text,
-            duration: 0,  // No duration info available in streaming mode
-            transcriptionModelName: currentTranscriptionModel?.displayName ?? "Streaming"
-        )
-        modelContext.insert(newTranscription)
-        try? modelContext.save()
-        NotificationCenter.default.post(name: .transcriptionCreated, object: newTranscription)
-        StreamingLogger.shared.log("History: Saved transcription to history (\(text.prefix(30))...)")
+        LastTranscriptionService.shared.store(text)
+        StreamingLogger.shared.log("History: Stored last transcription (\(text.prefix(30))...)")
     }
 
     // MARK: - Final Audio Transcription

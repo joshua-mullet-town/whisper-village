@@ -131,8 +131,7 @@ class WhisperState: NSObject, ObservableObject {
 
     // Transcription Services
     private var localTranscriptionService: LocalTranscriptionService!
-    private lazy var cloudTranscriptionService = CloudTranscriptionService()
-    // NativeAppleTranscriptionService removed
+    // Cloud transcription removed — local only
     private lazy var parakeetTranscriptionService = ParakeetTranscriptionService(customModelsDirectory: parakeetModelsDirectory)
 
     private var modelUrl: URL? {
@@ -856,7 +855,8 @@ class WhisperState: NSObject, ObservableObject {
                     case .parakeet:
             transcriptionService = parakeetTranscriptionService
             default:
-                transcriptionService = cloudTranscriptionService
+                // Unsupported provider — fall back to local
+                transcriptionService = localTranscriptionService
             }
 
             let transcriptionStart = Date()

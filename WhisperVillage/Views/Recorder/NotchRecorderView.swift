@@ -23,7 +23,7 @@ struct NotchRecorderView: View {
     @AppStorage("StreamingModeEnabled") private var isStreamingModeEnabled = false
     @AppStorage("LivePreviewEnabled") private var isLivePreviewEnabled = true
     @AppStorage("NotchAlwaysVisible") private var isAlwaysVisible = false
-    @AppStorage("OpenAIAPIKey") private var openAIAPIKey = ""
+    // Cloud API keys removed — local only
     @AppStorage("selectedHotkey1") private var selectedHotkey1Raw = "rightOption"
 
     /// Whether this is the Dev build (bundle ID ends with .debug)

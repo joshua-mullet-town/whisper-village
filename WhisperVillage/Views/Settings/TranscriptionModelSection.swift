@@ -49,7 +49,7 @@ private struct CurrentModelRow: View {
 
     private var localModels: [any TranscriptionModel] {
         whisperState.allAvailableModels.filter { model in
-            model.provider == .local || model.provider == .nativeApple || model.provider == .parakeet
+            model.provider == .local || model.provider == .parakeet
         }.sorted { model1, model2 in
             if model1.provider == .parakeet { return true }
             if model2.provider == .parakeet { return false }

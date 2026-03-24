@@ -20,6 +20,9 @@ struct WhisperVillageApp: App {
         let menuBarManager = MenuBarManager(whisperState: whisperState, hotkeyManager: hotkeyManager)
         _menuBarManager = StateObject(wrappedValue: menuBarManager)
 
+        // Start presenter claim server (port 8179)
+        PresenterClaimServer.shared.start(whisperState: whisperState)
+
         Task {
             await whisperState.resetOnLaunch()
         }

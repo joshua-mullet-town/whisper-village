@@ -1,0 +1,193 @@
+import Foundation
+import Network
+import os
+
+/// Tiny HTTP server on port 8179 for fire-and-forget presenter integration.
+/// POST /claim { "cardId": "..." } — stops recording, transcribes in background,
+/// POSTs result to http://localhost:3005/api/presenter/respond
+class PresenterClaimServer {
+    static let shared = PresenterClaimServer()
+
+    private let port: UInt16 = 8179
+    private var listener: NWListener?
+    private let logger = Logger(subsystem: "town.mullet.WhisperVillage", category: "PresenterClaimServer")
+    private weak var whisperState: WhisperState?
+
+    private init() {}
+
+    func start(whisperState: WhisperState) {
+        self.whisperState = whisperState
+
+        do {
+            let params = NWParameters.tcp
+            listener = try NWListener(using: params, on: NWEndpoint.Port(rawValue: port)!)
+            listener?.newConnectionHandler = { [weak self] connection in
+                self?.handleConnection(connection)
+            }
+            listener?.stateUpdateHandler = { [weak self] state in
+                switch state {
+                case .ready:
+                    self?.logger.notice("PresenterClaimServer listening on port \(self?.port ?? 0)")
+                case .failed(let error):
+                    self?.logger.error("PresenterClaimServer failed: \(error.localizedDescription)")
+                default:
+                    break
+                }
+            }
+            listener?.start(queue: .global(qos: .userInitiated))
+        } catch {
+            logger.error("Failed to start PresenterClaimServer: \(error.localizedDescription)")
+        }
+    }
+
+    private func handleConnection(_ connection: NWConnection) {
+        connection.start(queue: .global(qos: .userInitiated))
+
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, _, error in
+            guard let self = self, let data = data else {
+                connection.cancel()
+                return
+            }
+
+            let request = String(data: data, encoding: .utf8) ?? ""
+
+            // Only handle POST /claim
+            if request.hasPrefix("POST /claim") {
+                // Extract JSON body from HTTP request
+                if let bodyStart = request.range(of: "\r\n\r\n") {
+                    let bodyString = String(request[bodyStart.upperBound...])
+                    self.handleClaim(bodyString: bodyString, connection: connection)
+                } else {
+                    self.sendResponse(connection: connection, status: 400, body: "{\"error\":\"No body\"}")
+                }
+            } else if request.hasPrefix("GET /health") {
+                self.sendResponse(connection: connection, status: 200, body: "{\"ok\":true}")
+            } else {
+                self.sendResponse(connection: connection, status: 404, body: "{\"error\":\"Not found\"}")
+            }
+        }
+    }
+
+    private func handleClaim(bodyString: String, connection: NWConnection) {
+        guard let bodyData = bodyString.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: bodyData) as? [String: Any],
+              let cardId = json["cardId"] as? String else {
+            sendResponse(connection: connection, status: 400, body: "{\"error\":\"cardId required\"}")
+            return
+        }
+
+        logger.notice("Claim received for card: \(cardId)")
+
+        // Return immediately — transcription happens async
+        sendResponse(connection: connection, status: 200, body: "{\"claimed\":true,\"cardId\":\"\(cardId)\"}")
+
+        // Fire-and-forget: stop recording, transcribe, send to presenter
+        Task { @MainActor in
+            await self.claimAndTranscribe(cardId: cardId)
+        }
+    }
+
+    @MainActor
+    private func claimAndTranscribe(cardId: String) async {
+        guard let whisperState = whisperState else {
+            logger.error("WhisperState not available")
+            return
+        }
+
+        // Get current text or transcribe
+        var text = ""
+
+        if whisperState.recordingState == .recording || whisperState.recordingState == .paused {
+            // Currently recording — stop, transcribe the audio
+            logger.notice("Stopping recording for claim \(cardId)")
+
+            // Get streaming interim if available
+            let interim = whisperState.interimTranscription.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            // Stop recording
+            await whisperState.stopStreamingTranscription()
+            let samples = await whisperState.streamingRecorder.getCurrentSamples()
+            _ = await whisperState.streamingRecorder.stopRecording()
+            await whisperState.recorder.stopRecording()
+
+            // Transcribe the captured audio
+            if samples.count > 16000 {
+                if let transcribed = await whisperState.transcribeCapturedSamples(samples) {
+                    text = transcribed.trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+            }
+
+            // Fall back to streaming interim if transcription failed
+            if text.isEmpty && !interim.isEmpty {
+                text = interim
+            }
+
+            // Dismiss the recorder UI
+            await whisperState.dismissMiniRecorder()
+
+        } else {
+            // Not recording — use last transcription if available
+            text = LastTranscriptionService.shared.lastText ?? ""
+        }
+
+        guard !text.isEmpty else {
+            logger.notice("No text to send for claim \(cardId)")
+            return
+        }
+
+        // Store as last transcription
+        LastTranscriptionService.shared.store(text)
+
+        // POST to presenter respond endpoint
+        logger.notice("Sending response for card \(cardId): \(text.prefix(50))...")
+        await postToPresenter(cardId: cardId, text: text)
+    }
+
+    private func postToPresenter(cardId: String, text: String) async {
+        guard let url = URL(string: "http://localhost:3005/api/presenter/respond") else { return }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let payload: [String: Any] = [
+            "id": cardId,
+            "text": text,
+            "button": "Reply"
+        ]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let (_, response) = try await URLSession.shared.data(for: request)
+            if let httpResponse = response as? HTTPURLResponse {
+                logger.notice("Presenter respond: HTTP \(httpResponse.statusCode)")
+            }
+        } catch {
+            logger.error("Failed to POST to presenter: \(error.localizedDescription)")
+        }
+    }
+
+    private func sendResponse(connection: NWConnection, status: Int, body: String) {
+        let statusText: String
+        switch status {
+        case 200: statusText = "OK"
+        case 400: statusText = "Bad Request"
+        case 404: statusText = "Not Found"
+        default: statusText = "Error"
+        }
+
+        let response = """
+        HTTP/1.1 \(status) \(statusText)\r
+        Content-Type: application/json\r
+        Access-Control-Allow-Origin: *\r
+        Content-Length: \(body.utf8.count)\r
+        Connection: close\r
+        \r
+        \(body)
+        """
+
+        connection.send(content: response.data(using: .utf8), completion: .contentProcessed { _ in
+            connection.cancel()
+        })
+    }
+}

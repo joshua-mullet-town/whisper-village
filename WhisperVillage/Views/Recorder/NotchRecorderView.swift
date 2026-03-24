@@ -40,9 +40,9 @@ struct NotchRecorderView: View {
     private var isInFormatMode: Bool { false }
     private var isInCommandMode: Bool { false }
 
-    /// Timer to display - format mode timer or regular recording timer
+    /// Timer to display
     private var displayDuration: TimeInterval {
-        isInFormatMode ? formatModeDuration : recordingDuration
+        recordingDuration
     }
 
 
@@ -112,28 +112,6 @@ struct NotchRecorderView: View {
         HStack(spacing: 4) {
             // Pause/Play + Stop stacked vertically in a compact column
             if whisperState.recordingState == .recording || isPaused {
-                if isInFormatMode || isInCommandMode {
-                    // In format/command mode: show cancel button instead of pause
-                    NotchIconButton(
-                        icon: "xmark.circle.fill",
-                        color: .white,
-                        tooltip: cancelTooltip
-                    ) {
-                        Task { @MainActor in
-                            if isInFormatMode {
-                                whisperState.isLLMFormattingMode = false
-                                whisperState.isWaitingForFormattingInstruction = false
-                                whisperState.llmFormattingContent = ""
-                                NotificationManager.shared.dismissFormatContentBox()
-                            }
-                            if isInCommandMode {
-                                whisperState.isInCommandMode = false
-                            }
-                            await whisperState.dismissMiniRecorder()
-                        }
-                    }
-                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
-                } else {
                     // Stacked pause/play on top, stop on bottom
                     VStack(spacing: 1) {
                         // Pause/Play toggle (top)
@@ -175,7 +153,6 @@ struct NotchRecorderView: View {
                             .fill(Color.white.opacity(0.1))
                     )
                     .transition(.opacity.combined(with: .scale(scale: 0.8)))
-                }
             }
 
             Spacer()
@@ -614,13 +591,9 @@ struct NotchRecorderView: View {
                         // Only reset duration on fresh start (not when resuming from pause)
                         if oldState != .paused {
                             recordingDuration = 0
-                            formatModeDuration = 0
                         }
                         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
                             recordingDuration += 0.1
-                            if isInFormatMode {
-                                formatModeDuration += 0.1
-                            }
                         }
                     } else if newState == .paused {
                         // Freeze timer: stop incrementing but preserve duration value
@@ -630,15 +603,9 @@ struct NotchRecorderView: View {
                         timer?.invalidate()
                         timer = nil
                         recordingDuration = 0
-                        formatModeDuration = 0
                     }
                 }
-                .onChange(of: whisperState.isWaitingForFormattingInstruction) { oldValue, newValue in
-                    // When entering format mode, reset the format timer
-                    if newValue && !oldValue {
-                        formatModeDuration = 0
-                    }
-                }
+                // Format mode timer removed
                 .onAppear {
                     StreamingLogger.shared.log("🖼️ NotchRecorderView APPEARED")
                     StreamingLogger.shared.log("  windowManager.isVisible: \(windowManager.isVisible)")

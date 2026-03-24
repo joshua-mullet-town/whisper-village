@@ -4,7 +4,7 @@
 
 ---
 
-## CURRENT: Slim Down — Phase 1 (Strip UI) — IN PROGRESS
+## CURRENT: Slim Down — Phase 1 (Strip UI) — DONE ✅
 
 **Goal:** Remove everything except the core recording flow.
 

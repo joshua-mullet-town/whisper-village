@@ -40,9 +40,11 @@
 - AppDelegate.swift — remove PowerMode, license, onboarding
 - ContentView.swift — replace with minimal settings window
 
-## NEXT: Slim Down — Phase 2 (Presenter Integration)
+## DONE: Slim Down — Phase 2 (Presenter Integration) ✅
 
-Add local HTTP server (port 8179) with POST /claim endpoint. When called with {cardId}, stops recording, transcribes, POSTs to /api/presenter/respond. Update presenter web UI Send Here button to call this on desktop.
+Added PresenterClaimServer.swift — HTTP server on port 8179.
+POST /claim {cardId} → stops recording, transcribes async, POSTs to /api/presenter/respond.
+Updated electron-presenter Send Here button to call http://localhost:8179/claim on desktop.
 
 ---
 

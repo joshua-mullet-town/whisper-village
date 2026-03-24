@@ -43,7 +43,6 @@ class HotkeyManager: ObservableObject {
     }
     
     private var whisperState: WhisperState
-    private var miniRecorderShortcutManager: MiniRecorderShortcutManager
     
     // MARK: - Helper Properties
     private var canProcessHotkeyAction: Bool {

@@ -4,7 +4,23 @@
 
 ---
 
-## CURRENT: Developer Voice Features
+## CURRENT: Slim Down — Phase 1 (Strip UI)
+
+**Goal:** Remove everything except the core recording flow.
+
+**Keep:** Notch bar (narrowed to timer + hotkey + peek), Deepgram + local Whisper/Parakeet, paste last (Cmd+Opt+V), double-tap send, settings for transcription backend only.
+
+**Delete ~80 files:** PowerMode/, unused Services (Jarvis, SpaceTab, ScreenCapture, ML cleanup, LLM formatting, Ollama, announcements, dictionary, import/export, crash reporter, etc.), cloud backends except Deepgram, MiniRecorder, live preview, 12+ settings tabs, license/onboarding/metrics UI, AppIntents.
+
+**Core files to modify:** WhisperState.swift, WhisperState+UI.swift, WhisperVillage.swift, AppDelegate.swift, HotkeyManager.swift, NotchRecorderView.swift, RecorderComponents.swift, SettingsView.swift, MenuBarView.swift, MenuBarManager.swift, AIService.swift, CloudTranscriptionService.swift.
+
+## NEXT: Slim Down — Phase 2 (Presenter Integration)
+
+Add local HTTP server (port 8179) with POST /claim endpoint. When called with {cardId}, stops recording, transcribes, POSTs to /api/presenter/respond. Update presenter web UI Send Here button to call this on desktop.
+
+---
+
+## BACKLOG: Developer Voice Features
 
 **Focus:** Make Whisper Village the ultimate voice tool for developers working in terminals and IDEs.
 

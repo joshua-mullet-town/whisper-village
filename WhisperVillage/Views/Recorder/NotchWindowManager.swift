@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 import AppKit
 
 class NotchWindowManager: ObservableObject {
@@ -98,12 +99,14 @@ class NotchWindowManager: ObservableObject {
         let metrics = NotchRecorderPanel.calculateWindowMetrics()
         let panel = NotchRecorderPanel(contentRect: metrics.frame)
         
+        let container = try! ModelContainer(for: Transcription.self)
         let notchRecorderView = NotchRecorderView(
             whisperState: whisperState,
             recorder: recorder,
             streamingRecorder: whisperState.streamingRecorder
         )
             .environmentObject(self)
+            .modelContainer(container)
         
         let hostingController = NotchRecorderHostingController(rootView: notchRecorderView)
         panel.contentView = hostingController.view

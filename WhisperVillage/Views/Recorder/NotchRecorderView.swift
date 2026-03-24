@@ -14,7 +14,7 @@ struct NotchRecorderView: View {
     @State private var retryPulse = false
     @State private var shimmerPhase: CGFloat = 0
     @State private var wasInFormatMode = false
-    @State private var showingWorktrees = false
+    @State private var showingHistory = false
     @State private var showingSpaceTabs = false
     @State private var isSummaryHidden = false
     @AppStorage("SessionBarHidden") private var isSessionBarHidden = false
@@ -89,12 +89,12 @@ struct NotchRecorderView: View {
     }
     
     /// Total width for each side section (content + padding)
-    /// Narrowed: just timer + hotkey on left, peek on right
+    /// Narrowed: timer + hotkey on left, peek + history on right
     private var sectionWidth: CGFloat {
         if isIdleState {
-            return 30  // Minimal idle state
+            return 40  // Minimal idle state (history icon always visible)
         }
-        return 80  // Narrower — just timer + hotkey + peek
+        return 100  // Timer + hotkey + peek + history
     }
 
     /// Total width of the entire notch bar
@@ -294,6 +294,19 @@ struct NotchRecorderView: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.8)))
                 }
             }
+
+            // History button — always visible
+            NotchIconButton(
+                icon: "clock.arrow.circlepath",
+                color: .white.opacity(0.7),
+                tooltip: "Transcription History"
+            ) {
+                showingHistory.toggle()
+            }
+            .popover(isPresented: $showingHistory, arrowEdge: .top) {
+                TranscriptionHistoryDropdown()
+            }
+            .transition(.opacity.combined(with: .scale(scale: 0.8)))
 
         }
         .padding(.trailing, 8)

@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 import AppKit
 import OSLog
 
@@ -10,8 +11,13 @@ struct WhisperVillageApp: App {
     @StateObject private var hotkeyManager: HotkeyManager
     @StateObject private var menuBarManager: MenuBarManager
 
+    let modelContainer: ModelContainer
+
     init() {
-        let whisperState = WhisperState()
+        let container = try! ModelContainer(for: Transcription.self)
+        self.modelContainer = container
+
+        let whisperState = WhisperState(modelContext: container.mainContext)
         _whisperState = StateObject(wrappedValue: whisperState)
 
         let hotkeyManager = HotkeyManager(whisperState: whisperState)
@@ -35,6 +41,7 @@ struct WhisperVillageApp: App {
                 .environmentObject(whisperState)
                 .environmentObject(hotkeyManager)
                 .environmentObject(menuBarManager)
+                .modelContainer(modelContainer)
         } label: {
             let image: NSImage = {
                 let ratio = $0.size.height / $0.size.width

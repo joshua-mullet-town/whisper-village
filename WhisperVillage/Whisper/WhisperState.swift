@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 import AVFoundation
-// SwiftData removed
+import SwiftData
 import AppKit
 import KeyboardShortcuts
 import os
@@ -157,7 +157,7 @@ class WhisperState: NSObject, ObservableObject {
     let modelsDirectory: URL
     let recordingsDirectory: URL
     let parakeetModelsDirectory: URL
-    // enhancementService and licenseViewModel removed
+    let modelContext: ModelContext
     let logger = Logger(subsystem: "town.mullet.WhisperVillage", category: "WhisperState")
     var notchWindowManager: NotchWindowManager?
 
@@ -165,7 +165,9 @@ class WhisperState: NSObject, ObservableObject {
     @Published var downloadProgress: [String: Double] = [:]
     @Published var isDownloadingParakeet = false
 
-    override init() {
+    init(modelContext: ModelContext) {
+        self.modelContext = modelContext
+
         let appSupportDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("town.mullet.WhisperVillage")
 
@@ -865,8 +867,17 @@ class WhisperState: NSObject, ObservableObject {
 
             text = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
-            // Store last transcription
+            // Store last transcription + save to history
             LastTranscriptionService.shared.store(text)
+            let audioAsset = AVURLAsset(url: url)
+            let actualDuration = (try? CMTimeGetSeconds(await audioAsset.load(.duration))) ?? 0.0
+            let newTranscription = Transcription(
+                text: text,
+                duration: actualDuration,
+                transcriptionModelName: model.displayName
+            )
+            modelContext.insert(newTranscription)
+            try? modelContext.save()
 
             let shouldAddSpace = UserDefaults.standard.object(forKey: "AppendTrailingSpace") as? Bool ?? true
             if shouldAddSpace {
@@ -1097,11 +1108,18 @@ class WhisperState: NSObject, ObservableObject {
 
     // MARK: - Streaming History Saving
 
-    /// Save a streaming transcription for paste-last-message
+    /// Save a streaming transcription to history
     private func saveStreamingTranscriptionToHistory(_ text: String) {
         guard !text.isEmpty else { return }
         LastTranscriptionService.shared.store(text)
-        StreamingLogger.shared.log("History: Stored last transcription (\(text.prefix(30))...)")
+        let newTranscription = Transcription(
+            text: text,
+            duration: 0,
+            transcriptionModelName: currentTranscriptionModel?.displayName ?? "Streaming"
+        )
+        modelContext.insert(newTranscription)
+        try? modelContext.save()
+        StreamingLogger.shared.log("History: Saved transcription (\(text.prefix(30))...)")
     }
 
     // MARK: - Final Audio Transcription

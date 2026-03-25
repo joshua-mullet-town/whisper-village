@@ -51,6 +51,12 @@ class PresenterClaimServer {
 
             let request = String(data: data, encoding: .utf8) ?? ""
 
+            // Handle CORS preflight for all endpoints
+            if request.hasPrefix("OPTIONS ") {
+                self.sendResponse(connection: connection, status: 200, body: "{\"ok\":true}")
+                return
+            }
+
             if request.hasPrefix("POST /claim") {
                 // Extract JSON body from HTTP request
                 if let bodyStart = request.range(of: "\r\n\r\n") {
@@ -205,6 +211,8 @@ class PresenterClaimServer {
         HTTP/1.1 \(status) \(statusText)\r
         Content-Type: application/json\r
         Access-Control-Allow-Origin: *\r
+        Access-Control-Allow-Methods: POST, GET, OPTIONS\r
+        Access-Control-Allow-Headers: Content-Type\r
         Content-Length: \(body.utf8.count)\r
         Connection: close\r
         \r

@@ -51,7 +51,6 @@ class PresenterClaimServer {
 
             let request = String(data: data, encoding: .utf8) ?? ""
 
-            // Only handle POST /claim
             if request.hasPrefix("POST /claim") {
                 // Extract JSON body from HTTP request
                 if let bodyStart = request.range(of: "\r\n\r\n") {
@@ -60,11 +59,37 @@ class PresenterClaimServer {
                 } else {
                     self.sendResponse(connection: connection, status: 400, body: "{\"error\":\"No body\"}")
                 }
+            } else if request.hasPrefix("POST /peek") || request.hasPrefix("GET /peek") {
+                self.handlePeek(connection: connection)
             } else if request.hasPrefix("GET /health") {
                 self.sendResponse(connection: connection, status: 200, body: "{\"ok\":true}")
             } else {
                 self.sendResponse(connection: connection, status: 404, body: "{\"error\":\"Not found\"}")
             }
+        }
+    }
+
+    private func handlePeek(connection: NWConnection) {
+        logger.notice("Peek requested")
+
+        Task { @MainActor in
+            guard let whisperState = self.whisperState else {
+                self.sendResponse(connection: connection, status: 200, body: "{\"transcript\":\"Whisper Village not ready\"}")
+                return
+            }
+
+            // Trigger the peek transcription (same as tapping Peek in the notch bar)
+            await whisperState.peekTranscription()
+
+            // Return the current transcription text
+            let text = whisperState.interimTranscription.trimmingCharacters(in: .whitespacesAndNewlines)
+            let lastText = LastTranscriptionService.shared.lastText ?? ""
+            let result = !text.isEmpty ? text : lastText
+
+            let escaped = result.replacingOccurrences(of: "\\", with: "\\\\")
+                                .replacingOccurrences(of: "\"", with: "\\\"")
+                                .replacingOccurrences(of: "\n", with: "\\n")
+            self.sendResponse(connection: connection, status: 200, body: "{\"transcript\":\"\(escaped)\"}")
         }
     }
 

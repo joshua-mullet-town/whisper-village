@@ -87,10 +87,14 @@ class PresenterClaimServer {
             // Trigger the peek transcription (same as tapping Peek in the notch bar)
             await whisperState.peekTranscription()
 
-            // Return the current transcription text
-            let text = whisperState.interimTranscription.trimmingCharacters(in: .whitespacesAndNewlines)
+            // Return the current transcription text (peek also stores, so it's cleaned)
+            let rawText = whisperState.interimTranscription.trimmingCharacters(in: .whitespacesAndNewlines)
             let lastText = LastTranscriptionService.shared.lastText ?? ""
-            let result = !text.isEmpty ? text : lastText
+            // Store interim so it gets cleaned too
+            if !rawText.isEmpty {
+                LastTranscriptionService.shared.store(rawText)
+            }
+            let result = LastTranscriptionService.shared.lastText ?? lastText
 
             let escaped = result.replacingOccurrences(of: "\\", with: "\\\\")
                                 .replacingOccurrences(of: "\"", with: "\\\"")

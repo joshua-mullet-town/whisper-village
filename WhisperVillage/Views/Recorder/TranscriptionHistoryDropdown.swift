@@ -6,29 +6,35 @@ struct TranscriptionHistoryDropdown: View {
     @Query(sort: \Transcription.timestamp, order: .reverse) private var transcriptions: [Transcription]
     @State private var expandedId: UUID?
 
-    private var totalWords: Int {
-        transcriptions.reduce(0) { $0 + $1.text.split(separator: " ").count }
+    private var cumulativeWords: Int {
+        UserDefaults.standard.integer(forKey: "CumulativeTotalWords")
     }
 
-    private var totalDuration: TimeInterval {
-        transcriptions.reduce(0) { $0 + $1.duration }
+    private var cumulativeTranscriptions: Int {
+        UserDefaults.standard.integer(forKey: "CumulativeTotalTranscriptions")
     }
 
-    private var formattedDuration: String {
-        let mins = Int(totalDuration) / 60
-        let secs = Int(totalDuration) % 60
-        return mins > 0 ? "\(mins)m \(secs)s" : "\(secs)s"
+    private var formattedWords: String {
+        let w = cumulativeWords
+        if w >= 1_000_000 { return String(format: "%.1fM", Double(w) / 1_000_000) }
+        if w >= 1_000 { return String(format: "%.1fK", Double(w) / 1_000) }
+        return "\(w)"
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header with stats
-            HStack {
-                Text("History")
-                    .font(.headline)
-                Spacer()
-                Text("\(transcriptions.count) transcriptions · \(totalWords) words · \(formattedDuration)")
-                    .font(.caption)
+            // Header with cumulative stats
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text("History")
+                        .font(.headline)
+                    Spacer()
+                    Text("\(transcriptions.count) recent")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Text("\(formattedWords) words · \(cumulativeTranscriptions) transcriptions all-time")
+                    .font(.caption2)
                     .foregroundColor(.secondary)
             }
             .padding(.horizontal, 12)

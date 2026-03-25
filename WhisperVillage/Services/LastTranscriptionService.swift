@@ -10,7 +10,28 @@ class LastTranscriptionService: ObservableObject {
     private init() {}
 
     func store(_ text: String) {
-        lastText = LastTranscriptionService.cleanTranscription(text)
+        let cleaned = LastTranscriptionService.cleanTranscription(text)
+        lastText = cleaned
+
+        // Update cumulative stats
+        if !cleaned.isEmpty {
+            let words = cleaned.split(separator: " ").count
+            let currentWords = UserDefaults.standard.integer(forKey: "CumulativeTotalWords")
+            let currentCount = UserDefaults.standard.integer(forKey: "CumulativeTotalTranscriptions")
+            UserDefaults.standard.set(currentWords + words, forKey: "CumulativeTotalWords")
+            UserDefaults.standard.set(currentCount + 1, forKey: "CumulativeTotalTranscriptions")
+        }
+    }
+
+    /// Seed cumulative stats from production data (call once on first launch)
+    static func seedCumulativeStatsIfNeeded() {
+        let seeded = UserDefaults.standard.bool(forKey: "CumulativeStatsSeeded")
+        if !seeded {
+            // Seed with known production totals: 9893 transcriptions, ~1.13M words
+            UserDefaults.standard.set(1125997, forKey: "CumulativeTotalWords")
+            UserDefaults.standard.set(9893, forKey: "CumulativeTotalTranscriptions")
+            UserDefaults.standard.set(true, forKey: "CumulativeStatsSeeded")
+        }
     }
 
     /// Clean up common transcription artifacts before storing
@@ -29,6 +50,13 @@ class LastTranscriptionService: ObservableObject {
         result = result.replacingOccurrences(
             of: "\\b(I'm\\s+){2,}",
             with: "I'm ",
+            options: .regularExpression
+        )
+
+        // Remove repeated standalone "I" (e.g., "I I I" → "I")
+        result = result.replacingOccurrences(
+            of: "\\b(I\\s+){2,}I\\b",
+            with: "I",
             options: .regularExpression
         )
 

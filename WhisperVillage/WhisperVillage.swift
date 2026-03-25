@@ -26,6 +26,9 @@ struct WhisperVillageApp: App {
         let menuBarManager = MenuBarManager(whisperState: whisperState, hotkeyManager: hotkeyManager)
         _menuBarManager = StateObject(wrappedValue: menuBarManager)
 
+        // Seed cumulative stats from production data if first launch
+        LastTranscriptionService.seedCumulativeStatsIfNeeded()
+
         // Start presenter claim server (port 8179)
         PresenterClaimServer.shared.start(whisperState: whisperState)
 

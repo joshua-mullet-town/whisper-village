@@ -10,11 +10,11 @@ class LastTranscriptionService: ObservableObject {
     private init() {}
 
     func store(_ text: String) {
-        lastText = cleanTranscription(text)
+        lastText = LastTranscriptionService.cleanTranscription(text)
     }
 
     /// Clean up common transcription artifacts before storing
-    private func cleanTranscription(_ text: String) -> String {
+    static func cleanTranscription(_ text: String) -> String {
         var result = text
 
         // Remove filler words: "uh" and "um" (case-insensitive, word boundaries)

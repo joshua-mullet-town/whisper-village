@@ -6,6 +6,20 @@ struct TranscriptionHistoryDropdown: View {
     @Query(sort: \Transcription.timestamp, order: .reverse) private var transcriptions: [Transcription]
     @State private var expandedId: UUID?
 
+    private var totalWords: Int {
+        transcriptions.reduce(0) { $0 + $1.text.split(separator: " ").count }
+    }
+
+    private var totalDuration: TimeInterval {
+        transcriptions.reduce(0) { $0 + $1.duration }
+    }
+
+    private var formattedDuration: String {
+        let mins = Int(totalDuration) / 60
+        let secs = Int(totalDuration) % 60
+        return mins > 0 ? "\(mins)m \(secs)s" : "\(secs)s"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header with stats
@@ -13,7 +27,7 @@ struct TranscriptionHistoryDropdown: View {
                 Text("History")
                     .font(.headline)
                 Spacer()
-                Text("\(transcriptions.count) total")
+                Text("\(transcriptions.count) transcriptions · \(totalWords) words · \(formattedDuration)")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -31,7 +45,7 @@ struct TranscriptionHistoryDropdown: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(transcriptions.prefix(50)) { transcription in
+                        ForEach(transcriptions) { transcription in
                             TranscriptionHistoryRow(
                                 transcription: transcription,
                                 isExpanded: expandedId == transcription.id

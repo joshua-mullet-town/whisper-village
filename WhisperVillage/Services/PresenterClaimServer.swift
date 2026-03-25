@@ -67,6 +67,8 @@ class PresenterClaimServer {
                 }
             } else if request.hasPrefix("POST /peek") || request.hasPrefix("GET /peek") {
                 self.handlePeek(connection: connection)
+            } else if request.hasPrefix("POST /cancel") || request.hasPrefix("GET /cancel") {
+                self.handleCancel(connection: connection)
             } else if request.hasPrefix("GET /health") {
                 self.sendResponse(connection: connection, status: 200, body: "{\"ok\":true}")
             } else {
@@ -100,6 +102,16 @@ class PresenterClaimServer {
                                 .replacingOccurrences(of: "\"", with: "\\\"")
                                 .replacingOccurrences(of: "\n", with: "\\n")
             self.sendResponse(connection: connection, status: 200, body: "{\"transcript\":\"\(escaped)\"}")
+        }
+    }
+
+    private func handleCancel(connection: NWConnection) {
+        logger.notice("Cancel recording requested")
+        sendResponse(connection: connection, status: 200, body: "{\"cancelled\":true}")
+
+        Task { @MainActor in
+            guard let whisperState = self.whisperState else { return }
+            await whisperState.dismissMiniRecorder()
         }
     }
 

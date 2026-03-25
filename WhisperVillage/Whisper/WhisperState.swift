@@ -809,7 +809,8 @@ class WhisperState: NSObject, ObservableObject {
         if !currentSegmentText.isEmpty {
             allSegments.append(currentSegmentText)
         }
-        let fullText = allSegments.joined(separator: "\n")
+        let rawText = allSegments.joined(separator: "\n")
+        let fullText = LastTranscriptionService.cleanTranscription(rawText)
 
         if fullText.isEmpty {
             NotificationManager.shared.showNotification(
@@ -890,6 +891,10 @@ class WhisperState: NSObject, ObservableObject {
                 transcriptionModelName: model.displayName
             )
             modelContext.insert(newTranscription)
+
+            // Keep only the last 10 transcriptions
+            trimTranscriptionHistory()
+
             try? modelContext.save()
 
             let shouldAddSpace = UserDefaults.standard.object(forKey: "AppendTrailingSpace") as? Bool ?? true
@@ -1122,6 +1127,15 @@ class WhisperState: NSObject, ObservableObject {
     // MARK: - Streaming History Saving
 
     /// Save a streaming transcription to history
+    /// Keep only the last 10 transcriptions in history
+    private func trimTranscriptionHistory() {
+        let descriptor = FetchDescriptor<Transcription>(sortBy: [SortDescriptor(\Transcription.timestamp, order: .reverse)])
+        guard let all = try? modelContext.fetch(descriptor), all.count > 10 else { return }
+        for old in all.dropFirst(10) {
+            modelContext.delete(old)
+        }
+    }
+
     private func saveStreamingTranscriptionToHistory(_ text: String) {
         guard !text.isEmpty else { return }
         LastTranscriptionService.shared.store(text)
@@ -1131,6 +1145,7 @@ class WhisperState: NSObject, ObservableObject {
             transcriptionModelName: currentTranscriptionModel?.displayName ?? "Streaming"
         )
         modelContext.insert(newTranscription)
+        trimTranscriptionHistory()
         try? modelContext.save()
         StreamingLogger.shared.log("History: Saved transcription (\(text.prefix(30))...)")
     }

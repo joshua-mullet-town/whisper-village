@@ -89,20 +89,19 @@ struct NotchRecorderView: View {
     }
     
     /// Width for the left section — all controls live here
+    /// Must be wide enough for controls to be visible LEFT of the physical notch
     private var leftSectionWidth: CGFloat {
         if isIdleState {
-            return 60  // History + peek icons when idle
+            return 60  // History icon when idle
         }
-        return 180  // Start/stop + hotkey + timer + peek + history
+        return 200  // All controls: start/stop + hotkey + timer + peek + history
     }
 
-    /// Right section is intentionally empty but needs to exist for centering
-    private var rightSectionWidth: CGFloat { 8 }
-
     /// Total width of the entire notch bar
-    /// Left controls + notch + minimal right padding to keep notch centered on screen
+    /// Both sides extend equally from the notch center (for NotchShape symmetry)
+    /// but the right side is visually empty
     private var totalBarWidth: CGFloat {
-        exactNotchWidth + leftSectionWidth + rightSectionWidth
+        exactNotchWidth + (leftSectionWidth * 2)
     }
 
     /// Whether we're in paused state
@@ -278,8 +277,9 @@ struct NotchRecorderView: View {
     }
 
     private var rightSection: some View {
-        // Right side intentionally empty
-        EmptyView()
+        // Right side empty — just takes up space for symmetric NotchShape
+        Color.clear
+            .frame(width: leftSectionWidth)
     }
 
     /// Normalized audio level (0.0 to 1.0) from the active recorder

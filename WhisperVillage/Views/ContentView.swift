@@ -33,10 +33,6 @@ struct ContentView: View {
 // MARK: - Stats
 
 struct DashboardStatsView: View {
-    private var todayCount: Int {
-        LastTranscriptionService.todayCount()
-    }
-
     private var cumulativeTranscriptions: Int {
         UserDefaults.standard.integer(forKey: "CumulativeTotalTranscriptions")
     }
@@ -52,10 +48,15 @@ struct DashboardStatsView: View {
         return "\(w)"
     }
 
+    private var formattedSessions: String {
+        let s = cumulativeTranscriptions
+        if s >= 1_000 { return String(format: "%.1fK", Double(s) / 1_000) }
+        return "\(s)"
+    }
+
     var body: some View {
         HStack(spacing: 16) {
-            StatCard(title: "Today", value: "\(todayCount)", icon: "waveform")
-            StatCard(title: "All-Time", value: "\(cumulativeTranscriptions)", icon: "clock.arrow.circlepath")
+            StatCard(title: "Sessions", value: formattedSessions, icon: "waveform")
             StatCard(title: "Words", value: formattedWords, icon: "text.word.spacing")
         }
     }

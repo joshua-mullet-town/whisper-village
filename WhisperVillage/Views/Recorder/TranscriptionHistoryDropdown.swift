@@ -25,15 +25,9 @@ struct TranscriptionHistoryDropdown: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header with cumulative stats
             VStack(alignment: .leading, spacing: 2) {
-                HStack {
-                    Text("History")
-                        .font(.headline)
-                    Spacer()
-                    Text("\(transcriptions.count) recent")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                Text("\(formattedWords) words · \(cumulativeTranscriptions) transcriptions all-time")
+                Text("History")
+                    .font(.headline)
+                Text("\(formattedWords) words · \(cumulativeTranscriptions) transcriptions")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }

@@ -114,7 +114,7 @@ class NotchRecorderPanel: NSPanel {
         let baseNotchWidth: CGFloat = safeAreaInsets.left > 0 ? safeAreaInsets.left * 2 : 200
 
         // Left-only layout: controls on left, nothing on right
-        let leftSectionWidth: CGFloat = 160  // Must match NotchRecorderView
+        let leftSectionWidth: CGFloat = 130  // Must match NotchRecorderView
         let totalWidth = baseNotchWidth + leftSectionWidth
 
         // Total height includes notch + ticker area below

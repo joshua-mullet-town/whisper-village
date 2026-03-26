@@ -93,7 +93,7 @@ struct NotchRecorderView: View {
         if isIdleState {
             return 50  // History icon when idle
         }
-        return 160  // Compact: start/stop + hotkey + timer + peek + history
+        return 130  // Compact: start/stop + hotkey + timer + peek + history
     }
 
     /// Total width — just left section + notch gap (no right side)

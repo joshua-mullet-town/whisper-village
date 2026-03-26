@@ -88,19 +88,21 @@ struct NotchRecorderView: View {
         return 200
     }
     
-    /// Total width for each side section (content + padding)
-    /// Narrowed: timer + hotkey on left, peek + history on right
-    private var sectionWidth: CGFloat {
+    /// Width for the left section — all controls live here
+    private var leftSectionWidth: CGFloat {
         if isIdleState {
-            return 40  // Minimal idle state (history icon always visible)
+            return 60  // History + peek icons when idle
         }
-        return 100  // Timer + hotkey + peek + history
+        return 180  // Start/stop + hotkey + timer + peek + history
     }
 
+    /// Right section is intentionally empty but needs to exist for centering
+    private var rightSectionWidth: CGFloat { 8 }
+
     /// Total width of the entire notch bar
-    /// Idle: just the notch width. Recording: notch + side sections
+    /// Left controls + notch + minimal right padding to keep notch centered on screen
     private var totalBarWidth: CGFloat {
-        exactNotchWidth + (sectionWidth * 2)
+        exactNotchWidth + leftSectionWidth + rightSectionWidth
     }
 
     /// Whether we're in paused state
@@ -109,56 +111,50 @@ struct NotchRecorderView: View {
     }
 
     private var leftSection: some View {
-        HStack(spacing: 4) {
-            // Pause/Play + Stop stacked vertically in a compact column
+        HStack(spacing: 5) {
+            // 1. Start/stop (pause/play + stop stacked)
             if whisperState.recordingState == .recording || isPaused {
-                    // Stacked pause/play on top, stop on bottom
-                    VStack(spacing: 1) {
-                        // Pause/Play toggle (top)
-                        Button {
-                            Task { @MainActor in
-                                if isPaused {
-                                    await whisperState.resumeRecording()
-                                } else {
-                                    await whisperState.pauseRecording()
-                                }
+                VStack(spacing: 1) {
+                    Button {
+                        Task { @MainActor in
+                            if isPaused {
+                                await whisperState.resumeRecording()
+                            } else {
+                                await whisperState.pauseRecording()
                             }
-                        } label: {
-                            Image(systemName: isPaused ? "play.fill" : "pause.fill")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(width: 18, height: 11)
                         }
-                        .buttonStyle(PlainButtonStyle())
-                        .help(isPaused ? "Resume" : "Pause")
-
-                        // Stop/discard (bottom)
-                        Button {
-                            Task { @MainActor in
-                                await whisperState.cancelRecording()
-                            }
-                        } label: {
-                            Image(systemName: "stop.fill")
-                                .font(.system(size: 8, weight: .bold))
-                                .foregroundColor(.white.opacity(0.6))
-                                .frame(width: 18, height: 11)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        .help("Stop (discard)")
+                    } label: {
+                        Image(systemName: isPaused ? "play.fill" : "pause.fill")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(width: 18, height: 11)
                     }
-                    .padding(.vertical, 2)
-                    .padding(.horizontal, 2)
-                    .background(
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.white.opacity(0.1))
-                    )
-                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                    .buttonStyle(PlainButtonStyle())
+                    .help(isPaused ? "Resume" : "Pause")
+
+                    Button {
+                        Task { @MainActor in
+                            await whisperState.cancelRecording()
+                        }
+                    } label: {
+                        Image(systemName: "stop.fill")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(.white.opacity(0.6))
+                            .frame(width: 18, height: 11)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .help("Stop (discard)")
+                }
+                .padding(.vertical, 2)
+                .padding(.horizontal, 2)
+                .background(
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.white.opacity(0.1))
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
 
-            Spacer()
-                .frame(width: 6)
-
-            // Hotkey indicator - between X and worktree
+            // 2. Hotkey indicator
             if !isIdleState && !hotkeySymbol.isEmpty {
                 Text(hotkeySymbol)
                     .font(.system(size: 10, weight: .medium, design: .rounded))
@@ -166,8 +162,8 @@ struct NotchRecorderView: View {
                     .frame(minWidth: 14)
                     .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
-            
-            // Timer display - shows during recording and paused (frozen when paused)
+
+            // 3. Timer
             if whisperState.recordingState == .recording || isPaused {
                 Text(formatTime(displayDuration))
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
@@ -176,10 +172,35 @@ struct NotchRecorderView: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
 
-            Spacer()
+            // 4. Peek button
+            if isStreamingModeEnabled && !isIdleState && (whisperState.recordingState == .recording || isPaused) && !(isLivePreviewEnabled && livePreviewStyle == "box") {
+                NotchIconButton(
+                    icon: "doc.text.magnifyingglass",
+                    color: .white.opacity(0.9),
+                    tooltip: "Show full transcription"
+                ) {
+                    Task { @MainActor in
+                        await whisperState.peekTranscription()
+                    }
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.8)))
+            }
+
+            // 5. History button — always visible
+            NotchIconButton(
+                icon: "clock.arrow.circlepath",
+                color: .white.opacity(0.7),
+                tooltip: "Transcription History"
+            ) {
+                showingHistory.toggle()
+            }
+            .popover(isPresented: $showingHistory, arrowEdge: .top) {
+                TranscriptionHistoryDropdown()
+            }
+            .transition(.opacity.combined(with: .scale(scale: 0.8)))
         }
         .padding(.leading, 6)
-        .frame(width: sectionWidth)
+        .frame(width: leftSectionWidth)
         .clipped()
     }
 
@@ -213,7 +234,7 @@ struct NotchRecorderView: View {
             Spacer()
         }
         .padding(.leading, 12)
-        .frame(width: sectionWidth)
+        .frame(width: leftSectionWidth)
     }
 
     private var errorRightSection: some View {
@@ -253,65 +274,12 @@ struct NotchRecorderView: View {
             .help("Dismiss")
         }
         .padding(.trailing, 10)
-        .frame(width: sectionWidth)
+        .frame(width: leftSectionWidth)
     }
 
     private var rightSection: some View {
-        HStack(spacing: 4) {
-            Spacer()
-
-            // Hide preview buttons when in format mode
-            if !isInFormatMode {
-                // Peek button - show full transcription toast
-                // Show during recording OR paused (when paused, shows all accumulated segments)
-                // Hide when live preview box is active (redundant)
-                if isStreamingModeEnabled && !isIdleState && (whisperState.recordingState == .recording || isPaused) && !(isLivePreviewEnabled && livePreviewStyle == "box") {
-                    NotchIconButton(
-                        icon: "doc.text.magnifyingglass",
-                        color: .white.opacity(0.9),
-                        tooltip: "Show full transcription"
-                    ) {
-                        Task { @MainActor in
-                            await whisperState.peekTranscription()
-                        }
-                    }
-                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
-                }
-
-                // Eyeball button - toggle preview visibility (ticker or box depending on mode)
-                if isStreamingModeEnabled && isLivePreviewEnabled && !isIdleState {
-                    NotchIconButton(
-                        icon: isPreviewVisible ? "eye.fill" : "eye.slash.fill",
-                        color: .white.opacity(0.9),
-                        tooltip: livePreviewStyle == "box" ? "Toggle live box" : "Toggle ticker"
-                    ) {
-                        if livePreviewStyle == "box" {
-                            NotificationManager.shared.toggleLiveBox()
-                        } else {
-                            isPreviewVisible.toggle()
-                        }
-                    }
-                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
-                }
-            }
-
-            // History button — always visible
-            NotchIconButton(
-                icon: "clock.arrow.circlepath",
-                color: .white.opacity(0.7),
-                tooltip: "Transcription History"
-            ) {
-                showingHistory.toggle()
-            }
-            .popover(isPresented: $showingHistory, arrowEdge: .top) {
-                TranscriptionHistoryDropdown()
-            }
-            .transition(.opacity.combined(with: .scale(scale: 0.8)))
-
-        }
-        .padding(.trailing, 8)
-        .frame(width: sectionWidth)
-        .clipped()
+        // Right side intentionally empty
+        EmptyView()
     }
 
     /// Normalized audio level (0.0 to 1.0) from the active recorder
@@ -429,50 +397,6 @@ struct NotchRecorderView: View {
             }
             .onDisappear {
                 shimmerPhase = 0
-            }
-        } else if isInCommandMode {
-            // Command Mode: orange/yellow gradient to show voice navigation mode
-            ZStack {
-                // Base gradient - orange/yellow (matches Command Mode branding)
-                LinearGradient(
-                    colors: [
-                        Color(red: 1.0, green: 0.6, blue: 0.2).opacity(0.85),
-                        Color(red: 0.9, green: 0.4, blue: 0.1).opacity(0.9)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                // Highlight gradient - extent and opacity animated with audio
-                LinearGradient(
-                    colors: [
-                        Color(red: 1.0, green: 0.9, blue: 0.5).opacity(highlightOpacity),
-                        Color.clear
-                    ],
-                    startPoint: .top,
-                    endPoint: highlightExtent
-                )
-            }
-        } else if isInFormatMode {
-            // Format mode: purple/blue gradient to show we're in AI formatting mode
-            ZStack {
-                // Base gradient - purple/blue (matches Format with AI branding)
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.5, green: 0.3, blue: 0.8).opacity(0.85),
-                        Color(red: 0.3, green: 0.4, blue: 0.9).opacity(0.9)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                // Highlight gradient - extent and opacity animated with audio
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.8, green: 0.7, blue: 1.0).opacity(highlightOpacity),
-                        Color.clear
-                    ],
-                    startPoint: .top,
-                    endPoint: highlightExtent
-                )
             }
         } else {
             // Recording state (or normal show): full orange/red gradient with animated highlight

@@ -20,7 +20,39 @@ class LastTranscriptionService: ObservableObject {
             let currentCount = UserDefaults.standard.integer(forKey: "CumulativeTotalTranscriptions")
             UserDefaults.standard.set(currentWords + words, forKey: "CumulativeTotalWords")
             UserDefaults.standard.set(currentCount + 1, forKey: "CumulativeTotalTranscriptions")
+
+            // Update today's count (resets daily)
+            LastTranscriptionService.incrementTodayCount()
         }
+    }
+
+    /// Increment today's transcription count (resets when day changes)
+    static func incrementTodayCount() {
+        let defaults = UserDefaults.standard
+        let todayStr = Self.todayString()
+        let savedDate = defaults.string(forKey: "TodayCountDate") ?? ""
+        if savedDate != todayStr {
+            // New day — reset
+            defaults.set(1, forKey: "TodayTranscriptionCount")
+            defaults.set(todayStr, forKey: "TodayCountDate")
+        } else {
+            let current = defaults.integer(forKey: "TodayTranscriptionCount")
+            defaults.set(current + 1, forKey: "TodayTranscriptionCount")
+        }
+    }
+
+    /// Get today's count
+    static func todayCount() -> Int {
+        let defaults = UserDefaults.standard
+        let savedDate = defaults.string(forKey: "TodayCountDate") ?? ""
+        if savedDate != todayString() { return 0 }
+        return defaults.integer(forKey: "TodayTranscriptionCount")
+    }
+
+    private static func todayString() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: Date())
     }
 
     /// Seed cumulative stats from production data (call once on first launch)

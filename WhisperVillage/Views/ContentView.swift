@@ -33,11 +33,8 @@ struct ContentView: View {
 // MARK: - Stats
 
 struct DashboardStatsView: View {
-    @Query private var transcriptions: [Transcription]
-
     private var todayCount: Int {
-        let calendar = Calendar.current
-        return transcriptions.filter { calendar.isDateInToday($0.timestamp) }.count
+        LastTranscriptionService.todayCount()
     }
 
     private var cumulativeTranscriptions: Int {

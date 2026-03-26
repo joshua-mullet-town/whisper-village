@@ -89,19 +89,16 @@ struct NotchRecorderView: View {
     }
     
     /// Width for the left section — all controls live here
-    /// Must be wide enough for controls to be visible LEFT of the physical notch
     private var leftSectionWidth: CGFloat {
         if isIdleState {
             return 60  // History icon when idle
         }
-        return 200  // All controls: start/stop + hotkey + timer + peek + history
+        return 220  // All controls: start/stop + hotkey + timer + peek + history
     }
 
-    /// Total width of the entire notch bar
-    /// Both sides extend equally from the notch center (for NotchShape symmetry)
-    /// but the right side is visually empty
+    /// Total width — just left section + notch gap (no right side)
     private var totalBarWidth: CGFloat {
-        exactNotchWidth + (leftSectionWidth * 2)
+        exactNotchWidth + leftSectionWidth
     }
 
     /// Whether we're in paused state
@@ -277,9 +274,7 @@ struct NotchRecorderView: View {
     }
 
     private var rightSection: some View {
-        // Right side empty — just takes up space for symmetric NotchShape
-        Color.clear
-            .frame(width: leftSectionWidth)
+        EmptyView()
     }
 
     /// Normalized audio level (0.0 to 1.0) from the active recorder
@@ -507,7 +502,7 @@ struct NotchRecorderView: View {
                     .animation(.easeInOut(duration: 0.2), value: isHovering)
                     .animation(.easeInOut(duration: 0.4), value: isIdleState)
                     .animation(.easeInOut(duration: 0.2), value: isSessionBarHidden)
-                    .frame(maxWidth: .infinity)  // Center the shrinking bar within full-width parent
+                    .frame(maxWidth: .infinity, alignment: .trailing)  // Align bar to right edge (notch gap meets physical notch)
 
                     // Live transcription ticker below notch
                     if shouldShowTicker && isPreviewVisible {

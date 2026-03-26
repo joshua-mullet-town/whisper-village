@@ -113,16 +113,16 @@ class NotchRecorderPanel: NSPanel {
         // Calculate exact notch width
         let baseNotchWidth: CGFloat = safeAreaInsets.left > 0 ? safeAreaInsets.left * 2 : 200
 
-        // Calculate total width including side sections
-        // Must match sectionWidth logic in NotchRecorderView for each side
-        let sectionWidth: CGFloat = 130  // Max width when active (increased from 100)
-        let totalWidth = baseNotchWidth + sectionWidth * 2
+        // Left-only layout: controls on left, nothing on right
+        let leftSectionWidth: CGFloat = 220  // Must match NotchRecorderView
+        let totalWidth = baseNotchWidth + leftSectionWidth
 
         // Total height includes notch + ticker area below
         let totalHeight = notchHeight + tickerHeight
 
-        // Position exactly at the center, accounting for extra height below
-        let xPosition = screen.frame.midX - (totalWidth / 2)
+        // Position so the notch gap (right side of bar) aligns with physical notch center
+        // The bar extends LEFT from the notch center
+        let xPosition = screen.frame.midX - totalWidth + (baseNotchWidth / 2)
         let yPosition = screen.frame.maxY - totalHeight
 
         let frame = NSRect(

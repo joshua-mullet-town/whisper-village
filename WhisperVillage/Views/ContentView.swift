@@ -40,10 +40,26 @@ struct DashboardStatsView: View {
         return transcriptions.filter { calendar.isDateInToday($0.timestamp) }.count
     }
 
+    private var cumulativeTranscriptions: Int {
+        UserDefaults.standard.integer(forKey: "CumulativeTotalTranscriptions")
+    }
+
+    private var cumulativeWords: Int {
+        UserDefaults.standard.integer(forKey: "CumulativeTotalWords")
+    }
+
+    private var formattedWords: String {
+        let w = cumulativeWords
+        if w >= 1_000_000 { return String(format: "%.1fM", Double(w) / 1_000_000) }
+        if w >= 1_000 { return String(format: "%.1fK", Double(w) / 1_000) }
+        return "\(w)"
+    }
+
     var body: some View {
         HStack(spacing: 16) {
             StatCard(title: "Today", value: "\(todayCount)", icon: "waveform")
-            StatCard(title: "Total", value: "\(transcriptions.count)", icon: "clock.arrow.circlepath")
+            StatCard(title: "All-Time", value: "\(cumulativeTranscriptions)", icon: "clock.arrow.circlepath")
+            StatCard(title: "Words", value: formattedWords, icon: "text.word.spacing")
         }
     }
 }

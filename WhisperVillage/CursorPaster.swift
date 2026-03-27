@@ -7,9 +7,11 @@ class CursorPaster {
         let pasteboard = NSPasteboard.general
         let preserveTranscript = UserDefaults.standard.bool(forKey: "preserveTranscriptInClipboard")
 
+        // Clean filler words and duplicate words before any other processing
+        var textToPaste = cleanFillerWords(text)
+
         // Apply smart capitalization if enabled (defaults to true when not set)
         let smartCapEnabled = UserDefaults.standard.object(forKey: "SmartCapitalizationEnabled") as? Bool ?? true
-        var textToPaste = text
 
         // Apply auto end punctuation if enabled (defaults to true when not set)
         let autoEndPunctEnabled = UserDefaults.standard.object(forKey: "AutoEndPunctuationEnabled") as? Bool ?? true
@@ -122,6 +124,29 @@ class CursorPaster {
             backspaceDown?.post(tap: .cghidEventTap)
             backspaceUp?.post(tap: .cghidEventTap)
         }
+    }
+
+    // Remove filler words (uh, um, etc.) and collapse duplicate consecutive words
+    private static func cleanFillerWords(_ text: String) -> String {
+        var result = text
+
+        // 1. Remove filler words (with optional trailing comma/period)
+        // Matches: uh, um, uhm, ah, eh (case insensitive, word boundaries)
+        if let fillerRegex = try? NSRegularExpression(pattern: "\\b(uh|um|uhm|ah|eh)\\b[,.]?\\s*", options: .caseInsensitive) {
+            result = fillerRegex.stringByReplacingMatches(in: result, range: NSRange(result.startIndex..., in: result), withTemplate: "")
+        }
+
+        // 2. Collapse duplicate consecutive words ("I I" → "I", "the the" → "the")
+        if let dupeRegex = try? NSRegularExpression(pattern: "\\b(\\w+)\\s+\\1\\b", options: .caseInsensitive) {
+            result = dupeRegex.stringByReplacingMatches(in: result, range: NSRange(result.startIndex..., in: result), withTemplate: "$1")
+        }
+
+        // 3. Clean up extra spaces
+        if let spacesRegex = try? NSRegularExpression(pattern: "\\s{2,}") {
+            result = spacesRegex.stringByReplacingMatches(in: result, range: NSRange(result.startIndex..., in: result), withTemplate: " ")
+        }
+
+        return result.trimmingCharacters(in: .whitespaces)
     }
 
     // Add a period at the end if no ending punctuation present

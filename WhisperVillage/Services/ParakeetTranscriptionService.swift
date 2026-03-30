@@ -78,34 +78,39 @@ class ParakeetTranscriptionService: TranscriptionService {
     /// Does NOT cleanup after transcription to allow repeated calls
     /// IMPORTANT: Serialized via actor to prevent concurrent decoder access crashes
     func transcribeSamples(_ samples: [Float]) async throws -> String {
+        StreamingLogger.shared.log("🔬🦜 transcribeSamples ENTER: \(samples.count) samples, isModelLoaded=\(isModelLoaded), asrManager=\(asrManager != nil ? "exists" : "nil")")
         // Wait a moment if cleanup might be in progress (race condition mitigation)
         if !isModelLoaded && asrManager != nil {
-            logger.notice("🦜 Model marked as not loaded but manager exists - possible cleanup in progress, waiting...")
+            StreamingLogger.shared.log("🔬🦜 Model marked as not loaded but manager exists - waiting...")
             try await Task.sleep(nanoseconds: 100_000_000) // 100ms
         }
 
         if asrManager == nil || !isModelLoaded {
-            logger.notice("🦜 Loading model for streaming transcription...")
+            StreamingLogger.shared.log("🔬🦜 Loading model for transcription...")
             try await loadModel()
+            StreamingLogger.shared.log("🔬🦜 Model loaded: isModelLoaded=\(isModelLoaded), asrManager=\(asrManager != nil ? "exists" : "nil")")
         }
 
         guard let manager = asrManager, isModelLoaded else {
-            logger.notice("🦜 Parakeet manager is still nil or not loaded after attempting to load the model.")
+            StreamingLogger.shared.log("🔬🦜 FAIL: manager or model not available after load attempt")
             throw ASRError.notInitialized
         }
 
         // Need at least 1 second of audio (16000 samples at 16kHz)
         guard samples.count >= 16000 else {
-            logger.notice("🦜 Audio too short for streaming transcription: \(samples.count) samples")
+            StreamingLogger.shared.log("🔬🦜 Audio too short: \(samples.count) samples < 16000")
             return ""
         }
 
         // Serialize transcription through actor to prevent concurrent access to TdtDecoderState
         // This fixes the crash where streaming preview and final transcription race on the decoder
+        StreamingLogger.shared.log("🔬🦜 Entering serialized transcription...")
         return try await transcriptionSerializer.serialize { [self] in
             // Wrap transcription in do/catch to handle internal FluidAudio crashes gracefully
             do {
+                StreamingLogger.shared.log("🔬🦜 Calling manager.transcribe(\(samples.count) samples)...")
                 let result = try await manager.transcribe(samples)
+                StreamingLogger.shared.log("🔬🦜 manager.transcribe returned: \"\(result.text.prefix(100))\"")
 
                 var text = result.text
 
@@ -115,9 +120,10 @@ class ParakeetTranscriptionService: TranscriptionService {
 
                 text = text
 
+                StreamingLogger.shared.log("🔬🦜 Final text: \"\(text.prefix(100))\"")
                 return text
             } catch {
-                logger.error("🦜 Streaming transcription failed: \(error.localizedDescription)")
+                StreamingLogger.shared.log("🔬🦜 TRANSCRIPTION FAILED: \(error)")
                 // Mark model as not loaded so next attempt will reload
                 isModelLoaded = false
                 throw error

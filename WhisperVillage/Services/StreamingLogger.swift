@@ -7,6 +7,7 @@ class StreamingLogger {
     private let logger = Logger(subsystem: "com.voiceink.app", category: "StreamingLogger")
 
     func log(_ message: String) {
-        logger.debug("\(message)")
+        logger.notice("\(message)")
+        print("[WV] \(message)")
     }
 }

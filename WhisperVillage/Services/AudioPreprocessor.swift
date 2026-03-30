@@ -41,14 +41,13 @@ class AudioPreprocessor {
     ///   - sampleRate: Sample rate (default 16000)
     /// - Returns: Audio samples containing only speech segments concatenated together
     func extractSpeech(from samples: [Float], sampleRate: Int = 16000) -> [Float] {
-        StreamingLogger.shared.log("🔬 AudioPreprocessor.extractSpeech: input=\(samples.count) isEnabled=\(isEnabled) vad=\(vad != nil ? "loaded" : "nil") isInitialized=\(isInitialized)")
         guard isEnabled else {
-            StreamingLogger.shared.log("🔬 AudioPreprocessor: VAD disabled, returning original")
+            logger.debug("AudioPreprocessor: VAD disabled, returning original audio")
             return samples
         }
 
         guard let vad = vad else {
-            StreamingLogger.shared.log("🔬 AudioPreprocessor: VAD not initialized, returning original")
+            logger.debug("AudioPreprocessor: VAD not initialized, returning original audio")
             return samples
         }
 

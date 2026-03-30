@@ -272,14 +272,11 @@ class WhisperState: NSObject, ObservableObject {
 
         if recordingState == .recording {
             StreamingLogger.shared.log("🎯 Was recording, now stopping...")
-            StreamingLogger.shared.log("🔬 DEBUG: isStreamingModeEnabled=\(isStreamingModeEnabled) isLivePreviewEnabled=\(isLivePreviewEnabled)")
-            StreamingLogger.shared.log("🔬 DEBUG: currentTranscriptionModel=\(currentTranscriptionModel?.name ?? "nil") provider=\(currentTranscriptionModel?.provider.rawValue ?? "nil")")
             // FIRST: Stop audio engines to release audio resources
             // This allows sounds to play without being blocked by AVAudioEngine
             // Samples are already buffered in memory so transcription will still work
             await stopStreamingTranscription()
             let capturedSamples = await streamingRecorder.stopRecording()
-            StreamingLogger.shared.log("🔬 DEBUG: capturedSamples.count=\(capturedSamples.count)")
             await recorder.stopRecording()
 
             // NOW play stop sound - audio resources are released
@@ -370,10 +367,8 @@ class WhisperState: NSObject, ObservableObject {
                     StreamingLogger.shared.log("📝 Prepended \(allSegments.count - 1) paused segments to final text")
                 }
 
-                StreamingLogger.shared.log("🔬 DECISION POINT: shouldCancelRecording=\(shouldCancelRecording) textToPaste.isEmpty=\(textToPaste.isEmpty) textToPaste=\"\(textToPaste.prefix(100))\"")
                 if shouldCancelRecording || textToPaste.isEmpty {
                     // Delete placeholder if we pasted one (cancelled or empty result)
-                    StreamingLogger.shared.log("🔬 EMPTY/CANCELLED — no paste will happen")
                     if placeholderLength > 0 {
                         DispatchQueue.main.async {
                             CursorPaster.deleteCharacters(count: placeholderLength)
@@ -1162,24 +1157,21 @@ class WhisperState: NSObject, ObservableObject {
     /// Returns the transcribed text, or nil if transcription failed
     /// Transcribe pre-captured audio samples (used when recorder was stopped before sound playback)
     func transcribeCapturedSamples(_ rawSamples: [Float]) async -> String? {
-        StreamingLogger.shared.log("🔬 transcribeCapturedSamples ENTER: rawSamples.count=\(rawSamples.count)")
         guard let model = currentTranscriptionModel else {
-            StreamingLogger.shared.log("🔬 FAIL: No model selected (currentTranscriptionModel is nil)")
+            StreamingLogger.shared.log("Final transcription: No model selected")
             return nil
         }
-        StreamingLogger.shared.log("🔬 Model: \(model.name) provider=\(model.provider.rawValue)")
 
         guard rawSamples.count > 0 else {
-            StreamingLogger.shared.log("🔬 FAIL: No samples provided")
+            StreamingLogger.shared.log("Final transcription: No samples provided")
             return nil
         }
 
         // Apply VAD preprocessing to extract speech and remove silence
         let samples = AudioPreprocessor.shared.extractSpeech(from: rawSamples)
-        StreamingLogger.shared.log("🔬 After VAD: rawSamples=\(rawSamples.count) → samples=\(samples.count)")
 
         guard samples.count >= 8000 else {  // Need at least 0.5s of speech
-            StreamingLogger.shared.log("🔬 FAIL: Not enough speech after VAD (\(samples.count) < 8000)")
+            StreamingLogger.shared.log("Final transcription: Not enough speech detected after VAD")
             return nil
         }
 

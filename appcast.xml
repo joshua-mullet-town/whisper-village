@@ -3,6 +3,20 @@
     <channel>
         <title>Whisper Village Releases</title>
         <item>
+            <title>1.9.31</title>
+            <pubDate>Sun, 30 Mar 2026 07:55:00 -0400</pubDate>
+            <sparkle:version>126</sparkle:version>
+            <sparkle:shortVersionString>1.9.31</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h3>Version 1.9.31</h3>
+                <ul>
+                    <li>Fix transcription pipeline - rebuild fixes empty transcription from Parakeet decoder.</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/joshua-mullet-town/whisper-village/releases/download/v1.9.31/WhisperVillage-1.9.31.dmg" length="10143064" type="application/octet-stream" sparkle:edSignature="FZLi0JPTyyNng8HtRhpcIhSXIB6SY79XPzF/gpe5e6C1HwgIQh37d59UrCcOIWglMsi9RtPKsBE6Pfd2zUFvDA=="/>
+        </item>
+        <item>
             <title>1.9.30</title>
             <pubDate>Sun, 08 Feb 2026 15:52:56 -0500</pubDate>
             <sparkle:version>125</sparkle:version>

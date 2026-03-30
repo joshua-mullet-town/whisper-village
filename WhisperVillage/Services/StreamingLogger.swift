@@ -8,6 +8,5 @@ class StreamingLogger {
 
     func log(_ message: String) {
         logger.notice("\(message)")
-        print("[WV] \(message)")
     }
 }

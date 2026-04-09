@@ -1,5 +1,6 @@
 import Foundation
 import Network
+import SwiftData
 import os
 
 /// Tiny HTTP server on port 8179 for fire-and-forget presenter integration.
@@ -71,6 +72,13 @@ class PresenterClaimServer {
                 self.handleCancel(connection: connection)
             } else if request.hasPrefix("GET /status") {
                 self.handleStatus(connection: connection)
+            } else if request.hasPrefix("POST /log-transcription") {
+                if let bodyStart = request.range(of: "\r\n\r\n") {
+                    let bodyString = String(request[bodyStart.upperBound...])
+                    self.handleLogTranscription(bodyString: bodyString, connection: connection)
+                } else {
+                    self.sendResponse(connection: connection, status: 400, body: "{\"error\":\"No body\"}")
+                }
             } else if request.hasPrefix("GET /health") {
                 self.sendResponse(connection: connection, status: 200, body: "{\"ok\":true}")
             } else {
@@ -122,6 +130,32 @@ class PresenterClaimServer {
         Task { @MainActor in
             guard let whisperState = self.whisperState else { return }
             await whisperState.dismissMiniRecorder()
+        }
+    }
+
+    private func handleLogTranscription(bodyString: String, connection: NWConnection) {
+        guard let bodyData = bodyString.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: bodyData) as? [String: Any],
+              let text = json["text"] as? String, !text.isEmpty else {
+            sendResponse(connection: connection, status: 400, body: "{\"error\":\"text required\"}")
+            return
+        }
+
+        let duration = json["duration"] as? Double ?? 0
+        let source = json["source"] as? String ?? "phone"
+
+        logger.notice("Log transcription from \(source): \(text.prefix(50))...")
+        sendResponse(connection: connection, status: 200, body: "{\"logged\":true}")
+
+        Task { @MainActor in
+            guard let whisperState = self.whisperState else { return }
+            let newTranscription = Transcription(
+                text: text,
+                duration: duration,
+                transcriptionModelName: source
+            )
+            whisperState.modelContext.insert(newTranscription)
+            try? whisperState.modelContext.save()
         }
     }
 
@@ -194,6 +228,15 @@ class PresenterClaimServer {
 
         // Store as last transcription
         LastTranscriptionService.shared.store(text)
+
+        // Save to SwiftData history
+        let newTranscription = Transcription(
+            text: text,
+            duration: 0,
+            transcriptionModelName: "Presenter Claim"
+        )
+        whisperState.modelContext.insert(newTranscription)
+        try? whisperState.modelContext.save()
 
         // POST to presenter respond endpoint
         logger.notice("Sending response for card \(cardId): \(text.prefix(50))...")

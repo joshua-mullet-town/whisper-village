@@ -13,11 +13,13 @@ class PresenterClaimServer {
     private var listener: NWListener?
     private let logger = Logger(subsystem: "town.mullet.WhisperVillage", category: "PresenterClaimServer")
     private weak var whisperState: WhisperState?
+    private var modelContainer: ModelContainer?
 
     private init() {}
 
-    func start(whisperState: WhisperState) {
+    func start(whisperState: WhisperState, modelContainer: ModelContainer? = nil) {
         self.whisperState = whisperState
+        self.modelContainer = modelContainer
 
         do {
             let params = NWParameters.tcp
@@ -141,8 +143,8 @@ class PresenterClaimServer {
             return
         }
 
-        guard self.whisperState != nil else {
-            logger.error("Log transcription failed: whisperState is nil")
+        guard let container = self.modelContainer else {
+            logger.error("Log transcription failed: modelContainer is nil")
             sendResponse(connection: connection, status: 503, body: "{\"error\":\"not ready\"}")
             return
         }
@@ -160,23 +162,20 @@ class PresenterClaimServer {
             timestamp = Date()
         }
 
-        logger.notice("Log transcription from \(source): \(text.prefix(50))...")
+        logger.notice("Log transcription from \(source), timestamp: \(timestamp): \(text.prefix(50))...")
 
-        Task { @MainActor in
-            guard let whisperState = self.whisperState else {
-                self.logger.error("Log transcription failed: whisperState became nil")
-                return
-            }
+        Task.detached {
+            let context = ModelContext(container)
             let newTranscription = Transcription(
                 text: text,
                 duration: duration,
                 timestamp: timestamp,
                 transcriptionModelName: source
             )
-            whisperState.modelContext.insert(newTranscription)
+            context.insert(newTranscription)
             do {
-                try whisperState.modelContext.save()
-                self.logger.notice("Transcription saved successfully")
+                try context.save()
+                self.logger.notice("Transcription saved via background context, timestamp=\(timestamp.timeIntervalSinceReferenceDate)")
             } catch {
                 self.logger.error("Failed to save transcription: \(error.localizedDescription)")
             }
@@ -256,13 +255,16 @@ class PresenterClaimServer {
         LastTranscriptionService.shared.store(text)
 
         // Save to SwiftData history
-        let newTranscription = Transcription(
-            text: text,
-            duration: 0,
-            transcriptionModelName: "Presenter Claim"
-        )
-        whisperState.modelContext.insert(newTranscription)
-        try? whisperState.modelContext.save()
+        if let container = self.modelContainer {
+            let context = container.mainContext
+            let newTranscription = Transcription(
+                text: text,
+                duration: 0,
+                transcriptionModelName: "Presenter Claim"
+            )
+            context.insert(newTranscription)
+            try? context.save()
+        }
 
         // POST to presenter respond endpoint
         logger.notice("Sending response for card \(cardId): \(text.prefix(50))...")

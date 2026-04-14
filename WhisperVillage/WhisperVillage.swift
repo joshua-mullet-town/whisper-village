@@ -30,7 +30,7 @@ struct WhisperVillageApp: App {
         LastTranscriptionService.seedCumulativeStatsIfNeeded()
 
         // Start presenter claim server (port 8179)
-        PresenterClaimServer.shared.start(whisperState: whisperState)
+        PresenterClaimServer.shared.start(whisperState: whisperState, modelContainer: container)
 
         Task {
             await whisperState.resetOnLaunch()

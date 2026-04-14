@@ -141,22 +141,48 @@ class PresenterClaimServer {
             return
         }
 
+        guard self.whisperState != nil else {
+            logger.error("Log transcription failed: whisperState is nil")
+            sendResponse(connection: connection, status: 503, body: "{\"error\":\"not ready\"}")
+            return
+        }
+
         let duration = json["duration"] as? Double ?? 0
         let source = json["source"] as? String ?? "phone"
 
+        // Support optional timestamp from caller (Unix epoch seconds).
+        // Convert to Swift Date properly — callers send seconds-since-1970,
+        // NOT seconds-since-reference-date (2001-01-01).
+        let timestamp: Date
+        if let epochSeconds = json["timestamp"] as? Double {
+            timestamp = Date(timeIntervalSince1970: epochSeconds)
+        } else {
+            timestamp = Date()
+        }
+
         logger.notice("Log transcription from \(source): \(text.prefix(50))...")
-        sendResponse(connection: connection, status: 200, body: "{\"logged\":true}")
 
         Task { @MainActor in
-            guard let whisperState = self.whisperState else { return }
+            guard let whisperState = self.whisperState else {
+                self.logger.error("Log transcription failed: whisperState became nil")
+                return
+            }
             let newTranscription = Transcription(
                 text: text,
                 duration: duration,
+                timestamp: timestamp,
                 transcriptionModelName: source
             )
             whisperState.modelContext.insert(newTranscription)
-            try? whisperState.modelContext.save()
+            do {
+                try whisperState.modelContext.save()
+                self.logger.notice("Transcription saved successfully")
+            } catch {
+                self.logger.error("Failed to save transcription: \(error.localizedDescription)")
+            }
         }
+
+        sendResponse(connection: connection, status: 200, body: "{\"logged\":true}")
     }
 
     private func handleClaim(bodyString: String, connection: NWConnection) {

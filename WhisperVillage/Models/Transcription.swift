@@ -9,10 +9,10 @@ final class Transcription {
     var duration: TimeInterval
     var transcriptionModelName: String?
 
-    init(text: String, duration: TimeInterval, transcriptionModelName: String? = nil) {
+    init(text: String, duration: TimeInterval, timestamp: Date = Date(), transcriptionModelName: String? = nil) {
         self.id = UUID()
         self.text = text
-        self.timestamp = Date()
+        self.timestamp = timestamp
         self.duration = duration
         self.transcriptionModelName = transcriptionModelName
     }

@@ -1127,11 +1127,11 @@ class WhisperState: NSObject, ObservableObject {
     // MARK: - Streaming History Saving
 
     /// Save a streaming transcription to history
-    /// Keep only the last 10 transcriptions in history
+    /// Keep only the last 100 transcriptions in history
     private func trimTranscriptionHistory() {
         let descriptor = FetchDescriptor<Transcription>(sortBy: [SortDescriptor(\Transcription.timestamp, order: .reverse)])
-        guard let all = try? modelContext.fetch(descriptor), all.count > 10 else { return }
-        for old in all.dropFirst(10) {
+        guard let all = try? modelContext.fetch(descriptor), all.count > 100 else { return }
+        for old in all.dropFirst(100) {
             modelContext.delete(old)
         }
     }

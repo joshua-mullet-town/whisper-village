@@ -1,0 +1,130 @@
+{
+  "object" : {
+    "artifacts" : [
+      {
+        "kind" : "xcframework",
+        "packageRef" : {
+          "identity" : "sparkle",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/sparkle-project/Sparkle",
+          "name" : "Sparkle"
+        },
+        "path" : "/Users/joshuamullet/code/whisper-village/build-release/SourcePackages/artifacts/sparkle/Sparkle/Sparkle.xcframework",
+        "source" : {
+          "checksum" : "3b9d424d79b1f3453cc44d23c3b0105bdff1298f5321aad8722f98b9149d5e95",
+          "type" : "remote",
+          "url" : "https://github.com/sparkle-project/Sparkle/releases/download/2.7.1/Sparkle-for-Swift-Package-Manager.zip"
+        },
+        "targetName" : "Sparkle"
+      }
+    ],
+    "dependencies" : [
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "fluidaudio",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/FluidInference/FluidAudio",
+          "name" : "FluidAudio"
+        },
+        "state" : {
+          "checkoutState" : {
+            "branch" : "main",
+            "revision" : "052cbb27cf073a9407251d74ef3459ea258e41b3"
+          },
+          "name" : "sourceControlCheckout"
+        },
+        "subpath" : "FluidAudio"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "keyboardshortcuts",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/sindresorhus/KeyboardShortcuts",
+          "name" : "KeyboardShortcuts"
+        },
+        "state" : {
+          "checkoutState" : {
+            "revision" : "045cf174010beb335fa1d2567d18c057b8787165",
+            "version" : "2.3.0"
+          },
+          "name" : "sourceControlCheckout"
+        },
+        "subpath" : "KeyboardShortcuts"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "launchatlogin-modern",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/sindresorhus/LaunchAtLogin-Modern",
+          "name" : "LaunchAtLogin-Modern"
+        },
+        "state" : {
+          "checkoutState" : {
+            "branch" : "main",
+            "revision" : "a04ec1c363be3627734f6dad757d82f5d4fa8fcc"
+          },
+          "name" : "sourceControlCheckout"
+        },
+        "subpath" : "LaunchAtLogin-Modern"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "mediaremote-adapter",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/ejbills/mediaremote-adapter",
+          "name" : "mediaremote-adapter"
+        },
+        "state" : {
+          "checkoutState" : {
+            "branch" : "master",
+            "revision" : "3529aa25023082a2ceadebcd2c9c4a9430ee96b9"
+          },
+          "name" : "sourceControlCheckout"
+        },
+        "subpath" : "mediaremote-adapter"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "sparkle",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/sparkle-project/Sparkle",
+          "name" : "Sparkle"
+        },
+        "state" : {
+          "checkoutState" : {
+            "revision" : "df074165274afaa39539c05d57b0832620775b11",
+            "version" : "2.7.1"
+          },
+          "name" : "sourceControlCheckout"
+        },
+        "subpath" : "Sparkle"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "zip",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/marmelroy/Zip",
+          "name" : "Zip"
+        },
+        "state" : {
+          "checkoutState" : {
+            "revision" : "67fa55813b9e7b3b9acee9c0ae501def28746d76",
+            "version" : "2.1.2"
+          },
+          "name" : "sourceControlCheckout"
+        },
+        "subpath" : "Zip"
+      }
+    ],
+    "prebuilts" : [
+
+    ]
+  },
+  "version" : 7
+}

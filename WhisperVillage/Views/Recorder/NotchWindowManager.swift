@@ -99,7 +99,13 @@ class NotchWindowManager: ObservableObject {
         let metrics = NotchRecorderPanel.calculateWindowMetrics()
         let panel = NotchRecorderPanel(contentRect: metrics.frame)
         
-        let container = try! ModelContainer(for: Transcription.self)
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let bundleId = Bundle.main.bundleIdentifier ?? "town.mullet.WhisperVillage"
+        let storeDir = appSupport.appendingPathComponent(bundleId)
+        try? FileManager.default.createDirectory(at: storeDir, withIntermediateDirectories: true)
+        let storeURL = storeDir.appendingPathComponent("default.store")
+        let config = ModelConfiguration(url: storeURL)
+        let container = try! ModelContainer(for: Transcription.self, configurations: config)
         let notchRecorderView = NotchRecorderView(
             whisperState: whisperState,
             recorder: recorder,

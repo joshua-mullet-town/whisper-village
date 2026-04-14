@@ -14,7 +14,14 @@ struct WhisperVillageApp: App {
     let modelContainer: ModelContainer
 
     init() {
-        let container = try! ModelContainer(for: Transcription.self)
+        // Use the bundle-specific Application Support directory for the SwiftData store
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let bundleId = Bundle.main.bundleIdentifier ?? "town.mullet.WhisperVillage"
+        let storeDir = appSupport.appendingPathComponent(bundleId)
+        try? FileManager.default.createDirectory(at: storeDir, withIntermediateDirectories: true)
+        let storeURL = storeDir.appendingPathComponent("default.store")
+        let config = ModelConfiguration(url: storeURL)
+        let container = try! ModelContainer(for: Transcription.self, configurations: config)
         self.modelContainer = container
 
         let whisperState = WhisperState(modelContext: container.mainContext)

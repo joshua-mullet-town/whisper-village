@@ -163,6 +163,27 @@ class PresenterClaimServer {
         let speechLevel = 0.14             // above this counts as "still talking"
         let graceMs = 3000                 // give them a moment to start talking
 
+        // The recorder is started via a notification, so it comes up a moment
+        // after we're asked to watch it. Wait for it to actually be recording
+        // before we start judging silence — otherwise we'd see "not recording"
+        // on the first tick and bail out as if the user had cancelled.
+        var waitedToStart = 0
+        while waitedToStart < 4000 {
+            let isRecording = await MainActor.run {
+                self.whisperState?.recordingState == .recording
+            }
+            if isRecording { break }
+            try? await Task.sleep(nanoseconds: 100 * 1_000_000)
+            waitedToStart += 100
+        }
+        let didStart = await MainActor.run {
+            self.whisperState?.recordingState == .recording
+        }
+        guard didStart else {
+            logger.notice("Recorder never started; nothing to deliver")
+            return
+        }
+
         var elapsed = 0
         var quietFor = 0
         var heardSpeech = false

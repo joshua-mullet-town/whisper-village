@@ -224,13 +224,49 @@ class PresenterClaimServer {
     private func deliverToSteward(session: String, text: String) async {
         guard let url = URL(string: "http://localhost:3005/api/queue") else { return }
 
+        // The reply instructions ride along in the message itself, so any steward
+        // reached this way knows to answer out loud rather than with a card --
+        // Joshua is across the room, not looking at a screen.
+        let speakTool = "\(NSHomeDirectory())/.homestead/stewards/mcgucket/workers/"
+            + "hey-alfred/listener/speak.mjs"
+
+        let instruction = """
+        Joshua spoke this out loud to the listening device in the room. Treat it as a \
+        direct message from him and act on it.
+
+        He said: "\(text)"
+
+        HOW TO REPLY — OUT LOUD, NOT WITH A CARD. He is across the room and is not \
+        looking at a screen, so a card is invisible to him. Do NOT send him a card for \
+        this. Reply by running:
+
+            node "\(speakTool)" --text "your reply"
+
+        Add --ask when your reply is a question:
+
+            node "\(speakTool)" --text "Which Thursday?" --ask
+
+        --ask reopens the microphone the moment you stop speaking, so he can answer \
+        straight away without saying the wake phrase again. His answer comes back to \
+        you as another message like this one. Keep asking until you know what he wants, \
+        then do it and confirm out loud.
+
+        KEEP IT VERY SHORT. This is spoken aloud, so every word costs him time. A \
+        confirmation should be about three words ("Added to your calendar."). A question \
+        should be the shortest one that resolves the ambiguity ("Which Thursday?"). Never \
+        read back what he said, never explain what you are about to do, never list \
+        options unless he must choose between them. Most requests should be one and done: \
+        do the thing, say it is done, stop.
+        """
+
         let envelope: [String: Any] = [
             "type": "action",
             "from": "hey-alfred-device",
-            "instruction": "Joshua spoke this out loud to the listening device in the room. "
-                + "Treat it as a direct message from him and act on it.\n\nHe said: \"\(text)\"",
+            "instruction": instruction,
             "spoken_text": text,
             "source": "hey-alfred-room-device",
+            "reply_with": "voice",
+            "speak_tool": speakTool,
         ]
         guard let envelopeData = try? JSONSerialization.data(withJSONObject: envelope),
               let envelopeString = String(data: envelopeData, encoding: .utf8) else { return }

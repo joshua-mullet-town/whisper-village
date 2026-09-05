@@ -144,9 +144,11 @@ class PresenterClaimServer {
             // Polling was what deadlocked this: repeatedly hopping onto the main
             // actor contended with the recorder coming up. This callback fires
             // from recordingState's didSet, so it cannot run too early either.
-            whisperState.onRecordingStateChange = { [weak self, weak whisperState] _, new in
-                guard new == .recording else { return }
-                whisperState?.onRecordingStateChange = nil   // one-shot
+            // Be TOLD when recording actually starts, rather than polling for it.
+            // The watch lives OUTSIDE WhisperState on purpose — registering a
+            // callback on that @MainActor class deadlocked the app even with an
+            // empty body (bisect-confirmed). This box is actor-free.
+            RecordingStateWatch.shared.onNextRecordingStart { [weak self] in
                 Task.detached {
                     await self?.stopOnSilenceThenDeliver(deliverTo: deliverTo,
                                                          silenceMs: silenceMs,

@@ -51,13 +51,9 @@ class WhisperState: NSObject, ObservableObject {
             // Let a voice-triggered dictation know the recorder actually started
             // or stopped. Kept trivial on purpose — this runs on the main actor,
             // so anything slow here would stall the app.
-            onRecordingStateChange?(oldValue, recordingState)
+            RecordingStateWatch.shared.fire(recordingState)
         }
     }
-
-    /// Set by the voice-dictation path so it is TOLD when recording begins and
-    /// ends, instead of polling the main actor to ask.
-    var onRecordingStateChange: ((RecordingState, RecordingState) -> Void)?
     @Published var isModelLoaded = false
     @Published var loadedLocalModel: WhisperModel?
     @Published var currentTranscriptionModel: (any TranscriptionModel)?

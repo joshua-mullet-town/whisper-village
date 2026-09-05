@@ -133,27 +133,29 @@ class PresenterClaimServer {
             // Paint the recorder gold — this one is going to a steward, not the cursor.
             whisperState.deliveringToSteward = deliverTo
 
-            // Ride the hotkey's own path: post the notification rather than
-            // calling toggleMiniRecorder() directly. The observer wraps the call
-            // in its own un-awaited Task, so it returns immediately; awaiting the
-            // method here instead pinned the main actor for the whole recording
-            // and deadlocked every other request.
-            NotificationCenter.default.post(name: .toggleMiniRecorder, object: nil)
-
-            // Be TOLD when recording actually starts rather than polling for it.
-            // Polling was what deadlocked this: repeatedly hopping onto the main
-            // actor contended with the recorder coming up. This callback fires
-            // from recordingState's didSet, so it cannot run too early either.
-            // Be TOLD when recording actually starts, rather than polling for it.
-            // The watch lives OUTSIDE WhisperState on purpose — registering a
-            // callback on that @MainActor class deadlocked the app even with an
-            // empty body (bisect-confirmed). This box is actor-free.
+            // Arm the watch BEFORE the recorder can start, so a fast transition
+            // can't be missed. The watch is actor-free, so this is cheap here.
             RecordingStateWatch.shared.onNextRecordingStart { [weak self] in
                 Task.detached {
                     await self?.stopOnSilenceThenDeliver(deliverTo: deliverTo,
                                                          silenceMs: silenceMs,
                                                          maxMs: maxMs)
                 }
+            }
+
+            // Post the notification from OFF the main actor. This is the whole
+            // bug, and it is subtle: NotificationCenter.post is SYNCHRONOUS, so
+            // posting from inside this @MainActor task runs the observer inline,
+            // inside our still-executing task. The observer's own
+            // `Task { await toggleMiniRecorder() }` then inherits this actor and
+            // queues BEHIND us — so the recorder can never start, and the main
+            // actor is pinned forever.
+            //
+            // The hotkey works precisely because it posts from a Carbon handler
+            // with no enclosing task, so the observer's inner Task is scheduled
+            // independently. Detaching here reproduces that condition.
+            Task.detached {
+                NotificationCenter.default.post(name: .toggleMiniRecorder, object: nil)
             }
         }
     }

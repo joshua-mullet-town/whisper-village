@@ -81,11 +81,180 @@ class PresenterClaimServer {
                 } else {
                     self.sendResponse(connection: connection, status: 400, body: "{\"error\":\"No body\"}")
                 }
+            } else if request.hasPrefix("POST /start") || request.hasPrefix("GET /start") {
+                let bodyString = request.range(of: "\r\n\r\n").map { String(request[$0.upperBound...]) } ?? ""
+                self.handleStart(bodyString: bodyString, connection: connection)
             } else if request.hasPrefix("GET /health") {
                 self.sendResponse(connection: connection, status: 200, body: "{\"ok\":true}")
             } else {
                 self.sendResponse(connection: connection, status: 404, body: "{\"error\":\"Not found\"}")
             }
+        }
+    }
+
+    // MARK: - Voice-triggered dictation ("Hey Alfred")
+    //
+    // POST /start { "deliverTo": "holler-alfred", "silenceMs": 1800, "maxMs": 30000 }
+    //
+    // Opens the normal mini recorder — the same one the hotkey opens, with the
+    // same start sound — then stops on its own once you stop talking, and sends
+    // the transcript to a steward instead of pasting it at the cursor.
+    //
+    // Stopping is hands-free by design: you can't press a key from across the
+    // room. We watch the live audio meter and end the message after a pause,
+    // which is why `silenceMs` is tunable rather than hard-coded.
+
+    private func handleStart(bodyString: String, connection: NWConnection) {
+        let json = (try? JSONSerialization.jsonObject(
+            with: Data(bodyString.utf8))) as? [String: Any] ?? [:]
+
+        let deliverTo = json["deliverTo"] as? String ?? "holler-alfred"
+        let silenceMs = json["silenceMs"] as? Int ?? 1800
+        let maxMs = json["maxMs"] as? Int ?? 30000
+
+        Task { @MainActor in
+            guard let whisperState = self.whisperState else {
+                self.sendResponse(connection: connection, status: 503,
+                                  body: "{\"error\":\"not ready\"}")
+                return
+            }
+            guard whisperState.recordingState != .recording else {
+                // Already recording (hotkey, or a second wake fired). Don't
+                // hijack a dictation the user started themselves.
+                self.sendResponse(connection: connection, status: 409,
+                                  body: "{\"error\":\"already recording\"}")
+                return
+            }
+
+            self.logger.notice("Voice-triggered dictation starting, will deliver to \(deliverTo)")
+            self.sendResponse(connection: connection, status: 200,
+                              body: "{\"started\":true,\"deliverTo\":\"\(deliverTo)\"}")
+
+            // Same entry point the hotkey uses — same window, same start sound.
+            await whisperState.toggleMiniRecorder()
+
+            await self.stopOnSilenceThenDeliver(deliverTo: deliverTo,
+                                                silenceMs: silenceMs,
+                                                maxMs: maxMs)
+        }
+    }
+
+    /// Wait for the speaker to finish, then stop and hand the text off.
+    @MainActor
+    private func stopOnSilenceThenDeliver(deliverTo: String, silenceMs: Int, maxMs: Int) async {
+        guard let whisperState = whisperState else { return }
+
+        let tick = 100                     // how often we look at the meter
+        let speechLevel = 0.14             // above this counts as "still talking"
+        let graceMs = 900                  // don't end before they've begun
+
+        var elapsed = 0
+        var quietFor = 0
+        var heardSpeech = false
+
+        while elapsed < maxMs {
+            try? await Task.sleep(nanoseconds: UInt64(tick) * 1_000_000)
+            elapsed += tick
+
+            // User stopped it themselves (hotkey / cancel) — leave it alone.
+            if whisperState.recordingState != .recording {
+                logger.notice("Recording ended by the user; not delivering")
+                return
+            }
+
+            let level = whisperState.streamingRecorder.audioMeter.averagePower
+            if level > speechLevel {
+                heardSpeech = true
+                quietFor = 0
+            } else {
+                quietFor += tick
+            }
+
+            if heardSpeech && quietFor >= silenceMs { break }
+            if !heardSpeech && elapsed > graceMs + silenceMs { break }
+        }
+
+        guard heardSpeech else {
+            // Nothing was said — discard rather than send an empty message.
+            logger.notice("No speech heard; discarding")
+            await whisperState.stopStreamingTranscription()
+            _ = await whisperState.streamingRecorder.stopRecording()
+            await whisperState.recorder.stopRecording()
+            await whisperState.dismissMiniRecorder()
+            return
+        }
+
+        let interim = whisperState.interimTranscription
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        await whisperState.stopStreamingTranscription()
+        let samples = await whisperState.streamingRecorder.getCurrentSamples()
+        _ = await whisperState.streamingRecorder.stopRecording()
+        await whisperState.recorder.stopRecording()
+
+        var text = ""
+        if samples.count > 16000, let transcribed =
+            await whisperState.transcribeCapturedSamples(samples) {
+            text = transcribed.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if text.isEmpty { text = interim }
+
+        await whisperState.dismissMiniRecorder()
+
+        guard !text.isEmpty else {
+            logger.notice("Nothing transcribed; nothing sent")
+            return
+        }
+
+        LastTranscriptionService.shared.store(text)
+        if let container = self.modelContainer {
+            let context = container.mainContext
+            context.insert(Transcription(text: text, duration: 0,
+                                         transcriptionModelName: "Voice → \(deliverTo)"))
+            try? context.save()
+        }
+
+        await deliverToSteward(session: deliverTo, text: text)
+    }
+
+    /// Hand the spoken message to a steward through the Homestead queue.
+    private func deliverToSteward(session: String, text: String) async {
+        guard let url = URL(string: "http://localhost:3005/api/queue") else { return }
+
+        let envelope: [String: Any] = [
+            "type": "action",
+            "from": "hey-alfred-device",
+            "instruction": "Joshua spoke this out loud to the listening device in the room. "
+                + "Treat it as a direct message from him and act on it.\n\nHe said: \"\(text)\"",
+            "spoken_text": text,
+            "source": "hey-alfred-room-device",
+        ]
+        guard let envelopeData = try? JSONSerialization.data(withJSONObject: envelope),
+              let envelopeString = String(data: envelopeData, encoding: .utf8) else { return }
+
+        let payload: [String: Any] = [
+            "target_session": session,
+            "message_override": envelopeString,
+            "type": "action",
+        ]
+        guard let body = try? JSONSerialization.data(withJSONObject: payload) else { return }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = body
+
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            if (200..<300).contains(code) {
+                logger.notice("Delivered to \(session): \(text.prefix(50))...")
+                SoundManager.shared.playStopSound()
+            } else {
+                logger.error("Delivery to \(session) failed: HTTP \(code)")
+            }
+        } catch {
+            logger.error("Delivery to \(session) failed: \(error.localizedDescription)")
         }
     }
 

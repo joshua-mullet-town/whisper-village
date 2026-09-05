@@ -394,14 +394,21 @@ struct NotchRecorderView: View {
                 shimmerPhase = 0
             }
         } else {
-            // Recording state (or normal show): full orange/red gradient with animated highlight
+            // Recording state (or normal show): full orange/red gradient with animated highlight.
+            // When the words are bound for a steward instead of the cursor, go gold
+            // so it's unmistakable at a glance where this one is headed.
             ZStack {
                 // Base gradient - constant
                 LinearGradient(
-                    colors: [
-                        Color(red: 0.9, green: 0.4, blue: 0.1).opacity(0.8),
-                        Color(red: 0.8, green: 0.2, blue: 0.1).opacity(0.9)
-                    ],
+                    colors: whisperState.deliveringToSteward != nil
+                        ? [
+                            Color(red: 0.95, green: 0.75, blue: 0.15).opacity(0.85),
+                            Color(red: 0.75, green: 0.55, blue: 0.05).opacity(0.92)
+                        ]
+                        : [
+                            Color(red: 0.9, green: 0.4, blue: 0.1).opacity(0.8),
+                            Color(red: 0.8, green: 0.2, blue: 0.1).opacity(0.9)
+                        ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )

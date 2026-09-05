@@ -120,6 +120,11 @@ class WhisperState: NSObject, ObservableObject {
     /// Current live preview - shows the FULL transcription (preview = final)
     @Published var interimTranscription: String = ""
 
+    /// Non-nil while this recording is bound for a steward (e.g. "Hey Alfred")
+    /// rather than the cursor. The recorder paints gold instead of orange so
+    /// it's obvious at a glance where the words are about to go.
+    @Published var deliveringToSteward: String? = nil
+
     /// Debug log entries for the current recording session (never cleared until new recording starts)
     @Published var debugLog: [DebugLogEntry] = []
 

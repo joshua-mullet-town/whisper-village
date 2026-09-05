@@ -130,6 +130,9 @@ class PresenterClaimServer {
             self.sendResponse(connection: connection, status: 200,
                               body: "{\"started\":true,\"deliverTo\":\"\(deliverTo)\"}")
 
+            // Paint the recorder gold — this one is going to a steward, not the cursor.
+            whisperState.deliveringToSteward = deliverTo
+
             // Same entry point the hotkey uses — same window, same start sound.
             await whisperState.toggleMiniRecorder()
 

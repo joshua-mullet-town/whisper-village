@@ -43,6 +43,10 @@ extension WhisperState {
             return
         }
 
+        // Clear the steward routing here rather than at each call site, so the
+        // recorder can never get stuck gold no matter how the recording ended.
+        deliveringToSteward = nil
+
         let wasRecording = recordingState == .recording
         let wasPaused = recordingState == .paused
 

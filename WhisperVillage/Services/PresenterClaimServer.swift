@@ -136,9 +136,15 @@ class PresenterClaimServer {
             // Same entry point the hotkey uses — same window, same start sound.
             await whisperState.toggleMiniRecorder()
 
-            await self.stopOnSilenceThenDeliver(deliverTo: deliverTo,
-                                                silenceMs: silenceMs,
-                                                maxMs: maxMs)
+            // Detached on purpose: called from a @MainActor task, this would
+            // otherwise INHERIT the main actor and hold it for the whole wait,
+            // which deadlocks every other request (and the UI) until the
+            // recording ends.
+            Task.detached { [weak self] in
+                await self?.stopOnSilenceThenDeliver(deliverTo: deliverTo,
+                                                     silenceMs: silenceMs,
+                                                     maxMs: maxMs)
+            }
         }
     }
 

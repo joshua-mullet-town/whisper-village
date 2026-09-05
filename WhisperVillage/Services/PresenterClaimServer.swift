@@ -140,14 +140,18 @@ class PresenterClaimServer {
             // and deadlocked every other request.
             NotificationCenter.default.post(name: .toggleMiniRecorder, object: nil)
 
-            // Detached on purpose: called from a @MainActor task, this would
-            // otherwise INHERIT the main actor and hold it for the whole wait,
-            // which deadlocks every other request (and the UI) until the
-            // recording ends.
-            Task.detached { [weak self] in
-                await self?.stopOnSilenceThenDeliver(deliverTo: deliverTo,
-                                                     silenceMs: silenceMs,
-                                                     maxMs: maxMs)
+            // Be TOLD when recording actually starts rather than polling for it.
+            // Polling was what deadlocked this: repeatedly hopping onto the main
+            // actor contended with the recorder coming up. This callback fires
+            // from recordingState's didSet, so it cannot run too early either.
+            whisperState.onRecordingStateChange = { [weak self, weak whisperState] _, new in
+                guard new == .recording else { return }
+                whisperState?.onRecordingStateChange = nil   // one-shot
+                Task.detached {
+                    await self?.stopOnSilenceThenDeliver(deliverTo: deliverTo,
+                                                         silenceMs: silenceMs,
+                                                         maxMs: maxMs)
+                }
             }
         }
     }
@@ -163,27 +167,9 @@ class PresenterClaimServer {
         let speechLevel = 0.14             // above this counts as "still talking"
         let graceMs = 3000                 // give them a moment to start talking
 
-        // The recorder is started via a notification, so it comes up a moment
-        // after we're asked to watch it. Wait for it to actually be recording
-        // before we start judging silence — otherwise we'd see "not recording"
-        // on the first tick and bail out as if the user had cancelled.
-        var waitedToStart = 0
-        while waitedToStart < 4000 {
-            let isRecording = await MainActor.run {
-                self.whisperState?.recordingState == .recording
-            }
-            if isRecording { break }
-            try? await Task.sleep(nanoseconds: 100 * 1_000_000)
-            waitedToStart += 100
-        }
-        let didStart = await MainActor.run {
-            self.whisperState?.recordingState == .recording
-        }
-        guard didStart else {
-            logger.notice("Recorder never started; nothing to deliver")
-            return
-        }
-
+        // No wait-for-start loop here on purpose: this only runs once the
+        // recorder has ALREADY reported it started, so there is nothing to
+        // wait for and nothing to poll.
         var elapsed = 0
         var quietFor = 0
         var heardSpeech = false

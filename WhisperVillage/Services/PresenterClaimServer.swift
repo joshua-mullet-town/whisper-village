@@ -143,13 +143,15 @@ class PresenterClaimServer {
     }
 
     /// Wait for the speaker to finish, then stop and hand the text off.
-    @MainActor
+    ///
+    /// Deliberately NOT @MainActor as a whole: this waits for up to `maxMs`, and
+    /// holding the main actor that long would stall every other request (and the
+    /// UI). It hops onto the main actor only for the instant it takes to read
+    /// state, then gets off again.
     private func stopOnSilenceThenDeliver(deliverTo: String, silenceMs: Int, maxMs: Int) async {
-        guard let whisperState = whisperState else { return }
-
         let tick = 100                     // how often we look at the meter
         let speechLevel = 0.14             // above this counts as "still talking"
-        let graceMs = 900                  // don't end before they've begun
+        let graceMs = 3000                 // give them a moment to start talking
 
         var elapsed = 0
         var quietFor = 0
@@ -159,14 +161,21 @@ class PresenterClaimServer {
             try? await Task.sleep(nanoseconds: UInt64(tick) * 1_000_000)
             elapsed += tick
 
+            // One quick hop onto the main actor to read state, then straight off.
+            let snapshot: (stillRecording: Bool, level: Double)? = await MainActor.run {
+                guard let ws = self.whisperState else { return nil }
+                return (ws.recordingState == .recording,
+                        ws.streamingRecorder.audioMeter.averagePower)
+            }
+            guard let snapshot else { return }
+
             // User stopped it themselves (hotkey / cancel) — leave it alone.
-            if whisperState.recordingState != .recording {
+            if !snapshot.stillRecording {
                 logger.notice("Recording ended by the user; not delivering")
                 return
             }
 
-            let level = whisperState.streamingRecorder.audioMeter.averagePower
-            if level > speechLevel {
+            if snapshot.level > speechLevel {
                 heardSpeech = true
                 quietFor = 0
             } else {
@@ -174,8 +183,15 @@ class PresenterClaimServer {
             }
 
             if heardSpeech && quietFor >= silenceMs { break }
-            if !heardSpeech && elapsed > graceMs + silenceMs { break }
+            if !heardSpeech && elapsed > graceMs { break }
         }
+
+        await finishAndDeliver(deliverTo: deliverTo, heardSpeech: heardSpeech)
+    }
+
+    @MainActor
+    private func finishAndDeliver(deliverTo: String, heardSpeech: Bool) async {
+        guard let whisperState = whisperState else { return }
 
         guard heardSpeech else {
             // Nothing was said — discard rather than send an empty message.

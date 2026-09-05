@@ -133,8 +133,12 @@ class PresenterClaimServer {
             // Paint the recorder gold — this one is going to a steward, not the cursor.
             whisperState.deliveringToSteward = deliverTo
 
-            // Same entry point the hotkey uses — same window, same start sound.
-            await whisperState.toggleMiniRecorder()
+            // Ride the hotkey's own path: post the notification rather than
+            // calling toggleMiniRecorder() directly. The observer wraps the call
+            // in its own un-awaited Task, so it returns immediately; awaiting the
+            // method here instead pinned the main actor for the whole recording
+            // and deadlocked every other request.
+            NotificationCenter.default.post(name: .toggleMiniRecorder, object: nil)
 
             // Detached on purpose: called from a @MainActor task, this would
             // otherwise INHERIT the main actor and hold it for the whole wait,

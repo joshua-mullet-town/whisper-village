@@ -63,11 +63,13 @@ class CursorPaster {
                 "frontApp": frontApp,
                 "chars": textToPaste.count,
             ])
-            NotificationManager.shared.showNotification(
-                title: "Couldn't type that — accessibility permission is off. Your text is on the clipboard; press Cmd+V.",
-                type: .error,
-                duration: 8.0
-            )
+            DispatchQueue.main.async {
+                NotificationManager.shared.showNotification(
+                    title: "Couldn't type that — accessibility permission is off. Your text is on the clipboard; press Cmd+V.",
+                    type: .error,
+                    duration: 8.0
+                )
+            }
             // Leave the transcript ON the clipboard rather than restoring over it, so a
             // manual paste still recovers the words instead of losing them.
             return
@@ -86,11 +88,13 @@ class CursorPaster {
                 "frontApp": frontApp,
                 "chars": textToPaste.count,
             ])
-            NotificationManager.shared.showNotification(
-                title: "Couldn't type that. Your text is on the clipboard — press Cmd+V.",
-                type: .error,
-                duration: 8.0
-            )
+            DispatchQueue.main.async {
+                NotificationManager.shared.showNotification(
+                    title: "Couldn't type that. Your text is on the clipboard — press Cmd+V.",
+                    type: .error,
+                    duration: 8.0
+                )
+            }
             return
         }
 

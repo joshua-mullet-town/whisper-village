@@ -1,0 +1,1 @@
+/Users/joshuamullet/.homestead/stewards/homestead/workers/whisper-village-silent-paste/env.sh

@@ -36,11 +36,62 @@ class CursorPaster {
 
         pasteboard.clearContents()
         pasteboard.setString(textToPaste, forType: .string)
+        // Remember which clipboard generation is ours, so the restore below can tell
+        // "nothing touched the clipboard" from "something overwrote us mid-paste".
+        let ourChangeCount = pasteboard.changeCount
 
-        if UserDefaults.standard.bool(forKey: "UseAppleScriptPaste") {
-            _ = pasteUsingAppleScript()
+        // Capture the runtime accessibility answer and the target app BEFORE pasting.
+        // AXIsProcessTrusted() can disagree with the stored permission grant after a
+        // re-sign or restart, and both paste paths bail silently when it does.
+        let axTrusted = DictationAuditLog.axTrusted
+        let frontApp = DictationAuditLog.frontmostBundleID
+        let useAppleScript = UserDefaults.standard.bool(forKey: "UseAppleScriptPaste")
+        let method = useAppleScript ? "applescript" : "cgevent"
+
+        DictationAuditLog.shared.logPasteAttempt(
+            textLength: textToPaste.count,
+            method: method,
+            axTrusted: axTrusted,
+            frontmostBundleID: frontApp
+        )
+
+        // The silent-failure guard, made loud. Both paste paths used to `return` here
+        // with no log and no user-visible signal, so the transcript simply evaporated.
+        guard axTrusted else {
+            DictationAuditLog.shared.log("PASTE_BLOCKED", [
+                "reason": "accessibility-not-trusted",
+                "frontApp": frontApp,
+                "chars": textToPaste.count,
+            ])
+            NotificationManager.shared.showNotification(
+                title: "Couldn't type that — accessibility permission is off. Your text is on the clipboard; press Cmd+V.",
+                type: .error,
+                duration: 8.0
+            )
+            // Leave the transcript ON the clipboard rather than restoring over it, so a
+            // manual paste still recovers the words instead of losing them.
+            return
+        }
+
+        var pasteDispatched = false
+        if useAppleScript {
+            pasteDispatched = pasteUsingAppleScript()
         } else {
-            pasteUsingCommandV()
+            pasteDispatched = pasteUsingCommandV()
+        }
+
+        if !pasteDispatched {
+            DictationAuditLog.shared.log("PASTE_DISPATCH_FAILED", [
+                "method": method,
+                "frontApp": frontApp,
+                "chars": textToPaste.count,
+            ])
+            NotificationManager.shared.showNotification(
+                title: "Couldn't type that. Your text is on the clipboard — press Cmd+V.",
+                type: .error,
+                duration: 8.0
+            )
+            return
         }
 
         // DIAGNOSTIC: Check if we can read focused element via AX API (for future polling approach)
@@ -49,6 +100,19 @@ class CursorPaster {
         // Only restore clipboard if preserve setting is disabled
         if !preserveTranscript {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                // Record whether our transcript was still on the clipboard when the
+                // restore fired. If a slow app hadn't consumed it yet this is where the
+                // text would be destroyed, so the audit log has to capture it.
+                let stillOurs = pasteboard.changeCount == ourChangeCount
+                let clipboardNow = pasteboard.string(forType: .string) ?? ""
+                let transcriptIntact = clipboardNow == textToPaste
+
+                DictationAuditLog.shared.log("CLIPBOARD_RESTORE", [
+                    "clipboardUnchangedSincePaste": stillOurs,
+                    "transcriptStillOnClipboard": transcriptIntact,
+                    "frontApp": DictationAuditLog.frontmostBundleID,
+                ])
+
                 if !savedContents.isEmpty {
                     pasteboard.clearContents()
                     for (type, data) in savedContents {
@@ -78,26 +142,32 @@ class CursorPaster {
         return false
     }
     
-    private static func pasteUsingCommandV() {
+    /// Returns false if the keystrokes could not be built, so the caller can tell the
+    /// user instead of failing silently.
+    @discardableResult
+    private static func pasteUsingCommandV() -> Bool {
         guard AXIsProcessTrusted() else {
-            return
+            return false
         }
-        
+
         let source = CGEventSource(stateID: .hidSystemState)
-        
-        let cmdDown = CGEvent(keyboardEventSource: source, virtualKey: 0x37, keyDown: true)
-        let vDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true)
-        let vUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)
-        let cmdUp = CGEvent(keyboardEventSource: source, virtualKey: 0x37, keyDown: false)
-        
-        cmdDown?.flags = .maskCommand
-        vDown?.flags = .maskCommand
-        vUp?.flags = .maskCommand
-        
-        cmdDown?.post(tap: .cghidEventTap)
-        vDown?.post(tap: .cghidEventTap)
-        vUp?.post(tap: .cghidEventTap)
-        cmdUp?.post(tap: .cghidEventTap)
+
+        guard let cmdDown = CGEvent(keyboardEventSource: source, virtualKey: 0x37, keyDown: true),
+              let vDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true),
+              let vUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false),
+              let cmdUp = CGEvent(keyboardEventSource: source, virtualKey: 0x37, keyDown: false) else {
+            return false
+        }
+
+        cmdDown.flags = .maskCommand
+        vDown.flags = .maskCommand
+        vUp.flags = .maskCommand
+
+        cmdDown.post(tap: .cghidEventTap)
+        vDown.post(tap: .cghidEventTap)
+        vUp.post(tap: .cghidEventTap)
+        cmdUp.post(tap: .cghidEventTap)
+        return true
     }
 
     // Simulate pressing the Return / Enter key

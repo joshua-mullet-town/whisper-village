@@ -21,11 +21,17 @@ class NotificationManager {
         onTap: (() -> Void)? = nil,
         actionButton: (title: String, action: () -> Void)? = nil
     ) {
-        // Minimal notification — just log it
-        if type == .error {
-            SoundManager.shared.playEscSound()
-        }
         StreamingLogger.shared.log("Notification [\(type)]: \(title)")
+        DictationAuditLog.shared.log("NOTIFY", ["type": "\(type)", "title": title])
+
+        // Errors must be SEEN, not just logged. This used to be log-only, which is
+        // why a dictation could fail with no sound and nothing on screen — the user
+        // had no way to tell a failure from the app never hearing them. Reuse the
+        // existing on-screen toast so a failure is impossible to miss.
+        if type == .error || type == .warning {
+            SoundManager.shared.playEscSound()
+            showPeekToast(text: title, duration: duration)
+        }
     }
 
     @MainActor

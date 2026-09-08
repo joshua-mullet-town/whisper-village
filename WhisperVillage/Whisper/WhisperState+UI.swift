@@ -30,6 +30,14 @@ extension WhisperState {
         } else {
             SoundManager.shared.playStartSound()
 
+            // A recording with no steward destination was started by the user at the
+            // keyboard, so its words belong at the cursor. Marking it here — before
+            // the recorder comes up — is what lets a remote /claim decline to hijack
+            // it instead of silently stealing the transcript.
+            await MainActor.run {
+                isUserInitiatedRecording = (deliveringToSteward == nil)
+            }
+
             await toggleRecord()
 
             await MainActor.run {
@@ -46,6 +54,7 @@ extension WhisperState {
         // Clear the steward routing here rather than at each call site, so the
         // recorder can never get stuck gold no matter how the recording ended.
         deliveringToSteward = nil
+        isUserInitiatedRecording = false
 
         let wasRecording = recordingState == .recording
         let wasPaused = recordingState == .paused

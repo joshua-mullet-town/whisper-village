@@ -129,6 +129,15 @@ class WhisperState: NSObject, ObservableObject {
     /// it's obvious at a glance where the words are about to go.
     @Published var deliveringToSteward: String? = nil
 
+    /// True when THIS recording was started by the user at the keyboard (hotkey or
+    /// menu bar) rather than by a remote trigger.
+    ///
+    /// Guards against the silent-drop bug: a `/claim` arriving mid-dictation used to
+    /// stop the recording out from under the user and route the words to a card, so
+    /// nothing ever reached the cursor and nothing was logged. A user-started
+    /// dictation now belongs to the cursor and cannot be taken over remotely.
+    @Published var isUserInitiatedRecording: Bool = false
+
     /// Debug log entries for the current recording session (never cleared until new recording starts)
     @Published var debugLog: [DebugLogEntry] = []
 
@@ -383,6 +392,27 @@ class WhisperState: NSObject, ObservableObject {
                             CursorPaster.deleteCharacters(count: placeholderLength)
                         }
                         StreamingLogger.shared.log("Deleted placeholder (cancelled/empty)")
+                    }
+
+                    // An empty result on a real recording is a FAILURE, not a no-op.
+                    // This branch used to end the dictation with no paste, no sound and
+                    // no message, which is indistinguishable from never having recorded.
+                    // Tell the user, and record enough to diagnose it afterwards.
+                    if !shouldCancelRecording {
+                        let seconds = Double(capturedSamples.count) / 16000.0
+                        DictationAuditLog.shared.log("TRANSCRIPTION_EMPTY", [
+                            "audioSeconds": seconds,
+                            "samples": capturedSamples.count,
+                            "model": currentTranscriptionModel?.name ?? "none",
+                            "freeDiskMB": DictationAuditLog.freeDiskMB,
+                            "frontApp": DictationAuditLog.frontmostBundleID,
+                        ])
+                        StreamingLogger.shared.log("⚠️ EMPTY TRANSCRIPTION after \(String(format: "%.1f", seconds))s of audio — notifying user")
+                        NotificationManager.shared.showNotification(
+                            title: "Didn't catch that — nothing was transcribed. Your recording was saved.",
+                            type: .error,
+                            duration: 6.0
+                        )
                     }
                     pausedSegments = []  // Clear on cancel too
                     await MainActor.run {

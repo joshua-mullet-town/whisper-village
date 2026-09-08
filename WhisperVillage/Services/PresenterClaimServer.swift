@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import Network
 import SwiftData
 import os
@@ -508,6 +509,15 @@ class PresenterClaimServer {
 
         // Store as last transcription
         LastTranscriptionService.shared.store(text)
+
+        // A claim consumes a recording that may well have been meant for the
+        // cursor — the user dictates, then taps Send, and there is no way here to
+        // tell which they intended. Put the words on the clipboard as well so a
+        // mis-aimed send is a Cmd+V away from being recovered instead of gone.
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+        DictationAuditLog.shared.log("CLAIM_TEXT_TO_CLIPBOARD", ["chars": text.count])
 
         // Save to SwiftData history
         if let container = self.modelContainer {

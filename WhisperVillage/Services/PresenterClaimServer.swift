@@ -377,6 +377,41 @@ class PresenterClaimServer {
 
         Task { @MainActor in
             guard let whisperState = self.whisperState else { return }
+
+            // Cancel used to throw the audio away with no transcription and no
+            // message, so a mis-pressed Alt+C looked exactly like the app silently
+            // failing — and a Send tap straight afterwards reported "nothing
+            // transcribed" because there was nothing left to claim. Salvage the
+            // words first: transcribe what was captured and keep it as the last
+            // transcript (and on the clipboard) so the recording is recoverable.
+            let wasRecording = whisperState.recordingState == .recording
+                || whisperState.recordingState == .paused
+
+            if wasRecording {
+                let samples = await whisperState.streamingRecorder.getCurrentSamples()
+                DictationAuditLog.shared.log("CANCEL_SALVAGE_START", [
+                    "samples": samples.count,
+                    "audioSeconds": Double(samples.count) / 16000.0,
+                ])
+
+                if samples.count > 16000,
+                   let salvaged = await whisperState.transcribeCapturedSamples(samples) {
+                    let text = salvaged.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !text.isEmpty {
+                        LastTranscriptionService.shared.store(text)
+                        let pasteboard = NSPasteboard.general
+                        pasteboard.clearContents()
+                        pasteboard.setString(text, forType: .string)
+                        DictationAuditLog.shared.log("CANCEL_SALVAGED", ["chars": text.count])
+                        NotificationManager.shared.showNotification(
+                            title: "Recording cancelled — your words are on the clipboard (Cmd+V) and ready to send.",
+                            type: .warning,
+                            duration: 6.0
+                        )
+                    }
+                }
+            }
+
             await whisperState.dismissMiniRecorder()
         }
     }
@@ -503,7 +538,16 @@ class PresenterClaimServer {
         }
 
         guard !text.isEmpty else {
+            // The presenter is left waiting with no reason given. Say so on screen:
+            // the usual cause is that the recording was already cancelled or
+            // consumed, which is invisible from the card's side.
             logger.notice("No text to send for claim \(cardId)")
+            DictationAuditLog.shared.log("CLAIM_NOTHING_TO_SEND", ["cardId": cardId])
+            NotificationManager.shared.showNotification(
+                title: "Nothing to send — no recording was waiting. Record again, then tap Send.",
+                type: .error,
+                duration: 6.0
+            )
             return
         }
 

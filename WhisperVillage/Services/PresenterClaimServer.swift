@@ -459,24 +459,15 @@ class PresenterClaimServer {
         var text = ""
 
         if whisperState.recordingState == .recording || whisperState.recordingState == .paused {
-            // A dictation the user started at the keyboard belongs at their cursor.
-            // Claiming it here used to stop the recorder mid-sentence and post the
-            // words to a card instead — the user saw nothing appear and got no error,
-            // which is exactly the silent-drop failure. Decline instead of stealing it.
-            if whisperState.isUserInitiatedRecording {
-                logger.notice("Declining claim \(cardId): user is dictating at their cursor")
-                DictationAuditLog.shared.log("CLAIM_DECLINED", [
-                    "reason": "user-initiated-dictation-in-progress",
-                    "state": "\(whisperState.recordingState)",
-                ])
-                // Answer the card with the last finished transcript rather than
-                // hijacking the live one, so the presenter still gets a response.
-                let previous = LastTranscriptionService.shared.lastText ?? ""
-                if !previous.isEmpty {
-                    await postToPresenter(cardId: cardId, text: previous)
-                }
-                return
-            }
+            // Claims are always a deliberate Send tap in the presenter, so this
+            // legitimately takes over the recording. Record it, though: a claim
+            // consumes a dictation that would otherwise have gone to the cursor,
+            // and that is indistinguishable from a silent drop when reading logs
+            // after the fact.
+            DictationAuditLog.shared.log("CLAIM_TOOK_RECORDING", [
+                "state": "\(whisperState.recordingState)",
+                "userInitiated": whisperState.isUserInitiatedRecording,
+            ])
 
             // Currently recording — stop, transcribe the audio
             logger.notice("Stopping recording for claim \(cardId)")

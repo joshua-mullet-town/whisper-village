@@ -242,3 +242,12 @@ ALWAYS prefer editing existing files over creating new ones.
 - Where do we market? (HN, Reddit r/commandline, X dev community?)
 - What's the tagline? "Voice for the terminal"? "Dictation for developers"?
 - Do we build integrations? (VS Code extension, CLI tool, raycast?)
+
+<!-- creed-reaches-cwd -->
+# Your worker creed (HOW you work — read this first)
+
+The steward creed below is MANDATORY and governs how you operate,
+how you reach Joshua, and how you finish. It is imported here because
+this directory is your cwd; the creed itself lives outside it.
+
+@/Users/joshuamullet/.homestead/stewards/homestead/workers/paste-race-fix/CLAUDE.md

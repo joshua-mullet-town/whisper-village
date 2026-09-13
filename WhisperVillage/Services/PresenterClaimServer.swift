@@ -112,6 +112,12 @@ class PresenterClaimServer {
         let deliverTo = json["deliverTo"] as? String ?? "holler-alfred"
         let silenceMs = json["silenceMs"] as? Int ?? 1800
         let maxMs = json["maxMs"] as? Int ?? 30000
+        // Optional. The wake listener knows how confident it was; this process
+        // never hears the audio, so without these the envelope below would be
+        // asserting provenance it cannot see. Absent = older listener, and the
+        // envelope says so rather than implying certainty.
+        let wakeScore = json["wakeScore"] as? Double
+        let wakeThreshold = json["wakeThreshold"] as? Double
 
         Task { @MainActor in
             guard let whisperState = self.whisperState else {
@@ -140,7 +146,9 @@ class PresenterClaimServer {
                 Task.detached {
                     await self?.stopOnSilenceThenDeliver(deliverTo: deliverTo,
                                                          silenceMs: silenceMs,
-                                                         maxMs: maxMs)
+                                                         maxMs: maxMs,
+                                                         wakeScore: wakeScore,
+                                                         wakeThreshold: wakeThreshold)
                 }
             }
 
@@ -167,7 +175,9 @@ class PresenterClaimServer {
     /// holding the main actor that long would stall every other request (and the
     /// UI). It hops onto the main actor only for the instant it takes to read
     /// state, then gets off again.
-    private func stopOnSilenceThenDeliver(deliverTo: String, silenceMs: Int, maxMs: Int) async {
+    private func stopOnSilenceThenDeliver(deliverTo: String, silenceMs: Int, maxMs: Int,
+                                          wakeScore: Double? = nil,
+                                          wakeThreshold: Double? = nil) async {
         let tick = 100                     // how often we look at the meter
         let speechLevel = 0.14             // above this counts as "still talking"
         let graceMs = 3000                 // give them a moment to start talking
@@ -208,11 +218,14 @@ class PresenterClaimServer {
             if !heardSpeech && elapsed > graceMs { break }
         }
 
-        await finishAndDeliver(deliverTo: deliverTo, heardSpeech: heardSpeech)
+        await finishAndDeliver(deliverTo: deliverTo, heardSpeech: heardSpeech,
+                               wakeScore: wakeScore, wakeThreshold: wakeThreshold)
     }
 
     @MainActor
-    private func finishAndDeliver(deliverTo: String, heardSpeech: Bool) async {
+    private func finishAndDeliver(deliverTo: String, heardSpeech: Bool,
+                                  wakeScore: Double? = nil,
+                                  wakeThreshold: Double? = nil) async {
         guard let whisperState = whisperState else { return }
 
         guard heardSpeech else {
@@ -255,11 +268,14 @@ class PresenterClaimServer {
             try? context.save()
         }
 
-        await deliverToSteward(session: deliverTo, text: text)
+        await deliverToSteward(session: deliverTo, text: text,
+                               wakeScore: wakeScore, wakeThreshold: wakeThreshold)
     }
 
     /// Hand the spoken message to a steward through the Homestead queue.
-    private func deliverToSteward(session: String, text: String) async {
+    private func deliverToSteward(session: String, text: String,
+                                  wakeScore: Double? = nil,
+                                  wakeThreshold: Double? = nil) async {
         guard let url = URL(string: "http://localhost:3005/api/queue") else { return }
 
         // The reply instructions ride along in the message itself, so any steward
@@ -268,11 +284,38 @@ class PresenterClaimServer {
         let speakTool = "\(NSHomeDirectory())/.homestead/stewards/mcgucket/workers/"
             + "hey-alfred/listener/speak.mjs"
 
-        let instruction = """
-        Joshua spoke this out loud to the listening device in the room. Treat it as a \
-        direct message from him and act on it.
+        // What the device actually knows, stated as what it is. The wake model's
+        // confidence is the ONLY provenance signal in this pipeline, and it is a
+        // signal about the PHRASE, not the SPEAKER -- a television can score 0.95.
+        // Handing the reader a raw number plus the threshold in force lets them
+        // weigh it; a pre-thresholded boolean would just relocate this judgement
+        // into a field and hand back an assertion to trust. (2026-09-12: the
+        // device delivered 40s of televised sports commentary wrapped in the old
+        // unqualified "Joshua spoke this" line.)
+        let provenance: String
+        if let score = wakeScore {
+            let bar = wakeThreshold.map { String(format: "%.2f", $0) } ?? "unknown"
+            provenance = String(format: """
+            HOW THIS REACHED YOU: the wake phrase scored %.3f (fires at %@). That is the \
+            wake model's confidence that it heard the PHRASE -- it is NOT evidence about \
+            WHO spoke, and a television or a passing conversation can score high. Weigh \
+            it as one signal and judge the content on its own terms. If it does not read \
+            like Joshua addressing you, it probably is not.
+            """, score, bar)
+        } else {
+            provenance = """
+            HOW THIS REACHED YOU: the listening device fired on its wake phrase. No \
+            confidence score accompanied this capture, so there is NOTHING here telling \
+            you whether Joshua spoke it -- judge that from the content alone.
+            """
+        }
 
-        He said: "\(text)"
+        let instruction = """
+        The listening device in the room captured this and routed it to you.
+
+        \(provenance)
+
+        It said: "\(text)"
 
         HOW TO REPLY — OUT LOUD, NOT WITH A CARD. He is across the room and is not \
         looking at a screen, so a card is invisible to him. Do NOT send him a card for \
@@ -297,7 +340,7 @@ class PresenterClaimServer {
         do the thing, say it is done, stop.
         """
 
-        let envelope: [String: Any] = [
+        var envelope: [String: Any] = [
             "type": "action",
             "from": "hey-alfred-device",
             "instruction": instruction,
@@ -306,6 +349,13 @@ class PresenterClaimServer {
             "reply_with": "voice",
             "speak_tool": speakTool,
         ]
+        // Raw, unthresholded, and named for what it measures. Deliberately NOT
+        // a "wake_confident" boolean: that would bury the 0.5 call in a field
+        // and give the reader an assertion instead of a number.
+        if let score = wakeScore { envelope["wake_score"] = score }
+        if let bar = wakeThreshold { envelope["wake_threshold"] = bar }
+        envelope["wake_score_measures"] =
+            "confidence the WAKE PHRASE was heard; NOT evidence of who spoke"
         guard let envelopeData = try? JSONSerialization.data(withJSONObject: envelope),
               let envelopeString = String(data: envelopeData, encoding: .utf8) else { return }
 

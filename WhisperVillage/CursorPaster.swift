@@ -110,7 +110,11 @@ class CursorPaster {
                 "frontApp": frontApp,
                 "chars": textToPaste.count,
             ])
-            notifyPasteFailed("Couldn't type that — accessibility permission is off. Your text is on the clipboard; press Cmd+V.")
+            // Josh's ask: don't just say it's broken, take him to the fix. The toast
+            // can't render a button, so we open the exact Settings pane ourselves and
+            // say so — one less thing for him to go hunting for.
+            notifyPasteFailed("Accessibility is off, so I can't type for you. Your text is on the clipboard — press Cmd+V. I've opened Settings; switch Whisper Village ON there (remove it first if it's already listed).")
+            openAccessibilitySettings()
             // Leave the transcript ON the clipboard rather than restoring over it, so a
             // manual paste still recovers the words instead of losing them.
             return
@@ -303,6 +307,22 @@ class CursorPaster {
                 type: .error,
                 duration: 8.0
             )
+        }
+    }
+
+    /// Opens the Accessibility pane of System Settings, so a permission failure comes
+    /// with the fix attached instead of leaving the user to find it.
+    ///
+    /// Rate-limited: a burst of failed pastes must not open Settings over and over.
+    private static var lastSettingsOpen: Date?
+    private static func openAccessibilitySettings() {
+        let now = Date()
+        if let last = lastSettingsOpen, now.timeIntervalSince(last) < 60 { return }
+        lastSettingsOpen = now
+
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else { return }
+        DispatchQueue.main.async {
+            NSWorkspace.shared.open(url)
         }
     }
 

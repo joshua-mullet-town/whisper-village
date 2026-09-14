@@ -310,19 +310,34 @@ class CursorPaster {
         }
     }
 
-    /// Opens the Accessibility pane of System Settings, so a permission failure comes
-    /// with the fix attached instead of leaving the user to find it.
+    /// Asks macOS for accessibility permission and, failing that, opens the exact
+    /// Settings pane — so a permission failure comes with the fix attached instead of
+    /// leaving the user to find it.
     ///
-    /// Rate-limited: a burst of failed pastes must not open Settings over and over.
-    private static var lastSettingsOpen: Date?
+    /// The prompt matters: the app previously never asked. The only call to
+    /// AXIsProcessTrustedWithOptions passed nil (prompt suppressed) and lived in
+    /// PasteEligibilityService, which nothing calls — so the app could fail forever
+    /// without macOS ever offering the one-click grant. Passing the prompt option
+    /// makes the system show its own "Open System Settings" dialog, which also
+    /// registers the app in the Accessibility list so there is a row to switch on.
+    ///
+    /// Rate-limited: a burst of failed pastes must not stack prompts or reopen
+    /// Settings over and over.
+    private static var lastPermissionPrompt: Date?
     private static func openAccessibilitySettings() {
         let now = Date()
-        if let last = lastSettingsOpen, now.timeIntervalSince(last) < 60 { return }
-        lastSettingsOpen = now
+        if let last = lastPermissionPrompt, now.timeIntervalSince(last) < 60 { return }
+        lastPermissionPrompt = now
 
-        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else { return }
         DispatchQueue.main.async {
-            NSWorkspace.shared.open(url)
+            // Ask the system first — this is the one-click path for the user.
+            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+            if AXIsProcessTrustedWithOptions(options) { return }
+
+            // Also open the pane directly, so the row is in front of them either way.
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                NSWorkspace.shared.open(url)
+            }
         }
     }
 

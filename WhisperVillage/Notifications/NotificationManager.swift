@@ -42,6 +42,42 @@ class NotificationManager {
     // MARK: - Peek Toast (for transcription previews)
 
     private var peekWindow: NSPanel?
+    private var peekCloseObserver: NSObjectProtocol?
+
+    /// True while the peek toast is on screen. Read by GET /status so the
+    /// Homestead presenter can VERIFY the peek's state rather than guess at it.
+    @MainActor
+    var isPeekVisible: Bool { peekWindow != nil }
+
+    /// Tell the Homestead presenter whether a peek is on screen RIGHT NOW.
+    ///
+    /// The presenter floats above full-screen apps so it can cover full-screen
+    /// Chrome; that also puts it above this panel, which is why Josh could not
+    /// see his Option+P preview. It drops out of the way while a peek is up,
+    /// but only if we tell it — it cannot infer the peek's lifetime, because
+    /// hover-pause keeps the toast up with no upper bound.
+    ///
+    /// Deliberately LEVEL-triggered, not an open/close edge. During a
+    /// peek-replaces-peek the old window's close fires while the replacement is
+    /// still being built, so an edge could say "closed" with a peek going up.
+    /// Sending the current state makes that harmless: whichever message lands
+    /// last describes reality.
+    ///
+    /// Fire-and-forget. The presenter is often not running, and per the caution
+    /// in PresenterClaimServer (a synchronous NotificationCenter.post once
+    /// pinned the main actor) this must never block — dataTask().resume()
+    /// returns immediately and does its work off-actor.
+    @MainActor
+    private func notifyPresenterPeekState() {
+        let visible = (peekWindow != nil)
+        guard let url = URL(string: "http://127.0.0.1:3847/wv-peek") else { return }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = "{\"visible\":\(visible)}".data(using: .utf8)
+        req.timeoutInterval = 1
+        URLSession.shared.dataTask(with: req).resume()
+    }
 
     @MainActor
     func showPeekToast(
@@ -87,11 +123,50 @@ class NotificationManager {
 
         self.peekWindow = panel
 
+        // Observe THIS panel's own close. willCloseNotification covers every
+        // close path — dismissPeekToast's fade completion handler, the X
+        // button, the countdown, and the direct `existingWindow.close()`
+        // replace above, which never routes through dismissPeekToast at all.
+        // Instrumenting call sites cannot cover that last one.
+        //
+        // `object: panel` scopes it to this instance so a superseded window's
+        // close cannot speak for a live one. The panel is released when closed
+        // (isReleasedWhenClosed defaults true), so the observer must not
+        // outlive it — we remove the token inside the handler.
+        if let old = peekCloseObserver {
+            NotificationCenter.default.removeObserver(old)
+            peekCloseObserver = nil
+        }
+        weak var thisPanel = panel
+        peekCloseObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: panel,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            // Ignore a close belonging to a panel that has already been
+            // superseded: during a replace this fires for the OLD window while
+            // peekWindow may already point at the NEW one.
+            guard self.peekWindow == nil || self.peekWindow === thisPanel else { return }
+            if self.peekWindow === thisPanel { self.peekWindow = nil }
+            if let tok = self.peekCloseObserver {
+                NotificationCenter.default.removeObserver(tok)
+                self.peekCloseObserver = nil
+            }
+            self.notifyPresenterPeekState()
+        }
+
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.25
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             panel.animator().alphaValue = 1
         })
+
+        // peekWindow is set, so this sends visible:true. If the replace above
+        // emitted a false for the superseded window, this immediately corrects
+        // it — and because the notify is level-triggered, the last word is
+        // always the truth.
+        notifyPresenterPeekState()
     }
 
     @MainActor

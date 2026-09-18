@@ -417,7 +417,11 @@ class PresenterClaimServer {
         Task { @MainActor in
             let isRecording = self.whisperState?.recordingState == .recording || self.whisperState?.recordingState == .paused
             let hasTranscript = !(LastTranscriptionService.shared.lastText ?? "").isEmpty
-            self.sendResponse(connection: connection, status: 200, body: "{\"ok\":true,\"recording\":\(isRecording),\"hasTranscript\":\(hasTranscript)}")
+            // peekVisible lets the Homestead presenter verify whether the peek
+            // toast is actually on screen. It must not infer that from a timer:
+            // hover-pause keeps the toast up with no upper bound.
+            let peekVisible = NotificationManager.shared.isPeekVisible
+            self.sendResponse(connection: connection, status: 200, body: "{\"ok\":true,\"recording\":\(isRecording),\"hasTranscript\":\(hasTranscript),\"peekVisible\":\(peekVisible)}")
         }
     }
 

@@ -231,6 +231,7 @@ class PresenterClaimServer {
         guard heardSpeech else {
             // Nothing was said — discard rather than send an empty message.
             logger.notice("No speech heard; discarding")
+            playRoomCue("didnt-catch")
             await whisperState.stopStreamingTranscription()
             _ = await whisperState.streamingRecorder.stopRecording()
             await whisperState.recorder.stopRecording()
@@ -257,6 +258,7 @@ class PresenterClaimServer {
 
         guard !text.isEmpty else {
             logger.notice("Nothing transcribed; nothing sent")
+            playRoomCue("didnt-catch")
             return
         }
 
@@ -281,8 +283,7 @@ class PresenterClaimServer {
         // The reply instructions ride along in the message itself, so any steward
         // reached this way knows to answer out loud rather than with a card --
         // Joshua is across the room, not looking at a screen.
-        let speakTool = "\(NSHomeDirectory())/.homestead/stewards/mcgucket/workers/"
-            + "hey-alfred/listener/speak.mjs"
+        let speakTool = "\(Self.roomDeviceDir)/speak.mjs"
 
         // What the device actually knows, stated as what it is. The wake model's
         // confidence is the ONLY provenance signal in this pipeline, and it is a
@@ -354,6 +355,14 @@ class PresenterClaimServer {
         // and give the reader an assertion instead of a number.
         if let score = wakeScore { envelope["wake_score"] = score }
         if let bar = wakeThreshold { envelope["wake_threshold"] = bar }
+        // LOAD-BEARING COPY -- DO NOT REMOVE OR SOFTEN THIS STRING.
+        // Field-confirmed 2026-09-19: a college-football broadcast tripped the
+        // wake word three times in 90 minutes (0.640/0.672/0.694). Alfred read
+        // this sentence and stayed silent every time. He reported that without
+        // it he would have read 0.69 as "probably Josh, slightly garbled" and
+        // answered the television. The number alone reads as provenance; the
+        // sentence is what makes it a measurement. They must travel together.
+        // Detail: ~/.homestead/stewards/mcgucket/research/hey-alfred-false-wake-tv.md
         envelope["wake_score_measures"] =
             "confidence the WAKE PHRASE was heard; NOT evidence of who spoke"
         guard let envelopeData = try? JSONSerialization.data(withJSONObject: envelope),
@@ -376,13 +385,43 @@ class PresenterClaimServer {
             let code = (response as? HTTPURLResponse)?.statusCode ?? 0
             if (200..<300).contains(code) {
                 logger.notice("Delivered to \(session): \(text.prefix(50))...")
-                SoundManager.shared.playStopSound()
+                playRoomCue("got-it")
             } else {
                 logger.error("Delivery to \(session) failed: HTTP \(code)")
+                playRoomCue("didnt-catch")
             }
         } catch {
             logger.error("Delivery to \(session) failed: \(error.localizedDescription)")
+            playRoomCue("didnt-catch")
         }
+    }
+
+    /// Where the room device lives. Permanent home -- NOT a worker directory,
+    /// which gets deleted when the worker that built it is torn down.
+    static let roomDeviceDir =
+        "\(NSHomeDirectory())/.homestead/stewards/mcgucket/devices/hey-alfred"
+
+    /// Tell the room what just happened, since nobody there is looking at a screen.
+    ///
+    ///   got-it       rising  -- heard you, it's on its way to Alfred
+    ///   didnt-catch  falling -- heard nothing usable, nobody is going to answer
+    ///
+    /// Before these, a discarded capture was SILENT: the device looked fine and
+    /// Alfred just never answered, so Joshua could not tell "dropped" from
+    /// "Alfred is thinking". Every voice-triggered capture now ends in exactly
+    /// one of the two. The files live with the device so they can be swapped
+    /// without rebuilding this app; missing file = no sound, never an error.
+    private func playRoomCue(_ name: String) {
+        let path = "\(Self.roomDeviceDir)/sounds/\(name).wav"
+        guard FileManager.default.fileExists(atPath: path) else {
+            logger.error("Room cue missing: \(path)")
+            return
+        }
+        logger.notice("Room cue: \(name)")
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/afplay")
+        p.arguments = [path]
+        try? p.run()
     }
 
     private func handlePeek(connection: NWConnection) {

@@ -60,7 +60,17 @@ class PresenterClaimServer {
 
             let request = String(data: data, encoding: .utf8) ?? ""
 
-            // Handle CORS preflight for all endpoints
+            // Websites open in a browser on this Mac arrive as loopback, which
+            // PeerGate admits. Only the presenter's origin may drive us.
+            let verdict = BrowserOriginGate.decide(request)
+            if !verdict.ok {
+                self.recordOriginBlock(request: request, reason: verdict.reason)
+                self.sendResponse(connection: connection, status: 403, body: "{\"error\":\"cross-origin request refused\"}")
+                return
+            }
+            self.setAllowedOrigin(verdict.allowOrigin, for: connection)
+
+            // Handle CORS preflight for all endpoints (allowed origins only, above)
             if request.hasPrefix("OPTIONS ") {
                 self.sendResponse(connection: connection, status: 200, body: "{\"ok\":true}")
                 return
@@ -698,26 +708,61 @@ class PresenterClaimServer {
         }
     }
 
+    // MARK: - Browser origin bookkeeping
+    //
+    // The origin a connection's request was allowed under, echoed back in
+    // Access-Control-Allow-Origin. Never "*": that let any website read /peek.
+    private let originLock = NSLock()
+    private var allowedOriginByConnection: [ObjectIdentifier: String] = [:]
+
+    private func setAllowedOrigin(_ origin: String?, for connection: NWConnection) {
+        guard let origin = origin else { return }
+        originLock.lock(); allowedOriginByConnection[ObjectIdentifier(connection)] = origin; originLock.unlock()
+    }
+
+    private func takeAllowedOrigin(for connection: NWConnection) -> String? {
+        originLock.lock(); defer { originLock.unlock() }
+        return allowedOriginByConnection.removeValue(forKey: ObjectIdentifier(connection))
+    }
+
+    /// One line per refusal in ~/Library/Logs/WhisperVillage-origin-blocks.log.
+    private func recordOriginBlock(request: String, reason: String) {
+        let line = request.components(separatedBy: "\r\n").first ?? ""
+        logger.warning("Refused browser request \(line, privacy: .public): \(reason, privacy: .public)")
+        let url = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Logs/WhisperVillage-origin-blocks.log")
+        let entry = "\(ISO8601DateFormatter().string(from: Date())) \(line) \(reason)\n"
+        if let h = try? FileHandle(forWritingTo: url) {
+            h.seekToEndOfFile(); h.write(entry.data(using: .utf8)!); try? h.close()
+        } else {
+            try? entry.write(to: url, atomically: true, encoding: .utf8)
+        }
+    }
+
     private func sendResponse(connection: NWConnection, status: Int, body: String) {
         let statusText: String
         switch status {
         case 200: statusText = "OK"
         case 400: statusText = "Bad Request"
+        case 403: statusText = "Forbidden"
         case 404: statusText = "Not Found"
         default: statusText = "Error"
         }
 
-        let response = """
-        HTTP/1.1 \(status) \(statusText)\r
-        Content-Type: application/json\r
-        Access-Control-Allow-Origin: *\r
-        Access-Control-Allow-Methods: POST, GET, OPTIONS\r
-        Access-Control-Allow-Headers: Content-Type\r
-        Content-Length: \(body.utf8.count)\r
-        Connection: close\r
-        \r
-        \(body)
-        """
+        var cors = ""
+        if let origin = takeAllowedOrigin(for: connection) {
+            cors = "Access-Control-Allow-Origin: \(origin)\r\nVary: Origin\r\n"
+                + "Access-Control-Allow-Methods: POST, GET, OPTIONS\r\n"
+                + "Access-Control-Allow-Headers: Content-Type\r\n"
+        }
+
+        let response = "HTTP/1.1 \(status) \(statusText)\r\n"
+            + "Content-Type: application/json\r\n"
+            + cors
+            + "Content-Length: \(body.utf8.count)\r\n"
+            + "Connection: close\r\n"
+            + "\r\n"
+            + body
 
         connection.send(content: response.data(using: .utf8), completion: .contentProcessed { _ in
             connection.cancel()

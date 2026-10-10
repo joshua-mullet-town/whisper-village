@@ -26,7 +26,12 @@ class PresenterClaimServer {
             let params = NWParameters.tcp
             listener = try NWListener(using: params, on: NWEndpoint.Port(rawValue: port)!)
             listener?.newConnectionHandler = { [weak self] connection in
-                self?.handleConnection(connection)
+                // Only this Mac and Josh's own tailnet devices may connect.
+                // Anyone else on the Wi-Fi could otherwise open the mic,
+                // read the last dictation, or answer cards.
+                PeerGate.shared.admit(connection, label: "http:8179") {
+                    self?.handleConnection(connection)
+                }
             }
             listener?.stateUpdateHandler = { [weak self] state in
                 switch state {

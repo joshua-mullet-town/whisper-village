@@ -9,6 +9,7 @@ import Foundation
 /// page can still SEND a GET, or a text/plain POST, and the side effect happens.
 ///
 /// The rule (mirrors homestead/lib/origin-guard.js):
+///   - Host must be ours (localhost, the tailnet name, an IP literal): stops DNS rebinding.
 ///   - No Origin and no Sec-Fetch-Site (hey-alfred's Python, curl, Swift): allowed.
 ///   - Origin present: allowed only if it is the presenter's origin. "null" never.
 ///   - No Origin but Sec-Fetch-Site says another site (an <img>, a link,
@@ -44,7 +45,27 @@ enum BrowserOriginGate {
         return nil
     }
 
+    /// DNS rebinding: a page re-points its own domain at 127.0.0.1 and becomes
+    /// same-origin with us (no Origin header, readable answers). Its Host header
+    /// still names the attacker's domain, so Host must be one of ours or an IP.
+    static let allowedHostNames: Set<String> = [
+        "localhost", "joshuas-macbook-air.tail84bb3b.ts.net", "joshuas-macbook-air",
+    ]
+
+    static func isHostAllowed(_ host: String?) -> Bool {
+        guard let host = host?.lowercased().trimmingCharacters(in: .whitespaces) else { return true }
+        if host.hasPrefix("[") { return host.contains("]") } // IPv6 literal
+        var name = host
+        if let colon = name.lastIndex(of: ":") { name = String(name[..<colon]) }
+        if name.hasSuffix(".") { name.removeLast() }
+        if name.range(of: #"^\d{1,3}(\.\d{1,3}){3}$"#, options: .regularExpression) != nil { return true }
+        return allowedHostNames.contains(name)
+    }
+
     static func decide(_ request: String) -> Verdict {
+        if !isHostAllowed(header("Host", in: request)) {
+            return Verdict(ok: false, reason: "host-not-allowed:\(header("Host", in: request) ?? "")", allowOrigin: nil)
+        }
         let requestLine = request.components(separatedBy: "\r\n").first ?? ""
         let parts = requestLine.split(separator: " ")
         let method = parts.first.map(String.init)?.uppercased() ?? ""

@@ -23,7 +23,12 @@ expect(false, "look-alike port", req("POST /peek HTTP/1.1", ["Origin: http://loc
 expect(false, "<img src=/start> (no Origin, cross-site)", req("GET /start HTTP/1.1", ["Sec-Fetch-Site: cross-site", "Sec-Fetch-Mode: no-cors"]))
 expect(false, "window.open(/peek)", req("GET /peek HTTP/1.1", ["Sec-Fetch-Site: cross-site", "Sec-Fetch-Mode: navigate"]))
 expect(false, "same-site other port <img>", req("GET /start HTTP/1.1", ["Sec-Fetch-Site: same-site"]))
+expect(false, "DNS rebinding Host, no Origin", req("GET /peek HTTP/1.1", ["Host: evil.example:8179"]))
+expect(false, "rebinding look-alike Host", req("POST /start HTTP/1.1", ["Host: localhost.evil.example:8179"]))
 // Real clients: allowed
+expect(true, "Host 127.0.0.1", req("GET /status HTTP/1.1", ["Host: 127.0.0.1:8179"]))
+expect(true, "Host [::1]", req("GET /status HTTP/1.1", ["Host: [::1]:8179"]))
+expect(true, "Host tailnet name", req("GET /status HTTP/1.1", ["Host: joshuas-macbook-air.tail84bb3b.ts.net:8179"]))
 expect(true, "presenter POST /peek", req("POST /peek HTTP/1.1", ["Origin: http://localhost:3005"]))
 expect(true, "presenter preflight /claim", req("OPTIONS /claim HTTP/1.1", ["Origin: http://localhost:3005", "Access-Control-Request-Method: POST"]))
 expect(true, "presenter POST /claim json", req("POST /claim HTTP/1.1", ["Origin: http://localhost:3005", "Content-Type: application/json"], body: "{\"cardId\":\"x\"}"))

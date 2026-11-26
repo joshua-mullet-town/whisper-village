@@ -4,7 +4,7 @@
 
 ---
 
-## [2026-11-26 09:15 EST] Send to Homestead button in the notch (v1.9.39–1.9.40)
+## [2026-11-26 09:20 EST] Send to Homestead button in the notch (v1.9.39–1.9.41)
 
 - House button in the notch while recording/paused: stops, transcribes (keeps paused segments), delivers to `holler-homestead`.
 - Delivery reuses Homestead's desktop steward route: POST `/api/presenter/respond` `{id:"_walkie_<session>", text, button:"Reply", sendId}`. With a sendId Homestead waits for the real enqueue and returns 200 `{success:true, queue_id}` or 500, so the on-screen result is real.
@@ -12,6 +12,8 @@
 - `.success`/`.info` notifications are LOG-ONLY in this app (only error/warning show a toast). Anything he must see on success needs `showPeekToast` directly (1.9.39 missed this).
 - Shared helper `stopAndTranscribeLiveRecording` now used by `/claim` too (claim behaviour unchanged).
 - Installed locally (Release build, re-signed with "Whisper Village Signing"), no GitHub release/appcast, same as 1.9.32–1.9.38.
+- The notch bar must NEVER be wider than 145pt (NotchRecorderPanel sizes the window for 145). 1.9.39/40 made the recording bar 174pt; the window grew 29pt right and the idle history button sat half under the camera notch. 1.9.41 fits the house in 145 by hiding the ⌥ hint while recording and tightening spacing.
+- Real notch on this Mac (15" Air, 1710pt wide): 763–948pt (`auxiliaryTopLeftArea`/`RightArea`); `safeAreaInsets.left` is 0 so the app's own notch width is the 200 fallback.
 - NEVER live-mic test on Josh's Mac: a test picked up a private room conversation and delivered it. Prove with Josh saying the phrase himself.
 
 ---

@@ -93,9 +93,9 @@ struct NotchRecorderView: View {
         if isIdleState {
             return 50  // History icon when idle
         }
-        if whisperState.recordingState == .recording || isPaused {
-            return 174  // + Send to Homestead (house)
-        }
+        // Never wider than 145: the window is sized for 145 (NotchRecorderPanel),
+        // and a wider bar grew the window and shoved the idle bar half under the
+        // notch. The house button fits by dropping the ⌥ hint while recording.
         return 145  // Compact: start/stop + hotkey + timer + peek + history
     }
 
@@ -109,8 +109,12 @@ struct NotchRecorderView: View {
         whisperState.recordingState == .paused
     }
 
+    private var isLive: Bool {
+        whisperState.recordingState == .recording || isPaused
+    }
+
     private var leftSection: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: isLive ? 3 : 5) {
             // 1. Start/stop (pause/play + stop stacked)
             if whisperState.recordingState == .recording || isPaused {
                 VStack(spacing: 1) {
@@ -154,7 +158,8 @@ struct NotchRecorderView: View {
             }
 
             // 2. Hotkey indicator
-            if !isIdleState && !hotkeySymbol.isEmpty {
+            //    Hidden while recording to make room for Send to Homestead.
+            if !isIdleState && !isLive && !hotkeySymbol.isEmpty {
                 Text(hotkeySymbol)
                     .font(.system(size: 10, weight: .medium, design: .rounded))
                     .foregroundColor(.white.opacity(0.6))
@@ -167,7 +172,7 @@ struct NotchRecorderView: View {
                 Text(formatTime(displayDuration))
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundColor(isPaused ? .white.opacity(0.6) : .white)
-                    .frame(width: 35, alignment: .trailing)
+                    .frame(width: 33, alignment: .trailing)
                     .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
 

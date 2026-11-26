@@ -4,6 +4,18 @@
 
 ---
 
+## [2026-11-26 09:15 EST] Send to Homestead button in the notch (v1.9.39–1.9.40)
+
+- House button in the notch while recording/paused: stops, transcribes (keeps paused segments), delivers to `holler-homestead`.
+- Delivery reuses Homestead's desktop steward route: POST `/api/presenter/respond` `{id:"_walkie_<session>", text, button:"Reply", sendId}`. With a sendId Homestead waits for the real enqueue and returns 200 `{success:true, queue_id}` or 500, so the on-screen result is real.
+- Feedback: success = send sound + toast "✓ Sent to Homestead: …"; failure = esc sound + toast; words are always put on the clipboard first.
+- `.success`/`.info` notifications are LOG-ONLY in this app (only error/warning show a toast). Anything he must see on success needs `showPeekToast` directly (1.9.39 missed this).
+- Shared helper `stopAndTranscribeLiveRecording` now used by `/claim` too (claim behaviour unchanged).
+- Installed locally (Release build, re-signed with "Whisper Village Signing"), no GitHub release/appcast, same as 1.9.32–1.9.38.
+- NEVER live-mic test on Josh's Mac: a test picked up a private room conversation and delivered it. Prove with Josh saying the phrase himself.
+
+---
+
 ## [2026-01-23 10:00] Pause/Resume Transcription (v1.9.24)
 
 **Achievement:** Full pause/resume during recording. Pause transcribes immediately, stores segment. Resume starts fresh. Hotkey finalizes all segments joined with newlines.

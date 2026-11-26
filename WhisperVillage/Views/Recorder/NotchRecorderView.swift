@@ -93,6 +93,9 @@ struct NotchRecorderView: View {
         if isIdleState {
             return 50  // History icon when idle
         }
+        if whisperState.recordingState == .recording || isPaused {
+            return 174  // + Send to Homestead (house)
+        }
         return 145  // Compact: start/stop + hotkey + timer + peek + history
     }
 
@@ -182,7 +185,23 @@ struct NotchRecorderView: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
 
-            // 5. History button — always visible
+            // 5. Send to Homestead — stop, transcribe, deliver to the Homestead
+            //    steward (the phone's floating send-to-steward circle, on the Mac).
+            if whisperState.recordingState == .recording || isPaused {
+                NotchIconButton(
+                    icon: "house.fill",
+                    color: Color(red: 1.0, green: 0.85, blue: 0.35),
+                    tooltip: "Send to Homestead"
+                ) {
+                    Task { @MainActor in
+                        await PresenterClaimServer.shared.sendLiveRecording(
+                            toSession: PresenterClaimServer.homesteadSteward, label: "Homestead")
+                    }
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.8)))
+            }
+
+            // 6. History button — always visible
             NotchIconButton(
                 icon: "clock.arrow.circlepath",
                 color: .white.opacity(0.7),

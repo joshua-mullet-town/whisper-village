@@ -611,30 +611,7 @@ class PresenterClaimServer {
 
             // Currently recording — stop, transcribe the audio
             logger.notice("Stopping recording for claim \(cardId)")
-
-            // Get streaming interim if available
-            let interim = whisperState.interimTranscription.trimmingCharacters(in: .whitespacesAndNewlines)
-
-            // Stop recording
-            await whisperState.stopStreamingTranscription()
-            let samples = await whisperState.streamingRecorder.getCurrentSamples()
-            _ = await whisperState.streamingRecorder.stopRecording()
-            await whisperState.recorder.stopRecording()
-
-            // Transcribe the captured audio
-            if samples.count > 16000 {
-                if let transcribed = await whisperState.transcribeCapturedSamples(samples) {
-                    text = transcribed.trimmingCharacters(in: .whitespacesAndNewlines)
-                }
-            }
-
-            // Fall back to streaming interim if transcription failed
-            if text.isEmpty && !interim.isEmpty {
-                text = interim
-            }
-
-            // Dismiss the recorder UI
-            await whisperState.dismissMiniRecorder()
+            text = await stopAndTranscribeLiveRecording(whisperState, includePausedSegments: false)
 
         } else {
             // Not recording — use last transcription if available
@@ -682,6 +659,144 @@ class PresenterClaimServer {
         // POST to presenter respond endpoint
         logger.notice("Sending response for card \(cardId): \(text.prefix(50))...")
         await postToPresenter(cardId: cardId, text: text)
+    }
+
+    /// Stop the live recording, transcribe what was captured, and close the
+    /// recorder. Returns "" when nothing usable was heard. Shared by /claim and
+    /// the notch's Send to Homestead button so both stop the same way.
+    ///
+    /// `includePausedSegments`: segments already locked in by Pause live in
+    /// `pausedSegments`, not in the audio buffer. The notch button keeps them;
+    /// /claim keeps its long-standing behaviour (current segment only).
+    @MainActor
+    private func stopAndTranscribeLiveRecording(_ whisperState: WhisperState,
+                                                includePausedSegments: Bool) async -> String {
+        let earlier = includePausedSegments ? whisperState.pausedSegments : []
+
+        // Get streaming interim if available
+        let interim = whisperState.interimTranscription.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Stop recording
+        await whisperState.stopStreamingTranscription()
+        let samples = await whisperState.streamingRecorder.getCurrentSamples()
+        _ = await whisperState.streamingRecorder.stopRecording()
+        await whisperState.recorder.stopRecording()
+
+        // Transcribe the captured audio
+        var text = ""
+        if samples.count > 16000 {
+            if let transcribed = await whisperState.transcribeCapturedSamples(samples) {
+                text = transcribed.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+
+        // Fall back to streaming interim if transcription failed
+        if text.isEmpty && !interim.isEmpty {
+            text = interim
+        }
+
+        // Dismiss the recorder UI
+        await whisperState.dismissMiniRecorder()
+
+        let parts = (earlier + [text]).filter { !$0.isEmpty }
+        return parts.joined(separator: "\n")
+    }
+
+    // MARK: - Send to Homestead (notch button)
+    //
+    // Josh 2026-11-26: the phone's floating "send to steward" circle, on the Mac.
+    // While recording, one tap in the notch stops, transcribes and hands the
+    // words to the Homestead steward, with no Homestead window open.
+    //
+    // Delivery reuses the desktop presenter's own steward-send route:
+    // /api/presenter/respond with id `_walkie_<session>` puts the words on the
+    // walkie queue for that session. With a sendId it waits for the real enqueue
+    // and answers 200 {success:true, queue_id} or 500, so the result shown here
+    // is Homestead's answer, not a guess.
+
+    static let homesteadSteward = "holler-homestead"
+
+    @MainActor
+    func sendLiveRecording(toSession session: String, label: String) async {
+        guard let whisperState = whisperState else { return }
+        guard whisperState.recordingState == .recording || whisperState.recordingState == .paused else {
+            NotificationManager.shared.showNotification(
+                title: "Not recording — nothing to send to \(label).", type: .warning, duration: 3.0)
+            return
+        }
+        DictationAuditLog.shared.log("NOTCH_SEND_START", ["target": session])
+
+        let raw = await stopAndTranscribeLiveRecording(whisperState, includePausedSegments: true)
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else {
+            DictationAuditLog.shared.log("NOTCH_SEND_NOTHING", ["target": session])
+            NotificationManager.shared.showNotification(
+                title: "Didn't catch any words — nothing went to \(label).", type: .error, duration: 5.0)
+            return
+        }
+
+        // Same safety net as /claim: if this never lands, the words are a Cmd+V away.
+        LastTranscriptionService.shared.store(text)
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+        if let container = self.modelContainer {
+            let context = container.mainContext
+            context.insert(Transcription(text: text, duration: 0,
+                                         transcriptionModelName: "Notch → \(session)"))
+            try? context.save()
+        }
+
+        NotificationManager.shared.showNotification(
+            title: "Sending to \(label)…", type: .info, duration: 3.0)
+
+        let sendId = "wv-" + UUID().uuidString.lowercased()
+        let (ok, detail) = await postSteward(session: session, text: text, sendId: sendId)
+        DictationAuditLog.shared.log(ok ? "NOTCH_SEND_OK" : "NOTCH_SEND_FAILED",
+                                     ["target": session, "sendId": sendId, "detail": detail, "chars": text.count])
+        let preview = text.count > 60 ? String(text.prefix(60)) + "…" : text
+        if ok {
+            // .success notifications are log-only in this app, so show the toast
+            // and play the send sound directly — he has to SEE that it went.
+            let title = "✓ Sent to \(label): \"\(preview)\""
+            NotificationManager.shared.showNotification(title: title, type: .success, duration: 4.0)
+            SoundManager.shared.playSendSound()
+            NotificationManager.shared.showPeekToast(text: title, duration: 4.0)
+        } else {
+            NotificationManager.shared.showNotification(
+                title: "✗ Didn't reach \(label) (\(detail)). Your words are on the clipboard — Cmd+V to resend.",
+                type: .error, duration: 8.0)
+        }
+    }
+
+    /// POST the words to a steward through Homestead. Returns (delivered, detail).
+    private func postSteward(session: String, text: String, sendId: String) async -> (Bool, String) {
+        guard let url = URL(string: "http://localhost:3005/api/presenter/respond") else { return (false, "bad url") }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 15
+        let payload: [String: Any] = [
+            "id": "_walkie_\(session)",
+            "text": text,
+            "button": "Reply",
+            "sendId": sendId,
+        ]
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            if (200..<300).contains(code), json?["success"] as? Bool == true {
+                logger.notice("Notch send to \(session) delivered: \(String(describing: json?["queue_id"] ?? ""))")
+                return (true, "queued")
+            }
+            logger.error("Notch send to \(session) refused: HTTP \(code)")
+            return (false, "Homestead answered \(code)")
+        } catch {
+            logger.error("Notch send to \(session) failed: \(error.localizedDescription)")
+            return (false, "Homestead not answering")
+        }
     }
 
     private func postToPresenter(cardId: String, text: String) async {
